@@ -7,7 +7,7 @@ import dash
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
-from config import COLORS, APP_CONFIG, LOGO_CONFIG, NAV_LINKS, FEATURES
+from config import COLORS, APP_CONFIG, NAV_LINKS
 
 # Initialize the Dash app with Bootstrap theme
 app = dash.Dash(
@@ -21,14 +21,6 @@ app = dash.Dash(
 navbar = dbc.Navbar(
     dbc.Container([
         dbc.Row([
-            dbc.Col([
-                html.Img(
-                    src=LOGO_CONFIG['path'],
-                    className='navbar-logo',
-                    alt=LOGO_CONFIG['alt'],
-                    style={'height': LOGO_CONFIG['height'], 'marginRight': '15px'}
-                )
-            ], width="auto"),
             dbc.Col([
                 html.Div([
                     html.H3("CuléVision", className="mb-0",
@@ -72,33 +64,6 @@ home_layout = dbc.Container([
             ], className="mb-5")
         ])
     ]),
-
-    # Feature Cards
-    dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H4(f"{feature['icon']} {feature['title']}", className="card-title"),
-                    html.P(feature['description'], className="card-text"),
-                ])
-            ], className="h-100 shadow-sm")
-        ], md=6, lg=4, className="mb-4")
-        for feature in FEATURES
-    ], className="mb-5"),
-
-    # Status Section
-    dbc.Row([
-        dbc.Col([
-            dbc.Alert([
-                html.H5("📍 Current Status", className="alert-heading"),
-                html.P(f"Version {APP_CONFIG['version']} - Foundation"),
-                html.Hr(),
-                html.P("This is the foundational structure. Features will be implemented incrementally.",
-                      className="mb-0")
-            ], color="light", className="border-start border-5",
-               style={'borderLeftColor': COLORS['garnet'] + ' !important'})
-        ])
-    ])
 ], fluid=True, className="py-4")
 
 # Placeholder layouts for other pages
