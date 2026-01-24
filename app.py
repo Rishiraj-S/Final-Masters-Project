@@ -55,6 +55,12 @@ home_layout = dbc.Container([
                        className="text-center mb-4",
                        style={'fontWeight': 'bold'}),
                 html.Hr(style={'borderColor': COLORS['garnet'], 'borderWidth': '3px'}),
+
+                html.P([
+                    "Professional football analytics dashboard built for ",
+                    html.Strong("FC Barcelona", style={'color': COLORS['gold']}),
+                    " offering comprehensive match analysis and tactical insights."
+                ], className="lead text-center mb-5", style={'color': COLORS['text_secondary']}),
             ], className="mb-5")
         ])
     ]),
