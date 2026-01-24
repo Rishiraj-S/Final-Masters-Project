@@ -7,34 +7,33 @@ import dash
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
+from config import COLORS, APP_CONFIG, LOGO_CONFIG, NAV_LINKS, FEATURES
 
 # Initialize the Dash app with Bootstrap theme
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
     suppress_callback_exceptions=True,
-    title="CuléVision - FC Barcelona Analytics"
+    title=APP_CONFIG['title']
 )
-
-# FC Barcelona Brand Colors
-COLORS = {
-    'primary_blue': '#004D98',
-    'garnet': '#A50044',
-    'gold': '#EDBB00',
-    'white': '#FFFFFF',
-    'light_gray': '#F8F9FA',
-    'dark_gray': '#343A40'
-}
 
 # Navigation Bar
 navbar = dbc.Navbar(
     dbc.Container([
         dbc.Row([
             dbc.Col([
+                html.Img(
+                    src=LOGO_CONFIG['path'],
+                    className='navbar-logo',
+                    alt=LOGO_CONFIG['alt'],
+                    style={'height': LOGO_CONFIG['height'], 'marginRight': '15px'}
+                )
+            ], width="auto"),
+            dbc.Col([
                 html.Div([
                     html.H3("CuléVision", className="mb-0",
                            style={'color': COLORS['white'], 'fontWeight': 'bold'}),
-                    html.Small("FC Barcelona Analytics",
+                    html.Small(APP_CONFIG['subtitle'],
                               style={'color': COLORS['gold'], 'fontSize': '0.8rem'})
                 ])
             ], width="auto"),
@@ -43,11 +42,8 @@ navbar = dbc.Navbar(
         dbc.Row([
             dbc.Col([
                 dbc.Nav([
-                    dbc.NavItem(dbc.NavLink("Home", href="/", active="exact")),
-                    dbc.NavItem(dbc.NavLink("Match Analysis", href="/match-analysis", active="exact")),
-                    dbc.NavItem(dbc.NavLink("Rival Analysis", href="/rival-analysis", active="exact")),
-                    dbc.NavItem(dbc.NavLink("Team Identity", href="/team-identity", active="exact")),
-                    dbc.NavItem(dbc.NavLink("Live Alerts", href="/live-alerts", active="exact")),
+                    dbc.NavItem(dbc.NavLink(link['label'], href=link['href'], active="exact"))
+                    for link in NAV_LINKS
                 ], navbar=True, className="ms-auto")
             ])
         ], align="center")
@@ -65,14 +61,14 @@ home_layout = dbc.Container([
             html.Div([
                 html.H1("Welcome to CuléVision",
                        className="text-center mb-4",
-                       style={'color': COLORS['primary_blue'], 'fontWeight': 'bold'}),
+                       style={'fontWeight': 'bold'}),
                 html.Hr(style={'borderColor': COLORS['garnet'], 'borderWidth': '3px'}),
 
                 html.P([
                     "Professional football analytics dashboard built specifically for ",
                     html.Strong("FC Barcelona", style={'color': COLORS['garnet']}),
                     ". Powered by Opta event data for comprehensive match analysis and tactical insights."
-                ], className="lead text-center mb-5"),
+                ], className="lead text-center mb-5", style={'color': COLORS['text_secondary']}),
             ], className="mb-5")
         ])
     ]),
@@ -82,77 +78,20 @@ home_layout = dbc.Container([
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
-                    html.H4("⚽ Match Analysis", className="card-title",
-                           style={'color': COLORS['primary_blue']}),
-                    html.P("Automated analysis reducing review time from 3-4 hours to 30 minutes.",
-                          className="card-text"),
+                    html.H4(f"{feature['icon']} {feature['title']}", className="card-title"),
+                    html.P(feature['description'], className="card-text"),
                 ])
             ], className="h-100 shadow-sm")
-        ], md=6, lg=4, className="mb-4"),
-
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H4("🎯 Rival Analysis", className="card-title",
-                           style={'color': COLORS['primary_blue']}),
-                    html.P("Comprehensive opposition scouting and SWOT analysis.",
-                          className="card-text"),
-                ])
-            ], className="h-100 shadow-sm")
-        ], md=6, lg=4, className="mb-4"),
-
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H4("🏆 Team Identity", className="card-title",
-                           style={'color': COLORS['primary_blue']}),
-                    html.P("KPIs defining Barcelona's playing style and game model.",
-                          className="card-text"),
-                ])
-            ], className="h-100 shadow-sm")
-        ], md=6, lg=4, className="mb-4"),
-
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H4("🚨 Live Alerts", className="card-title",
-                           style={'color': COLORS['primary_blue']}),
-                    html.P("Real-time detection of critical match moments.",
-                          className="card-text"),
-                ])
-            ], className="h-100 shadow-sm")
-        ], md=6, lg=4, className="mb-4"),
-
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H4("💬 Virtual Assistant", className="card-title",
-                           style={'color': COLORS['primary_blue']}),
-                    html.P("Interactive query and analysis capabilities.",
-                          className="card-text"),
-                ])
-            ], className="h-100 shadow-sm")
-        ], md=6, lg=4, className="mb-4"),
-
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H4("📊 Data Insights", className="card-title",
-                           style={'color': COLORS['primary_blue']}),
-                    html.P("Deep dive into match statistics and performance metrics.",
-                          className="card-text"),
-                ])
-            ], className="h-100 shadow-sm")
-        ], md=6, lg=4, className="mb-4"),
+        ], md=6, lg=4, className="mb-4")
+        for feature in FEATURES
     ], className="mb-5"),
 
     # Status Section
     dbc.Row([
         dbc.Col([
             dbc.Alert([
-                html.H5("📍 Current Status", className="alert-heading",
-                       style={'color': COLORS['primary_blue']}),
-                html.P("Version 0.1.0 - Foundation"),
+                html.H5("📍 Current Status", className="alert-heading"),
+                html.P(f"Version {APP_CONFIG['version']} - Foundation"),
                 html.Hr(),
                 html.P("This is the foundational structure. Features will be implemented incrementally.",
                       className="mb-0")
@@ -164,27 +103,27 @@ home_layout = dbc.Container([
 
 # Placeholder layouts for other pages
 match_analysis_layout = dbc.Container([
-    html.H2("Match Analysis", style={'color': COLORS['primary_blue']}),
+    html.H2("Match Analysis", style={'color': COLORS['gold']}),
     html.Hr(),
-    html.P("Match analysis features will be implemented here.")
+    html.P("Match analysis features will be implemented here.", style={'color': COLORS['text_secondary']})
 ], fluid=True, className="py-4")
 
 rival_analysis_layout = dbc.Container([
-    html.H2("Rival Analysis", style={'color': COLORS['primary_blue']}),
+    html.H2("Rival Analysis", style={'color': COLORS['gold']}),
     html.Hr(),
-    html.P("Rival scouting and analysis features will be implemented here.")
+    html.P("Rival scouting and analysis features will be implemented here.", style={'color': COLORS['text_secondary']})
 ], fluid=True, className="py-4")
 
 team_identity_layout = dbc.Container([
-    html.H2("Team Identity", style={'color': COLORS['primary_blue']}),
+    html.H2("Team Identity", style={'color': COLORS['gold']}),
     html.Hr(),
-    html.P("Team identity KPIs and playing style metrics will be implemented here.")
+    html.P("Team identity KPIs and playing style metrics will be implemented here.", style={'color': COLORS['text_secondary']})
 ], fluid=True, className="py-4")
 
 live_alerts_layout = dbc.Container([
-    html.H2("Live Alerts", style={'color': COLORS['primary_blue']}),
+    html.H2("Live Alerts", style={'color': COLORS['gold']}),
     html.Hr(),
-    html.P("Real-time match alerts will be implemented here.")
+    html.P("Real-time match alerts will be implemented here.", style={'color': COLORS['text_secondary']})
 ], fluid=True, className="py-4")
 
 # Main App Layout
@@ -213,4 +152,8 @@ def display_page(pathname):
 
 # Run the app
 if __name__ == '__main__':
-    app.run_server(debug=True, host='0.0.0.0', port=8050)
+    app.run_server(
+        debug=APP_CONFIG['debug'],
+        host=APP_CONFIG['host'],
+        port=APP_CONFIG['port']
+    )

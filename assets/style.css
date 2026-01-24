@@ -1,0 +1,382 @@
+/*
+ * CuléVision - FC Barcelona Dark Theme
+ * Official FC Barcelona Colors:
+ * - Blaugrana Blue: #004D98
+ * - Blaugrana Garnet: #A50044
+ * - Gold: #EDBB00
+ */
+
+:root {
+    --barca-blue: #004D98;
+    --barca-garnet: #A50044;
+    --barca-gold: #EDBB00;
+    --dark-bg: #0A0E27;
+    --dark-secondary: #151932;
+    --dark-tertiary: #1E2139;
+    --dark-border: #2A2F4A;
+    --text-primary: #E8E9ED;
+    --text-secondary: #A5A8B8;
+}
+
+/* Global Styles */
+body {
+    background: linear-gradient(135deg, var(--dark-bg) 0%, #0D1028 100%) !important;
+    color: var(--text-primary) !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    min-height: 100vh;
+}
+
+/* Main container */
+.container, .container-fluid {
+    background-color: transparent !important;
+}
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+}
+
+h1 {
+    background: linear-gradient(135deg, var(--barca-blue) 0%, var(--barca-garnet) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 700 !important;
+}
+
+/* Cards */
+.card {
+    background: linear-gradient(135deg, var(--dark-secondary) 0%, var(--dark-tertiary) 100%) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 12px !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+.card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 8px 16px rgba(0, 77, 152, 0.3), 0 4px 8px rgba(165, 0, 68, 0.2) !important;
+    border-color: var(--barca-blue) !important;
+}
+
+.card-body {
+    padding: 1.5rem !important;
+}
+
+.card-title {
+    color: var(--barca-gold) !important;
+    font-weight: 600 !important;
+    margin-bottom: 1rem !important;
+}
+
+.card-text {
+    color: var(--text-secondary) !important;
+    line-height: 1.6 !important;
+}
+
+/* Navigation Bar */
+.navbar {
+    background: linear-gradient(90deg, var(--barca-blue) 0%, #003875 50%, var(--barca-garnet) 100%) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+    border-bottom: 3px solid var(--barca-gold) !important;
+}
+
+.navbar .nav-link {
+    color: var(--text-primary) !important;
+    font-weight: 500 !important;
+    padding: 0.5rem 1rem !important;
+    margin: 0 0.2rem !important;
+    border-radius: 6px !important;
+    transition: all 0.3s ease !important;
+}
+
+.navbar .nav-link:hover {
+    background-color: rgba(237, 187, 0, 0.15) !important;
+    color: var(--barca-gold) !important;
+    transform: translateY(-2px);
+}
+
+.navbar .nav-link.active {
+    background: linear-gradient(135deg, rgba(237, 187, 0, 0.2), rgba(165, 0, 68, 0.2)) !important;
+    color: var(--barca-gold) !important;
+    border-bottom: 2px solid var(--barca-gold) !important;
+}
+
+/* Logo styling */
+.navbar-logo {
+    height: 50px;
+    width: auto;
+    margin-right: 15px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    transition: transform 0.3s ease;
+}
+
+.navbar-logo:hover {
+    transform: scale(1.05);
+}
+
+/* Horizontal Rules */
+hr {
+    border-color: var(--barca-garnet) !important;
+    border-width: 2px !important;
+    opacity: 0.5 !important;
+    margin: 2rem 0 !important;
+}
+
+/* Alerts */
+.alert {
+    background: linear-gradient(135deg, var(--dark-secondary) 0%, var(--dark-tertiary) 100%) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 10px !important;
+    color: var(--text-primary) !important;
+    border-left: 4px solid var(--barca-garnet) !important;
+}
+
+.alert-heading {
+    color: var(--barca-gold) !important;
+}
+
+/* Paragraphs and text */
+p, .lead {
+    color: var(--text-secondary) !important;
+    line-height: 1.7 !important;
+}
+
+strong {
+    color: var(--text-primary) !important;
+}
+
+/* Buttons */
+.btn-primary {
+    background: linear-gradient(135deg, var(--barca-blue) 0%, var(--barca-garnet) 100%) !important;
+    border: none !important;
+    color: white !important;
+    font-weight: 600 !important;
+    padding: 0.5rem 1.5rem !important;
+    border-radius: 8px !important;
+    transition: all 0.3s ease !important;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 12px rgba(0, 77, 152, 0.4) !important;
+}
+
+.btn-secondary {
+    background-color: var(--dark-tertiary) !important;
+    border: 1px solid var(--dark-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Form Elements */
+.form-control, .form-select {
+    background-color: var(--dark-secondary) !important;
+    border: 1px solid var(--dark-border) !important;
+    color: var(--text-primary) !important;
+    border-radius: 8px !important;
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: var(--dark-tertiary) !important;
+    border-color: var(--barca-blue) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 77, 152, 0.25) !important;
+}
+
+.form-label {
+    color: var(--text-primary) !important;
+    font-weight: 500 !important;
+}
+
+/* Tables */
+.table {
+    color: var(--text-primary) !important;
+    background-color: var(--dark-secondary) !important;
+}
+
+.table thead th {
+    background: linear-gradient(135deg, var(--barca-blue) 0%, var(--barca-garnet) 100%) !important;
+    color: white !important;
+    border-color: var(--dark-border) !important;
+}
+
+.table tbody tr {
+    border-color: var(--dark-border) !important;
+    transition: background-color 0.2s ease !important;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(0, 77, 152, 0.1) !important;
+}
+
+/* Badges */
+.badge {
+    background: linear-gradient(135deg, var(--barca-blue) 0%, var(--barca-garnet) 100%) !important;
+    color: white !important;
+    padding: 0.4rem 0.8rem !important;
+    border-radius: 6px !important;
+}
+
+/* Links */
+a {
+    color: var(--barca-gold) !important;
+    text-decoration: none !important;
+    transition: color 0.3s ease !important;
+}
+
+a:hover {
+    color: var(--barca-blue) !important;
+}
+
+/* Modal */
+.modal-content {
+    background: linear-gradient(135deg, var(--dark-secondary) 0%, var(--dark-tertiary) 100%) !important;
+    border: 1px solid var(--dark-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.modal-header {
+    border-bottom: 1px solid var(--dark-border) !important;
+}
+
+.modal-footer {
+    border-top: 1px solid var(--dark-border) !important;
+}
+
+/* Dropdown */
+.dropdown-menu {
+    background-color: var(--dark-secondary) !important;
+    border: 1px solid var(--dark-border) !important;
+}
+
+.dropdown-item {
+    color: var(--text-primary) !important;
+}
+
+.dropdown-item:hover {
+    background: linear-gradient(135deg, rgba(0, 77, 152, 0.2), rgba(165, 0, 68, 0.2)) !important;
+    color: var(--barca-gold) !important;
+}
+
+/* Tabs */
+.nav-tabs {
+    border-bottom: 2px solid var(--dark-border) !important;
+}
+
+.nav-tabs .nav-link {
+    color: var(--text-secondary) !important;
+    border: none !important;
+    background-color: transparent !important;
+}
+
+.nav-tabs .nav-link:hover {
+    color: var(--barca-gold) !important;
+    border-bottom: 2px solid var(--barca-gold) !important;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--barca-gold) !important;
+    background-color: var(--dark-secondary) !important;
+    border-bottom: 2px solid var(--barca-gold) !important;
+}
+
+/* Progress Bar */
+.progress {
+    background-color: var(--dark-tertiary) !important;
+    border-radius: 10px !important;
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, var(--barca-blue) 0%, var(--barca-garnet) 100%) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--dark-bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--barca-blue) 0%, var(--barca-garnet) 100%);
+    border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #0066CC 0%, #CC0055 100%);
+}
+
+/* Plotly Graph Styling */
+.js-plotly-plot {
+    border-radius: 12px !important;
+    overflow: hidden !important;
+}
+
+/* Shadow effects for depth */
+.shadow-sm {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.shadow {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.shadow-lg {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Utility Classes */
+.text-barca-blue {
+    color: var(--barca-blue) !important;
+}
+
+.text-barca-garnet {
+    color: var(--barca-garnet) !important;
+}
+
+.text-barca-gold {
+    color: var(--barca-gold) !important;
+}
+
+.bg-barca-blue {
+    background-color: var(--barca-blue) !important;
+}
+
+.bg-barca-garnet {
+    background-color: var(--barca-garnet) !important;
+}
+
+.bg-barca-gold {
+    background-color: var(--barca-gold) !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.container, .container-fluid {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .navbar-logo {
+        height: 40px;
+    }
+
+    .card {
+        margin-bottom: 1rem !important;
+    }
+}
