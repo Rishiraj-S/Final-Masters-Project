@@ -65,9 +65,9 @@ home_layout = dbc.Container([
                 html.Hr(style={'borderColor': COLORS['garnet'], 'borderWidth': '3px'}),
 
                 html.P([
-                    "Professional football analytics dashboard built specifically for ",
-                    html.Strong("FC Barcelona", style={'color': COLORS['garnet']}),
-                    ". Powered by Opta event data for comprehensive match analysis and tactical insights."
+                    "Professional football analytics dashboard built for ",
+                    html.Strong("FC Barcelona", style={'color': COLORS['gold']}),
+                    " offering comprehensive match analysis and tactical insights."
                 ], className="lead text-center mb-5", style={'color': COLORS['text_secondary']}),
             ], className="mb-5")
         ])
