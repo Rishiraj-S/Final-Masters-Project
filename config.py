@@ -24,8 +24,8 @@ COLORS = {
 
 # Application Settings
 APP_CONFIG = {
-    'title': 'CuléVision - FC Barcelona Analytics',
-    'subtitle': 'FC Barcelona Analytics',
+    'title': 'CuléVision',
+    'subtitle': 'Game Analytics',
     'version': '0.1.0',
     'debug': True,
     'host': '0.0.0.0',
@@ -34,7 +34,7 @@ APP_CONFIG = {
 
 # Logo Configuration
 LOGO_CONFIG = {
-    'path': '/assets/culevision_logo.png',
+    'path': '/assets/logos/culevision_logo.png',
     'height': '50px',
     'alt': 'CuléVision Logo'
 }
