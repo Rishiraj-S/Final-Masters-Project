@@ -9,7 +9,7 @@
 /* Custom Barcelona Font */
 @font-face {
     font-family: 'Barcelona';
-    src: url('fonts/Barcelona23-24Tipografstore.ttf') format('truetype');
+    src: url('fonts/Barcelona FC 23-24 Tipografstore.otf') format('opentype');
     font-weight: normal;
     font-style: normal;
     font-display: swap;
@@ -18,10 +18,8 @@
 /* CuléVision brand text styling */
 .culevision-brand {
     font-family: 'Barcelona', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
-    background: linear-gradient(135deg, var(--barca-blue) 0%, var(--barca-garnet) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--barca-gold) !important;
+    -webkit-text-fill-color: var(--barca-gold) !important;
 }
 
 /* Navbar CuléVision - white text with custom font */
