@@ -23,8 +23,8 @@ navbar = dbc.Navbar(
         dbc.Row([
             dbc.Col([
                 html.Div([
-                    html.H3("CuléVision", className="mb-0",
-                           style={'color': COLORS['white'], 'fontWeight': 'bold'}),
+                    html.H3("CuléVision", className="mb-0 culevision-brand",
+                           style={'fontWeight': 'bold'}),
                     html.Small(APP_CONFIG['subtitle'],
                               style={'color': COLORS['gold'], 'fontSize': '0.8rem'})
                 ])
@@ -51,9 +51,10 @@ home_layout = dbc.Container([
     dbc.Row([
         dbc.Col([
             html.Div([
-                html.H1("Welcome to CuléVision",
-                       className="text-center mb-4",
-                       style={'fontWeight': 'bold'}),
+                html.H1([
+                    "Welcome to ",
+                    html.Span("CuléVision", className="culevision-brand")
+                ], className="text-center mb-4", style={'fontWeight': 'bold'}),
                 html.Hr(style={'borderColor': COLORS['garnet'], 'borderWidth': '3px'}),
 
                 html.P([
