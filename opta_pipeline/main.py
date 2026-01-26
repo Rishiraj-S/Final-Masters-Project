@@ -34,10 +34,12 @@ def load_config(config_path: str = None) -> dict:
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
 
-    # Resolve mappings_dir relative to script location if it's a relative path
-    mappings_dir = config.get('paths', {}).get('mappings_dir', 'mappings')
-    if not Path(mappings_dir).is_absolute():
-        config['paths']['mappings_dir'] = str(script_dir / mappings_dir)
+    # Resolve all paths relative to script location if they are relative paths
+    paths_to_resolve = ['data_dir', 'mappings_dir', 'target_dir', 'result_dir', 'logs_dir']
+    for path_key in paths_to_resolve:
+        path_value = config.get('paths', {}).get(path_key)
+        if path_value and not Path(path_value).is_absolute():
+            config['paths'][path_key] = str(script_dir / path_value)
 
     return config
 
