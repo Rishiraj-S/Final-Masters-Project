@@ -1,0 +1,296 @@
+{
+    "match": [
+        {
+            "matchInfo": {
+                "id": "rnbrfdnnsdofsj5dahn6s5xk",
+                "coverageLevel": "13",
+                "date": "2014-08-12Z",
+                "time": "18:45:00Z",
+                "localDate": "2014-08-12",
+                "localTime": "19:45:00",
+                "numberOfPeriods": 2,
+                "periodLength": 45,
+                "lastUpdated": "2025-04-02T15:07:28Z",
+                "description": "Real Madrid vs Sevilla",
+                "sport": {
+                    "id": "289u5typ3vp4ifwh5thalohmq",
+                    "name": "Soccer"
+                },
+                "ruleset": {
+                    "id": "79plas4983031idr6vw83nuel",
+                    "name": "Men"
+                },
+                "competition": {
+                    "id": "a0f4gtru0oyxmpvty4thc5qkc",
+                    "name": "UEFA Super Cup",
+                    "knownName": "UEFA Super Cup",
+                    "competitionCode": "USC",
+                    "competitionFormat": "International super cup",
+                    "country": {
+                        "id": "7yiwjcnhat6jo3f901h266cwl",
+                        "name": "Europe"
+                    }
+                },
+                "tournamentCalendar": {
+                    "id": "exi2z0r2a4cxezwhb1pow4ln2",
+                    "startDate": "2014-08-12Z",
+                    "endDate": "2014-08-12Z",
+                    "name": "2014/2015"
+                },
+                "stage": {
+                    "id": "6rrsq26tbgykvqdjzzy806l7t",
+                    "formatId": "dg3v7qo5acoprtjj4ozm9meol",
+                    "startDate": "2014-08-12Z",
+                    "endDate": "2014-08-12Z",
+                    "name": "Final"
+                },
+                "contestant": [
+                    {
+                        "id": "3kq9cckrnlogidldtdie2fkbl",
+                        "name": "Real Madrid",
+                        "shortName": "Real Madrid",
+                        "officialName": "Real Madrid CF",
+                        "code": "RMA",
+                        "position": "home",
+                        "country": {
+                            "id": "49ih1pwv3ahshdf8uzrimi54c",
+                            "name": "Spain"
+                        }
+                    },
+                    {
+                        "id": "10eyb18v5puw4ez03ocaug09m",
+                        "name": "Sevilla",
+                        "shortName": "Sevilla",
+                        "officialName": "Sevilla FC",
+                        "code": "SEV",
+                        "position": "away",
+                        "country": {
+                            "id": "49ih1pwv3ahshdf8uzrimi54c",
+                            "name": "Spain"
+                        }
+                    }
+                ],
+                "venue": {
+                    "id": "3jdl3svkjvgk1ajpf40sqnusa",
+                    "neutral": "no",
+                    "longName": "Cardiff City Stadium",
+                    "shortName": "Cardiff City Stadium"
+                }
+            },
+            "liveData": {
+                "matchDetails": {
+                    "periodId": 14,
+                    "matchStatus": "Played",
+                    "winner": "home",
+                    "matchLengthMin": 94,
+                    "matchLengthSec": 11,
+                    "period": [
+                        {
+                            "id": 1,
+                            "start": "2014-08-12T18:46:18Z",
+                            "end": "2014-08-12T19:32:17Z",
+                            "lengthMin": 45,
+                            "lengthSec": 59
+                        },
+                        {
+                            "id": 2,
+                            "start": "2014-08-12T19:48:16Z",
+                            "end": "2014-08-12T20:36:28Z",
+                            "lengthMin": 48,
+                            "lengthSec": 12
+                        }
+                    ],
+                    "scores": {
+                        "ht": {
+                            "home": 1,
+                            "away": 0
+                        },
+                        "ft": {
+                            "home": 2,
+                            "away": 0
+                        },
+                        "total": {
+                            "home": 2,
+                            "away": 0
+                        }
+                    }
+                },
+                "goal": [
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 1,
+                        "timeMin": 30,
+                        "lastUpdated": "2022-08-11T09:35:01Z",
+                        "type": "G",
+                        "scorerId": "h17s3qts1dz1zqjw19jazzkl",
+                        "scorerName": "Cristiano Ronaldo",
+                        "assistPlayerId": "cxvl0khnpfpb0csjxsatcfnit",
+                        "assistPlayerName": "G. Bale",
+                        "homeScore": 1,
+                        "awayScore": 0
+                    },
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 2,
+                        "timeMin": 49,
+                        "lastUpdated": "2022-08-11T09:35:01Z",
+                        "type": "G",
+                        "scorerId": "h17s3qts1dz1zqjw19jazzkl",
+                        "scorerName": "Cristiano Ronaldo",
+                        "assistPlayerId": "c1mm3hdfcs78obhxmhailzidx",
+                        "assistPlayerName": "K. Benzema",
+                        "homeScore": 2,
+                        "awayScore": 0
+                    }
+                ],
+                "card": [
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 1,
+                        "timeMin": 42,
+                        "lastUpdated": "2019-08-12T18:19:11Z",
+                        "type": "YC",
+                        "playerId": "8y0snikcs8uyn3f89yec086vp",
+                        "playerName": "Vitolo",
+                        "cardReason": "Foul"
+                    },
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 1,
+                        "timeMin": 45,
+                        "lastUpdated": "2023-09-27T17:17:04Z",
+                        "type": "YC",
+                        "playerId": "7oykphzczagr975xsqt70s89h",
+                        "playerName": "Dani Carvajal",
+                        "cardReason": "Foul"
+                    },
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 2,
+                        "timeMin": 53,
+                        "lastUpdated": "2024-06-10T12:57:13Z",
+                        "type": "YC",
+                        "playerId": "cdcbi6xmy0uts703489e0acb9",
+                        "playerName": "T. Kroos",
+                        "cardReason": "Foul"
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 2,
+                        "timeMin": 66,
+                        "lastUpdated": "2022-05-18T10:15:47Z",
+                        "type": "YC",
+                        "playerId": "dhsgl7zy9x0g5qdy5igkd7lcl",
+                        "playerName": "Fernando Navarro",
+                        "cardReason": "Foul"
+                    }
+                ],
+                "substitute": [
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 2,
+                        "timeMin": 66,
+                        "lastUpdated": "2019-10-24T00:25:59Z",
+                        "playerOnId": "cs2yx3hiqjsb4i5ul2r5kmdat",
+                        "playerOnName": "Iago Aspas",
+                        "playerOffId": "6msjsxuolz1yhmongz6swkno5",
+                        "playerOffName": "Aleix Vidal",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 2,
+                        "timeMin": 72,
+                        "lastUpdated": "2018-02-01T17:28:33Z",
+                        "playerOnId": "45s1v9805id09m5zkcylueod1",
+                        "playerOnName": "Isco",
+                        "playerOffId": "cjjo9piy65xdij746y97pyl79",
+                        "playerOffName": "J. Rodríguez",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 2,
+                        "timeMin": 78,
+                        "lastUpdated": "2022-07-31T09:09:39Z",
+                        "playerOnId": "9b457bww9agenagn1ue8k6rit",
+                        "playerOnName": "José Antonio Reyes",
+                        "playerOffId": "28psc296gj3umo59qqha8jil1",
+                        "playerOffName": "Denis Suárez",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 2,
+                        "timeMin": 84,
+                        "lastUpdated": "2025-02-07T01:42:19Z",
+                        "playerOnId": "5484c0wrx9p5wc2ckev33eyfp",
+                        "playerOnName": "Marcelo",
+                        "playerOffId": "7gjmbo71cryvx4lar2zy3n8b9",
+                        "playerOffName": "Fábio Coentrão",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 2,
+                        "timeMin": 84,
+                        "lastUpdated": "2024-09-10T08:20:45Z",
+                        "playerOnId": "agv5l3k1zedrg7lvoq2b13n4l",
+                        "playerOnName": "Diogo Figueiras",
+                        "playerOffId": "iaeh7emdefr247f39f6nwv6d",
+                        "playerOffName": "Coke",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 2,
+                        "timeMin": 86,
+                        "lastUpdated": "2024-05-05T23:38:22Z",
+                        "playerOnId": "5vhikvmcesruckmfcfmm0q8d1",
+                        "playerOnName": "Asier Illarramendi",
+                        "playerOffId": "diod1hv5hv7v7z7mfleev1txx",
+                        "playerOffName": "L. Modrić",
+                        "subReason": "Tactical"
+                    }
+                ],
+                "matchDetailsExtra": {
+                    "attendance": "30854",
+                    "matchOfficial": [
+                        {
+                            "id": "egblzzyyjn33bothnxnpnqaxh",
+                            "type": "Main",
+                            "firstName": "Mark",
+                            "lastName": "Clattenburg",
+                            "shortFirstName": "Mark",
+                            "shortLastName": "Clattenburg"
+                        },
+                        {
+                            "id": "dli9e042hhcc1c6hm9kzb02qd",
+                            "type": "Assistant referee 1",
+                            "firstName": "Simon",
+                            "lastName": "Beck",
+                            "shortFirstName": "Simon",
+                            "shortLastName": "Beck"
+                        },
+                        {
+                            "id": "cgoeb7me5kff5cxcggsg0p4ut",
+                            "type": "Assistant referee 2",
+                            "firstName": "Stuart",
+                            "lastName": "Burt",
+                            "shortFirstName": "Stuart",
+                            "shortLastName": "Burt"
+                        },
+                        {
+                            "id": "6l3ie5htdymg13u2ui69wo251",
+                            "type": "Fourth official",
+                            "firstName": "Darren",
+                            "lastName": "England",
+                            "shortFirstName": "Darren",
+                            "shortLastName": "England"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

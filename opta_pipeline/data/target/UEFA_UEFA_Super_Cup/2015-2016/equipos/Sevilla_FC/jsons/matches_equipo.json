@@ -1,0 +1,459 @@
+{
+    "match": [
+        {
+            "matchInfo": {
+                "id": "dzsk67u5glj5i6fjhchjopskp",
+                "coverageLevel": "13",
+                "date": "2015-08-11Z",
+                "time": "18:45:00Z",
+                "localDate": "2015-08-11",
+                "localTime": "22:45:00",
+                "numberOfPeriods": 2,
+                "periodLength": 45,
+                "overtimeLength": 15,
+                "lastUpdated": "2025-04-02T15:07:32Z",
+                "description": "Barcelona vs Sevilla",
+                "sport": {
+                    "id": "289u5typ3vp4ifwh5thalohmq",
+                    "name": "Soccer"
+                },
+                "ruleset": {
+                    "id": "79plas4983031idr6vw83nuel",
+                    "name": "Men"
+                },
+                "competition": {
+                    "id": "a0f4gtru0oyxmpvty4thc5qkc",
+                    "name": "UEFA Super Cup",
+                    "knownName": "UEFA Super Cup",
+                    "competitionCode": "USC",
+                    "competitionFormat": "International super cup",
+                    "country": {
+                        "id": "7yiwjcnhat6jo3f901h266cwl",
+                        "name": "Europe"
+                    }
+                },
+                "tournamentCalendar": {
+                    "id": "3rvp3erpxyi3mxtm9ecvujjrp",
+                    "startDate": "2015-08-11Z",
+                    "endDate": "2015-08-11Z",
+                    "name": "2015/2016"
+                },
+                "stage": {
+                    "id": "6tbwg4131dtv4do19lky63pbd",
+                    "formatId": "dg3v7qo5acoprtjj4ozm9meol",
+                    "startDate": "2015-08-11Z",
+                    "endDate": "2015-08-11Z",
+                    "name": "Final"
+                },
+                "contestant": [
+                    {
+                        "id": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "name": "Barcelona",
+                        "shortName": "Barcelona",
+                        "officialName": "FC Barcelona",
+                        "code": "BAR",
+                        "position": "home",
+                        "country": {
+                            "id": "49ih1pwv3ahshdf8uzrimi54c",
+                            "name": "Spain"
+                        }
+                    },
+                    {
+                        "id": "10eyb18v5puw4ez03ocaug09m",
+                        "name": "Sevilla",
+                        "shortName": "Sevilla",
+                        "officialName": "Sevilla FC",
+                        "code": "SEV",
+                        "position": "away",
+                        "country": {
+                            "id": "49ih1pwv3ahshdf8uzrimi54c",
+                            "name": "Spain"
+                        }
+                    }
+                ],
+                "venue": {
+                    "id": "ac605j3zay1co6qwe25vszc0e",
+                    "neutral": "no",
+                    "longName": "Boris Paichadze Dinamo Arena",
+                    "shortName": "Boris Paichadze Dinamo Arena"
+                }
+            },
+            "liveData": {
+                "matchDetails": {
+                    "periodId": 14,
+                    "matchStatus": "Played",
+                    "winner": "home",
+                    "period": [
+                        {
+                            "id": 1,
+                            "start": "2015-08-11T18:45:26Z",
+                            "end": "2015-08-11T19:31:32Z",
+                            "lengthMin": 46,
+                            "lengthSec": 6
+                        },
+                        {
+                            "id": 2,
+                            "start": "2015-08-11T19:47:39Z"
+                        },
+                        {
+                            "id": 3,
+                            "start": "2015-08-11T20:40:41Z",
+                            "end": "2015-08-11T20:56:50Z",
+                            "lengthMin": 16,
+                            "lengthSec": 9
+                        },
+                        {
+                            "id": 4,
+                            "start": "2015-08-11T20:59:04Z",
+                            "end": "2015-08-11T21:16:21Z",
+                            "lengthMin": 17,
+                            "lengthSec": 17
+                        }
+                    ],
+                    "scores": {
+                        "ht": {
+                            "home": 3,
+                            "away": 1
+                        },
+                        "ft": {
+                            "home": 4,
+                            "away": 4
+                        },
+                        "et": {
+                            "home": 5,
+                            "away": 4
+                        },
+                        "total": {
+                            "home": 5,
+                            "away": 4
+                        }
+                    }
+                },
+                "goal": [
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 1,
+                        "timeMin": 3,
+                        "lastUpdated": "2024-05-08T14:44:07Z",
+                        "type": "G",
+                        "scorerId": "68cm9uvlgmi1q5xfki3g31i39",
+                        "scorerName": "É. Banega",
+                        "optaEventId": "394064257",
+                        "homeScore": 0,
+                        "awayScore": 1
+                    },
+                    {
+                        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "periodId": 1,
+                        "timeMin": 7,
+                        "lastUpdated": "2024-05-20T15:51:52Z",
+                        "type": "G",
+                        "scorerId": "c5ryhn04g9goikd0blmh83aol",
+                        "scorerName": "L. Messi",
+                        "optaEventId": "398314648",
+                        "homeScore": 1,
+                        "awayScore": 1
+                    },
+                    {
+                        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "periodId": 1,
+                        "timeMin": 15,
+                        "lastUpdated": "2024-05-20T15:51:52Z",
+                        "type": "G",
+                        "scorerId": "c5ryhn04g9goikd0blmh83aol",
+                        "scorerName": "L. Messi",
+                        "optaEventId": "2139431149",
+                        "homeScore": 2,
+                        "awayScore": 1
+                    },
+                    {
+                        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "periodId": 1,
+                        "timeMin": 44,
+                        "lastUpdated": "2024-03-01T13:26:21Z",
+                        "type": "G",
+                        "scorerId": "3775rpg889ojktofzx1y6jpat",
+                        "scorerName": "Rafinha",
+                        "assistPlayerId": "d92yjctlxrjuk1wem4nmq00k5",
+                        "assistPlayerName": "L. Suárez",
+                        "optaEventId": "1204049569",
+                        "homeScore": 3,
+                        "awayScore": 1
+                    },
+                    {
+                        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "periodId": 2,
+                        "timeMin": 52,
+                        "lastUpdated": "2024-03-26T12:54:34Z",
+                        "type": "G",
+                        "scorerId": "d92yjctlxrjuk1wem4nmq00k5",
+                        "scorerName": "L. Suárez",
+                        "assistPlayerId": "calrbl0kagr6zgnw2l8k626s5",
+                        "assistPlayerName": "Sergio Busquets",
+                        "optaEventId": "1953971918",
+                        "homeScore": 4,
+                        "awayScore": 1
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 2,
+                        "timeMin": 57,
+                        "lastUpdated": "2022-07-31T09:09:39Z",
+                        "type": "G",
+                        "scorerId": "9b457bww9agenagn1ue8k6rit",
+                        "scorerName": "José Antonio Reyes",
+                        "assistPlayerId": "8y0snikcs8uyn3f89yec086vp",
+                        "assistPlayerName": "Vitolo",
+                        "optaEventId": "1659403689",
+                        "homeScore": 4,
+                        "awayScore": 2
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 2,
+                        "timeMin": 72,
+                        "lastUpdated": "2024-01-25T19:49:32Z",
+                        "type": "PG",
+                        "scorerId": "950o8rjqvnl5bnidq2dc3fglx",
+                        "scorerName": "K. Gameiro",
+                        "optaEventId": "1636582655",
+                        "homeScore": 4,
+                        "awayScore": 3
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 2,
+                        "timeMin": 81,
+                        "lastUpdated": "2024-01-13T04:14:06Z",
+                        "type": "G",
+                        "scorerId": "824mx6w6mrpfkl1w43h2k1psl",
+                        "scorerName": "Y. Konoplanka",
+                        "assistPlayerId": "5o80hrbyw554cetm1rbbns0k5",
+                        "assistPlayerName": "C. Immobile",
+                        "optaEventId": "1248139674",
+                        "homeScore": 4,
+                        "awayScore": 4
+                    },
+                    {
+                        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "periodId": 4,
+                        "timeMin": 115,
+                        "lastUpdated": "2021-10-06T10:37:09Z",
+                        "type": "G",
+                        "scorerId": "d02p1ldr57bkxcpmq12vtvhsl",
+                        "scorerName": "Pedro",
+                        "optaEventId": "1180436544",
+                        "homeScore": 5,
+                        "awayScore": 4
+                    }
+                ],
+                "card": [
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 1,
+                        "timeMin": 14,
+                        "lastUpdated": "2024-09-29T16:43:45Z",
+                        "type": "YC",
+                        "playerId": "8sllxmpst47s6c46fgtv1q47p",
+                        "playerName": "G. Krychowiak",
+                        "optaEventId": "1045915997",
+                        "cardReason": "Foul"
+                    },
+                    {
+                        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "periodId": 2,
+                        "timeMin": 71,
+                        "lastUpdated": "2023-02-07T13:26:46Z",
+                        "type": "YC",
+                        "playerId": "95gey9lxu82gxijjopi07fm51",
+                        "playerName": "J. Mathieu",
+                        "optaEventId": "1266602561",
+                        "cardReason": "Foul"
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 2,
+                        "timeMin": 88,
+                        "lastUpdated": "2018-01-30T20:09:28Z",
+                        "type": "YC",
+                        "playerId": "iaeh7emdefr247f39f6nwv6d",
+                        "playerName": "Coke",
+                        "optaEventId": "962312057",
+                        "cardReason": "Foul"
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 2,
+                        "timeMin": 92,
+                        "lastUpdated": "2024-05-08T14:44:07Z",
+                        "type": "YC",
+                        "playerId": "68cm9uvlgmi1q5xfki3g31i39",
+                        "playerName": "É. Banega",
+                        "optaEventId": "1196558607",
+                        "cardReason": "Foul"
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 3,
+                        "timeMin": 92,
+                        "lastUpdated": "2019-02-23T08:12:22Z",
+                        "type": "YC",
+                        "playerId": "5o80hrbyw554cetm1rbbns0k5",
+                        "playerName": "C. Immobile",
+                        "optaEventId": "1233146206",
+                        "cardReason": "Foul"
+                    },
+                    {
+                        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "periodId": 3,
+                        "timeMin": 94,
+                        "lastUpdated": "2021-10-06T10:37:09Z",
+                        "type": "YC",
+                        "playerId": "d02p1ldr57bkxcpmq12vtvhsl",
+                        "playerName": "Pedro",
+                        "optaEventId": "1629110906",
+                        "cardReason": "Foul"
+                    },
+                    {
+                        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "periodId": 4,
+                        "timeMin": 117,
+                        "lastUpdated": "2024-02-19T17:40:14Z",
+                        "type": "YC",
+                        "playerId": "calrbl0kagr6zgnw2l8k626s5",
+                        "playerName": "Sergio Busquets",
+                        "optaEventId": "914984667",
+                        "cardReason": "Foul"
+                    },
+                    {
+                        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "periodId": 4,
+                        "timeMin": 120,
+                        "lastUpdated": "2022-11-07T16:28:57Z",
+                        "type": "YC",
+                        "playerId": "4zeb2v6h4ptz1czuerwvx7ro5",
+                        "playerName": "Dani Alves",
+                        "optaEventId": "468157889",
+                        "cardReason": "Foul"
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 4,
+                        "timeMin": 120,
+                        "lastUpdated": "2018-10-19T19:48:24Z",
+                        "type": "YC",
+                        "playerId": "784mcu0cgyib8ixy0l5ibjhzp",
+                        "playerName": "M. Krohn-Dehli",
+                        "optaEventId": "1358837391",
+                        "cardReason": "Foul"
+                    }
+                ],
+                "substitute": [
+                    {
+                        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "periodId": 2,
+                        "timeMin": 63,
+                        "lastUpdated": "2024-10-03T15:43:52Z",
+                        "playerOnId": "4q6kuikopbgls8y2rwqiu415h",
+                        "playerOnName": "Sergi Roberto",
+                        "playerOffId": "9alwmyk45xpxb6sp2nto9iod1",
+                        "playerOffName": "Andrés Iniesta",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 2,
+                        "timeMin": 68,
+                        "lastUpdated": "2024-01-13T04:14:06Z",
+                        "playerOnId": "824mx6w6mrpfkl1w43h2k1psl",
+                        "playerOnName": "Y. Konoplanka",
+                        "playerOffId": "9b457bww9agenagn1ue8k6rit",
+                        "playerOffName": "José Antonio Reyes",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "periodId": 2,
+                        "timeMin": 78,
+                        "lastUpdated": "2020-09-18T13:04:15Z",
+                        "playerOnId": "evpjdko94awbqbbl5wl9hto7p",
+                        "playerOnName": "Marc Bartra",
+                        "playerOffId": "3775rpg889ojktofzx1y6jpat",
+                        "playerOffName": "Rafinha",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 2,
+                        "timeMin": 80,
+                        "lastUpdated": "2019-02-23T08:12:22Z",
+                        "playerOnId": "5o80hrbyw554cetm1rbbns0k5",
+                        "playerOnName": "C. Immobile",
+                        "playerOffId": "950o8rjqvnl5bnidq2dc3fglx",
+                        "playerOffName": "K. Gameiro",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "10eyb18v5puw4ez03ocaug09m",
+                        "periodId": 2,
+                        "timeMin": 80,
+                        "lastUpdated": "2021-04-18T17:19:35Z",
+                        "playerOnId": "chhwznvznofottg1zfn12nlxx",
+                        "playerOnName": "Mariano",
+                        "playerOffId": "f5567t48q0846fsnq6d3mqfv9",
+                        "playerOffName": "Vicente Iborra",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+                        "periodId": 3,
+                        "timeMin": 93,
+                        "lastUpdated": "2021-10-06T10:37:09Z",
+                        "playerOnId": "d02p1ldr57bkxcpmq12vtvhsl",
+                        "playerOnName": "Pedro",
+                        "playerOffId": "80eao1ehm2jrb3ccojj0xqz11",
+                        "playerOffName": "J. Mascherano",
+                        "subReason": "Tactical"
+                    }
+                ],
+                "matchDetailsExtra": {
+                    "attendance": "51940",
+                    "matchOfficial": [
+                        {
+                            "id": "cmwybksq605mogisvvzhkyead",
+                            "type": "Main",
+                            "firstName": "William",
+                            "lastName": "Collum",
+                            "shortFirstName": "William",
+                            "shortLastName": "Collum"
+                        },
+                        {
+                            "id": "4px5un3jmbraymflw37bdg4ph",
+                            "type": "Assistant referee 1",
+                            "firstName": "Damien",
+                            "lastName": "McGraith",
+                            "shortFirstName": "Damien",
+                            "shortLastName": "MacGraith"
+                        },
+                        {
+                            "id": "679ewphucc2hiv16kgqj89xat",
+                            "type": "Assistant referee 2",
+                            "firstName": "Francis",
+                            "lastName": "Connor",
+                            "shortFirstName": "Francis",
+                            "shortLastName": "Connor"
+                        },
+                        {
+                            "id": "d16hvrofwnh46jhp5rzsmlbrp",
+                            "type": "Fourth official",
+                            "firstName": "Graham",
+                            "lastName": "Chambers",
+                            "shortFirstName": "Graham",
+                            "shortLastName": "Chambers"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

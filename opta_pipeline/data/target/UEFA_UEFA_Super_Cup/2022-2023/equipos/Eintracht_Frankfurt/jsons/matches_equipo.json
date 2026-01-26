@@ -1,0 +1,314 @@
+{
+    "match": [
+        {
+            "matchInfo": {
+                "id": "28lhf8sysvnnleyu6xmbe8ufo",
+                "coverageLevel": "15",
+                "date": "2022-08-10Z",
+                "time": "19:00:00Z",
+                "localDate": "2022-08-10",
+                "localTime": "22:00:00",
+                "numberOfPeriods": 2,
+                "periodLength": 45,
+                "overtimeLength": 15,
+                "lastUpdated": "2025-03-19T04:14:55Z",
+                "description": "Real Madrid vs Eintracht Frankfurt",
+                "sport": {
+                    "id": "289u5typ3vp4ifwh5thalohmq",
+                    "name": "Soccer"
+                },
+                "ruleset": {
+                    "id": "79plas4983031idr6vw83nuel",
+                    "name": "Men"
+                },
+                "competition": {
+                    "id": "a0f4gtru0oyxmpvty4thc5qkc",
+                    "name": "UEFA Super Cup",
+                    "knownName": "UEFA Super Cup",
+                    "competitionCode": "USC",
+                    "competitionFormat": "International super cup",
+                    "country": {
+                        "id": "7yiwjcnhat6jo3f901h266cwl",
+                        "name": "Europe"
+                    }
+                },
+                "tournamentCalendar": {
+                    "id": "3ua7g6iazccbw29p5saydh4ic",
+                    "startDate": "2022-08-10Z",
+                    "endDate": "2022-08-10Z",
+                    "name": "2022/2023"
+                },
+                "stage": {
+                    "id": "3ugp6mzyrzn1jt3kdnujb73tg",
+                    "formatId": "dg3v7qo5acoprtjj4ozm9meol",
+                    "startDate": "2022-08-10Z",
+                    "endDate": "2022-08-10Z",
+                    "name": "Final"
+                },
+                "contestant": [
+                    {
+                        "id": "3kq9cckrnlogidldtdie2fkbl",
+                        "name": "Real Madrid",
+                        "shortName": "Real Madrid",
+                        "officialName": "Real Madrid CF",
+                        "code": "RMA",
+                        "position": "home",
+                        "country": {
+                            "id": "49ih1pwv3ahshdf8uzrimi54c",
+                            "name": "Spain"
+                        }
+                    },
+                    {
+                        "id": "c5hderjlkcoaze51e5wgvptk",
+                        "name": "Eintracht Frankfurt",
+                        "shortName": "Frankfurt",
+                        "officialName": "Eintracht Frankfurt",
+                        "code": "SGE",
+                        "position": "away",
+                        "country": {
+                            "id": "36min0qztu8eydwvpv8t1is0m",
+                            "name": "Germany"
+                        }
+                    }
+                ],
+                "venue": {
+                    "id": "31ftvrn1so0h55y6xrjzmd9s7",
+                    "neutral": "yes",
+                    "longName": "Helsingin olympiastadion",
+                    "shortName": "Helsingin olympiastadion"
+                }
+            },
+            "liveData": {
+                "matchDetails": {
+                    "periodId": 14,
+                    "matchStatus": "Played",
+                    "winner": "home",
+                    "matchLengthMin": 94,
+                    "matchLengthSec": 4,
+                    "period": [
+                        {
+                            "id": 1,
+                            "start": "2022-08-10T19:01:03Z",
+                            "end": "2022-08-10T19:47:01Z",
+                            "lengthMin": 45,
+                            "lengthSec": 58
+                        },
+                        {
+                            "id": 2,
+                            "start": "2022-08-10T20:04:23Z",
+                            "end": "2022-08-10T20:52:29Z",
+                            "lengthMin": 48,
+                            "lengthSec": 6
+                        }
+                    ],
+                    "scores": {
+                        "ht": {
+                            "home": 1,
+                            "away": 0
+                        },
+                        "ft": {
+                            "home": 2,
+                            "away": 0
+                        },
+                        "total": {
+                            "home": 2,
+                            "away": 0
+                        }
+                    }
+                },
+                "goal": [
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 1,
+                        "timeMin": 37,
+                        "timeMinSec": "36:51",
+                        "lastUpdated": "2023-07-31T15:57:58Z",
+                        "timestamp": "2022-08-10T19:37:54Z",
+                        "type": "G",
+                        "scorerId": "6w5wyari2p4bh2zzy2x2f6hg5",
+                        "scorerName": "D. Alaba",
+                        "assistPlayerId": "6nb8hub5usi3iasywa2fjf1lh",
+                        "assistPlayerName": "Casemiro",
+                        "optaEventId": "2444435271",
+                        "homeScore": 1,
+                        "awayScore": 0
+                    },
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 2,
+                        "timeMin": 65,
+                        "timeMinSec": "64:32",
+                        "lastUpdated": "2023-10-10T10:17:40Z",
+                        "timestamp": "2022-08-10T20:23:55Z",
+                        "type": "G",
+                        "scorerId": "c1mm3hdfcs78obhxmhailzidx",
+                        "scorerName": "K. Benzema",
+                        "assistPlayerId": "b4witgokm49tidm1a83qcvbop",
+                        "assistPlayerName": "Vinícius Júnior",
+                        "optaEventId": "2444447613",
+                        "homeScore": 2,
+                        "awayScore": 0
+                    }
+                ],
+                "card": [
+                    {
+                        "contestantId": "c5hderjlkcoaze51e5wgvptk",
+                        "periodId": 2,
+                        "timeMin": 92,
+                        "timeMinSec": "91:07",
+                        "lastUpdated": "2024-01-17T21:25:04Z",
+                        "timestamp": "2022-08-10T20:50:31Z",
+                        "type": "YC",
+                        "playerId": "bgtnbojs8g884mbksh6o4wu6t",
+                        "playerName": "L. Alario",
+                        "optaEventId": "2444454685",
+                        "cardReason": "Foul"
+                    }
+                ],
+                "substitute": [
+                    {
+                        "contestantId": "c5hderjlkcoaze51e5wgvptk",
+                        "periodId": 2,
+                        "timeMin": 58,
+                        "timeMinSec": "57:23",
+                        "lastUpdated": "2023-08-15T12:04:54Z",
+                        "timestamp": "2022-08-10T20:16:47Z",
+                        "playerOnId": "eqtsanns36za56h4pfqhbnh05",
+                        "playerOnName": "M. Götze",
+                        "playerOffId": "78e1qvft3ser2tyayjlmemdp1",
+                        "playerOffName": "S. Rode",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "c5hderjlkcoaze51e5wgvptk",
+                        "periodId": 2,
+                        "timeMin": 58,
+                        "timeMinSec": "57:33",
+                        "lastUpdated": "2023-10-11T19:40:09Z",
+                        "timestamp": "2022-08-10T20:16:56Z",
+                        "playerOnId": "g3fgd752o63acmmuahdvppm1",
+                        "playerOnName": "R. Kolo Muani",
+                        "playerOffId": "5ph2ln91ycq1qlq03cnqqs9re",
+                        "playerOffName": "J. Lindstrøm",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 2,
+                        "timeMin": 66,
+                        "timeMinSec": "65:54",
+                        "lastUpdated": "2024-05-22T13:52:07Z",
+                        "timestamp": "2022-08-10T20:25:18Z",
+                        "playerOnId": "broq8imimhtlejtffissquy5m",
+                        "playerOnName": "Rodrygo",
+                        "playerOffId": "diod1hv5hv7v7z7mfleev1txx",
+                        "playerOffName": "L. Modrić",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "c5hderjlkcoaze51e5wgvptk",
+                        "periodId": 2,
+                        "timeMin": 69,
+                        "timeMinSec": "68:58",
+                        "lastUpdated": "2024-01-17T21:25:04Z",
+                        "timestamp": "2022-08-10T20:28:22Z",
+                        "playerOnId": "bgtnbojs8g884mbksh6o4wu6t",
+                        "playerOnName": "L. Alario",
+                        "playerOffId": "abuvjv3bhb402yf8p92kucez9",
+                        "playerOffName": "A. Touré",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 2,
+                        "timeMin": 76,
+                        "timeMinSec": "75:26",
+                        "lastUpdated": "2024-06-11T04:43:37Z",
+                        "timestamp": "2022-08-10T20:34:49Z",
+                        "playerOnId": "en2c7z1raqmcwee78297pbnu2",
+                        "playerOnName": "E. Camavinga",
+                        "playerOffId": "1i9wi65k2foqwudeqiyih87hl",
+                        "playerOffName": "F. Valverde",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 2,
+                        "timeMin": 85,
+                        "timeMinSec": "84:04",
+                        "lastUpdated": "2023-09-27T17:17:05Z",
+                        "timestamp": "2022-08-10T20:43:28Z",
+                        "playerOnId": "i48mf81fxn2af1xxjzfi8gr9",
+                        "playerOnName": "Dani Ceballos",
+                        "playerOffId": "b4witgokm49tidm1a83qcvbop",
+                        "playerOffName": "Vinícius Júnior",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 2,
+                        "timeMin": 85,
+                        "timeMinSec": "84:43",
+                        "lastUpdated": "2023-08-01T12:25:25Z",
+                        "timestamp": "2022-08-10T20:44:07Z",
+                        "playerOnId": "aipyotc87m5bdvmvizd5n69k9",
+                        "playerOnName": "A. Tchouaméni",
+                        "playerOffId": "cdcbi6xmy0uts703489e0acb9",
+                        "playerOffName": "T. Kroos",
+                        "subReason": "Tactical"
+                    },
+                    {
+                        "contestantId": "3kq9cckrnlogidldtdie2fkbl",
+                        "periodId": 2,
+                        "timeMin": 85,
+                        "timeMinSec": "84:55",
+                        "lastUpdated": "2023-10-12T20:39:28Z",
+                        "timestamp": "2022-08-10T20:44:19Z",
+                        "playerOnId": "6fzbp94hf19ysotdassrqdc5x",
+                        "playerOnName": "A. Rüdiger",
+                        "playerOffId": "7oykphzczagr975xsqt70s89h",
+                        "playerOffName": "Dani Carvajal",
+                        "subReason": "Tactical"
+                    }
+                ],
+                "matchDetailsExtra": {
+                    "attendance": "31042",
+                    "matchOfficial": [
+                        {
+                            "id": "4n2p6ko6550c8z2qa4yfdjn4l",
+                            "type": "Main",
+                            "firstName": "Michael",
+                            "lastName": "Oliver",
+                            "shortFirstName": "Michael",
+                            "shortLastName": "Oliver"
+                        },
+                        {
+                            "id": "cgoeb7me5kff5cxcggsg0p4ut",
+                            "type": "Assistant referee 1",
+                            "firstName": "Stuart",
+                            "lastName": "Burt",
+                            "shortFirstName": "Stuart",
+                            "shortLastName": "Burt"
+                        },
+                        {
+                            "id": "95r6avgfxi2ltwah7s8ac7n4l",
+                            "type": "Assistant referee 2",
+                            "firstName": "Simon",
+                            "lastName": "Bennett",
+                            "shortFirstName": "Simon",
+                            "shortLastName": "Bennett"
+                        },
+                        {
+                            "id": "479ofdmludvhnaclqfd7zqggl",
+                            "type": "Fourth official",
+                            "firstName": "Donatas",
+                            "lastName": "Rumšas",
+                            "shortFirstName": "Donatas",
+                            "shortLastName": "Rumsas"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

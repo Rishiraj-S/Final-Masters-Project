@@ -1,0 +1,68 @@
+# Opta Pipeline Configuration - FC Barcelona La Liga
+
+# Team Configuration
+team:
+  name: "Barcelona"
+  results_url: "https://www.scoresway.com/en_GB/soccer/primera-divisi%C3%B3n-2025-2026/80zg2v1cuqcfhphn56u4qpyqc/results"
+
+# Competition Configuration
+competition:
+  id: "80zg2v1cuqcfhphn56u4qpyqc"
+  league_name: "Spain_Primera_Division"
+  season: "2025-2026"
+  
+# Scraper Settings
+scraper:
+  timeout_seconds: 60
+  cookie_wait_seconds: 3
+  scroll_delay: 0.9
+  
+# Downloader Settings
+downloader:
+  method: "selenium_wire"
+  timeout_per_match: 45
+  sleep_between_matches: 1.5
+  skip_existing: true
+  
+  # Data types to capture
+  capture:
+    matchevent: true      # Event-by-event data
+    match: true           # Basic match information
+  
+# Paths
+paths:
+  data_dir: "data"
+  mappings_dir: "mappings"
+  target_dir: "data/target"
+  result_dir: "data/result"
+  logs_dir: "logs"
+  
+# Output Configuration
+output:
+  format: "parquet"
+  
+  parquet:
+    compression: "snappy"
+    engine: "pyarrow"
+    
+  optimization:
+    convert_dtypes: true
+    deduplicate_events: true
+    
+  extract:
+    match_info: true          # Extract basic match data
+    match_events: true        # Extract event data
+    
+  # Filename pattern for match files
+  naming:
+    pattern: "{date}_{home_code}_vs_{away_code}"
+    clean_names: true
+    lowercase: false
+    replace_spaces: "_"
+    max_length: 100
+    include_match_id: "suffix"  # suffix, prefix, or none
+    
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

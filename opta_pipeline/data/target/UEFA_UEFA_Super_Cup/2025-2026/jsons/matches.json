@@ -1,0 +1,78 @@
+{
+    "match": [
+        {
+            "matchInfo": {
+                "id": "bv83qzkopxjz3rkseugv30qok",
+                "coverageLevel": "13",
+                "date": "2025-08-13Z",
+                "time": "",
+                "numberOfPeriods": 2,
+                "periodLength": 45,
+                "overtimeLength": 15,
+                "lastUpdated": "2025-05-30T13:56:58Z",
+                "sport": {
+                    "id": "289u5typ3vp4ifwh5thalohmq",
+                    "name": "Soccer"
+                },
+                "ruleset": {
+                    "id": "79plas4983031idr6vw83nuel",
+                    "name": "Men"
+                },
+                "competition": {
+                    "id": "a0f4gtru0oyxmpvty4thc5qkc",
+                    "name": "UEFA Super Cup",
+                    "knownName": "UEFA Super Cup",
+                    "competitionCode": "USC",
+                    "competitionFormat": "International super cup",
+                    "country": {
+                        "id": "7yiwjcnhat6jo3f901h266cwl",
+                        "name": "Europe"
+                    }
+                },
+                "tournamentCalendar": {
+                    "id": "db8f4sqdf7s0g850fspnf8hlg",
+                    "startDate": "2025-08-13Z",
+                    "endDate": "2025-08-13Z",
+                    "name": "2025/2026"
+                },
+                "stage": {
+                    "id": "dbrtbnesxobpz8oea0n0dbgno",
+                    "formatId": "dg3v7qo5acoprtjj4ozm9meol",
+                    "startDate": "2025-08-13Z",
+                    "endDate": "2025-08-13Z",
+                    "name": "Final"
+                },
+                "contestant": [
+                    {
+                        "probableTeams": "2b3mar72yy8d6uvat1ka6tn3r,3vo5mpj7catp66nrwwqiuhuup",
+                        "position": "home"
+                    },
+                    {
+                        "id": "22doj4sgsocqpxw45h607udje",
+                        "name": "Tottenham Hotspur",
+                        "shortName": "Tottenham",
+                        "officialName": "Tottenham Hotspur FC",
+                        "code": "TOT",
+                        "position": "away",
+                        "country": {
+                            "id": "1fk5l4hkqk12i7zske6mcqju6",
+                            "name": "England"
+                        }
+                    }
+                ],
+                "venue": {
+                    "id": "8uygqu4fxph14u4hv5c7gqawg",
+                    "neutral": "yes",
+                    "longName": "Bluenergy Stadium",
+                    "shortName": "Bluenergy Stadium"
+                }
+            },
+            "liveData": {
+                "matchDetails": {
+                    "periodId": 16,
+                    "matchStatus": "Fixture"
+                }
+            }
+        }
+    ]
+}

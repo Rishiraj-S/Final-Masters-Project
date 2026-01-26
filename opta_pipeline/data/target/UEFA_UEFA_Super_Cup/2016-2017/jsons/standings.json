@@ -1,0 +1,22 @@
+{
+    "sport": {
+        "id": "289u5typ3vp4ifwh5thalohmq",
+        "name": "Soccer"
+    },
+    "ruleset": {
+        "id": "79plas4983031idr6vw83nuel",
+        "name": "Men"
+    },
+    "competition": {
+        "id": "a0f4gtru0oyxmpvty4thc5qkc",
+        "name": "UEFA Super Cup",
+        "knownName": "UEFA Super Cup"
+    },
+    "tournamentCalendar": {
+        "id": "zx630fl2xj8ti5hmpucnhfqh",
+        "startDate": "2016-08-09Z",
+        "endDate": "2016-08-09Z",
+        "name": "2016/2017"
+    },
+    "lastUpdated": "2024-02-13T08:53:35Z"
+}
