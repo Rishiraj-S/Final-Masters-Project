@@ -6,6 +6,29 @@ team:
   results_url: "https://www.scoresway.com/en_GB/soccer/primera-divisi%C3%B3n-2025-2026/80zg2v1cuqcfhphn56u4qpyqc/results"
 
 # Competition Configuration
+# Multiple competitions to iterate through when running the pipeline
+competitions:
+  - id: "3lmujqli8r9m12i28wgjxnnys"
+    league_name: "Spain_Copa_del_Rey"
+    season: "2025-2026"
+    results_url: "https://www.scoresway.com/en_GB/soccer/copa-del-rey-2025-2026/3lmujqli8r9m12i28wgjxnnys/results"
+
+  - id: "80zg2v1cuqcfhphn56u4qpyqc"
+    league_name: "Spain_Primera_Division"
+    season: "2025-2026"
+    results_url: "https://www.scoresway.com/en_GB/soccer/primera-divisi%C3%B3n-2025-2026/80zg2v1cuqcfhphn56u4qpyqc/results"
+
+  - id: "calfow53qyurf0wi9rr96m6tw"
+    league_name: "Spain_Super_Cup"
+    season: "2025-2026"
+    results_url: "https://www.scoresway.com/en_GB/soccer/supercopa-de-espana-2025-2026/calfow53qyurf0wi9rr96m6tw/results"
+
+  - id: "2mr0u0l78k2gdsm79q56tb2fo"
+    league_name: "UEFA_Champions_League"
+    season: "2025-2026"
+    results_url: "https://www.scoresway.com/en_GB/soccer/uefa-champions-league-2025-2026/2mr0u0l78k2gdsm79q56tb2fo/results"
+
+# Default competition (used for backward compatibility and single-competition mode)
 competition:
   id: "80zg2v1cuqcfhphn56u4qpyqc"
   league_name: "Spain_Primera_Division"
