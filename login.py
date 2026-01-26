@@ -558,39 +558,41 @@ def update_main_container(session_data, pathname, update_status):
 
 # Login callback
 @app.callback(
-    Output('session-store', 'data'),
+    Output('session-store', 'data', allow_duplicate=True),
     Output('login-error', 'children'),
     Input('login-button', 'n_clicks'),
-    Input('logout-button', 'n_clicks'),
     State('login-username', 'value'),
     State('login-password', 'value'),
     State('session-store', 'data'),
     prevent_initial_call=True
 )
-def handle_auth(login_clicks, logout_clicks, username, password, current_session):
-    ctx = callback_context
-    if not ctx.triggered:
+def handle_login(login_clicks, username, password, current_session):
+    if not login_clicks:
         return current_session, ""
 
-    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    if not username or not password:
+        return current_session, "Please select a user and enter password."
 
-    if trigger_id == 'logout-button':
-        return None, ""
+    if username in USERS and USERS[username]['password'] == password:
+        return {
+            'logged_in': True,
+            'username': username,
+            'role': USERS[username]['role']
+        }, ""
+    else:
+        return current_session, "Invalid credentials. Please try again."
 
-    if trigger_id == 'login-button':
-        if not username or not password:
-            return current_session, "Please select a user and enter password."
 
-        if username in USERS and USERS[username]['password'] == password:
-            return {
-                'logged_in': True,
-                'username': username,
-                'role': USERS[username]['role']
-            }, ""
-        else:
-            return current_session, "Invalid credentials. Please try again."
-
-    return current_session, ""
+# Logout callback
+@app.callback(
+    Output('session-store', 'data', allow_duplicate=True),
+    Input('logout-button', 'n_clicks'),
+    prevent_initial_call=True
+)
+def handle_logout(logout_clicks):
+    if logout_clicks:
+        return None
+    return dash.no_update
 
 
 # Update overlay callback
