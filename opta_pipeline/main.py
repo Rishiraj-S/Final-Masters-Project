@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Opta Match Data Pipeline - FC Barcelona
+Opta Match Data Pipeline - Multi-Competition Support
 Downloads matchevent → Splits into match + match_event parquets
+Iterates through all configured competitions
 """
 
 import os
@@ -27,178 +28,291 @@ def load_config(config_path: str = "config.yaml") -> dict:
         return yaml.safe_load(f)
 
 
+def process_competition(config: dict, competition_info: dict, args, logger) -> dict:
+    """
+    Process a single competition through the full pipeline.
+
+    Args:
+        config: Base configuration dictionary
+        competition_info: Competition-specific info (id, league_name, season, results_url)
+        args: Command line arguments
+        logger: Logger instance
+
+    Returns:
+        dict with processing results
+    """
+    import pandas as pd
+
+    # Update config with current competition info
+    config['competition'] = {
+        'id': competition_info['id'],
+        'league_name': competition_info['league_name'],
+        'season': competition_info['season']
+    }
+
+    league_name = competition_info['league_name']
+    season = competition_info['season']
+    competition_id = competition_info['id']
+    results_url = competition_info.get('results_url', config.get('team', {}).get('results_url'))
+
+    results = {
+        'league': league_name,
+        'season': season,
+        'scraped': 0,
+        'downloaded': 0,
+        'skipped': 0,
+        'match_transformed': 0,
+        'event_transformed': 0,
+        'status': 'success'
+    }
+
+    try:
+        # ============================================================
+        # TRANSFORM ONLY MODE
+        # ============================================================
+        if args.transform_only:
+            logger.info("🔄 TRANSFORMING EXISTING DATA")
+
+            # Transform match info
+            logger.info("📋 Transforming Match Info...")
+            match_transformer = MatchTransformer(config, logger)
+            results['match_transformed'] = match_transformer.transform_all()
+
+            # Transform match events
+            logger.info("⚽ Transforming Match Events...")
+            event_transformer = MatchEventTransformer(config, logger)
+            results['event_transformed'] = event_transformer.transform_all()
+
+            return results
+
+        # ============================================================
+        # FULL PIPELINE
+        # ============================================================
+
+        # Step 1: Scraping
+        if not args.skip_scraping:
+            logger.info("🔍 Scraping match URLs...")
+
+            scraper = MatchScraper(config, logger)
+
+            try:
+                matches_df = scraper.scrape_matches(
+                    results_url,
+                    config['team']['name']
+                )
+
+                if not matches_df.empty:
+                    matches_csv_path = get_organized_path_reversed(
+                        config['paths']['result_dir'],
+                        league_name,
+                        season,
+                        'matches_urls.csv'
+                    )
+                    matches_df.to_csv(matches_csv_path, index=False)
+                    results['scraped'] = len(matches_df)
+                    logger.info(f"💾 Saved {len(matches_df)} matches to: {matches_csv_path}")
+
+            except Exception as e:
+                logger.error(f"❌ Scraping failed: {e}")
+                logger.info("💡 Continuing with existing data...")
+
+        # Step 2: Downloading
+        if not args.skip_download:
+            logger.info("⬇️  Downloading match data...")
+
+            matches_csv_path = get_organized_path_reversed(
+                config['paths']['result_dir'],
+                league_name,
+                season,
+                'matches_urls.csv'
+            )
+
+            if os.path.exists(matches_csv_path):
+                matches_df = pd.read_csv(matches_csv_path)
+
+                downloader = MatchDownloader(config, logger)
+
+                total = len(matches_df)
+                downloaded = 0
+                skipped = 0
+
+                for idx, row in matches_df.iterrows():
+                    match_id = row['match_id']
+                    match_url = row['url_match']
+
+                    logger.info(f"[{idx + 1}/{total}] Match: {match_id}")
+
+                    success, result_path = downloader.download_match(match_id, match_url, competition_id)
+
+                    if success:
+                        downloaded += 1
+                    else:
+                        skipped += 1
+
+                results['downloaded'] = downloaded
+                results['skipped'] = skipped
+                logger.info(f"📊 Downloaded: {downloaded}, Skipped: {skipped}")
+            else:
+                logger.warning(f"No matches CSV found at: {matches_csv_path}")
+
+        # Step 3: Transformation
+        logger.info("🔄 Transforming data to parquet...")
+
+        # Transform match info
+        logger.info("📋 Transforming Match Info...")
+        match_transformer = MatchTransformer(config, logger)
+        results['match_transformed'] = match_transformer.transform_all()
+
+        # Transform match events
+        logger.info("⚽ Transforming Match Events...")
+        event_transformer = MatchEventTransformer(config, logger)
+        results['event_transformed'] = event_transformer.transform_all()
+
+    except Exception as e:
+        logger.error(f"❌ Error processing {league_name}: {e}")
+        results['status'] = 'failed'
+        import traceback
+        logger.error(traceback.format_exc())
+
+    return results
+
+
 def main():
-    """Main pipeline execution"""
-    parser = argparse.ArgumentParser(description='Opta Match Data Pipeline')
+    """Main pipeline execution - iterates through all competitions"""
+    parser = argparse.ArgumentParser(description='Opta Match Data Pipeline - Multi-Competition')
     parser.add_argument('--config', default='config.yaml', help='Path to config file')
     parser.add_argument('--skip-scraping', action='store_true', help='Skip scraping step')
     parser.add_argument('--skip-download', action='store_true', help='Skip download step')
     parser.add_argument('--transform-only', action='store_true', help='Only transform existing JSONs')
-    
+    parser.add_argument('--competition', type=str, help='Process only a specific competition by league_name')
+
     args = parser.parse_args()
-    
+
     # Load configuration
     try:
         config = load_config(args.config)
     except Exception as e:
         print(f"❌ Failed to load config: {e}")
         sys.exit(1)
-    
+
     # Setup logging
     logger = setup_logging(
         config['paths']['logs_dir'],
         config['logging']['level']
     )
-    
-    logger.info("="*60)
-    logger.info("🚀 OPTA PIPELINE - FC BARCELONA")
-    logger.info("="*60)
-    
+
     # Ensure directories exist
     ensure_directories(config['paths'])
-    
-    # Get league and season
-    competition = config.get('competition', {})
-    league_name = competition.get('league_name', 'Unknown_League')
-    season = competition.get('season', 'Unknown_Season')
-    
-    logger.info(f"📊 League: {league_name}")
-    logger.info(f"📅 Season: {season}")
-    
-    # ============================================================
-    # TRANSFORM ONLY MODE
-    # ============================================================
-    
-    if args.transform_only:
-        logger.info("\n" + "="*60)
-        logger.info("🔄 TRANSFORMING EXISTING DATA")
-        logger.info("="*60)
-        
-        # Transform match info
-        logger.info("\n📋 Transforming Match Info...")
-        match_transformer = MatchTransformer(config, logger)
-        match_count = match_transformer.transform_all()
-        
-        # Transform match events
-        logger.info("\n⚽ Transforming Match Events...")
-        event_transformer = MatchEventTransformer(config, logger)
-        event_count = event_transformer.transform_all()
-        
-        logger.info("\n✅ TRANSFORMATION COMPLETE!")
-        logger.info(f"   Match: {match_count} files")
-        logger.info(f"   Match Events: {event_count} files")
-        return
-    
-    # ============================================================
-    # FULL PIPELINE
-    # ============================================================
-    
-    import pandas as pd
-    
-    # Step 1: Scraping
-    if not args.skip_scraping:
-        logger.info("\n" + "="*60)
-        logger.info("🔍 STEP 1: SCRAPING MATCH URLS")
-        logger.info("="*60)
-        
-        scraper = MatchScraper(config, logger)
-        
-        try:
-            matches_df = scraper.scrape_matches(
-                config['team']['results_url'],
-                config['team']['name']
-            )
-            
-            if not matches_df.empty:
-                matches_csv_path = get_organized_path_reversed(
-                    config['paths']['result_dir'],
-                    league_name,
-                    season,
-                    'matches_urls.csv'
-                )
-                matches_df.to_csv(matches_csv_path, index=False)
-                logger.info(f"💾 Saved matches to: {matches_csv_path}")
-                logger.info(f"   Total matches: {len(matches_df)}")
-            
-        except Exception as e:
-            logger.error(f"❌ Scraping failed: {e}")
-            logger.info("💡 Continuing with existing data...")
-    
-    # Step 2: Downloading
-    if not args.skip_download:
-        logger.info("\n" + "="*60)
-        logger.info("⬇️  STEP 2: DOWNLOADING MATCH DATA")
-        logger.info("="*60)
-        
-        matches_csv_path = get_organized_path_reversed(
-            config['paths']['result_dir'],
-            league_name,
-            season,
-            'matches_urls.csv'
-        )
-        
-        if os.path.exists(matches_csv_path):
-            matches_df = pd.read_csv(matches_csv_path)
-            
-            downloader = MatchDownloader(config, logger)
-            competition_id = config.get('competition', {}).get('id')
-            
-            total = len(matches_df)
-            downloaded = 0
-            skipped = 0
-            
-            for idx, row in matches_df.iterrows():
-                match_id = row['match_id']
-                match_url = row['url_match']
-                
-                logger.info(f"\n[{idx + 1}/{total}] Match: {match_id}")
-                
-                success, result_path = downloader.download_match(match_id, match_url, competition_id)
-                
-                if success:
-                    downloaded += 1
-                else:
-                    skipped += 1
-            
-            logger.info(f"\n" + "="*60)
-            logger.info("📊 DOWNLOAD SUMMARY")
-            logger.info("="*60)
-            logger.info(f"Total matches: {total}")
-            logger.info(f"Downloaded: {downloaded}")
-            logger.info(f"Skipped: {skipped}")
+
+    # Get competitions list
+    competitions = config.get('competitions', [])
+
+    # Fallback to single competition if 'competitions' list is not defined
+    if not competitions:
+        competition = config.get('competition', {})
+        if competition:
+            competitions = [{
+                'id': competition.get('id'),
+                'league_name': competition.get('league_name'),
+                'season': competition.get('season'),
+                'results_url': config.get('team', {}).get('results_url')
+            }]
+
+    # Filter to specific competition if requested
+    if args.competition:
+        competitions = [c for c in competitions if c['league_name'] == args.competition]
+        if not competitions:
+            print(f"❌ Competition '{args.competition}' not found in config")
+            sys.exit(1)
+
+    if not competitions:
+        print("❌ No competitions configured")
+        sys.exit(1)
+
+    # Display header
+    print("\n" + "="*80)
+    print("🚀 OPTA PIPELINE - MULTI-COMPETITION MODE")
+    print("="*80)
+    logger.info("="*80)
+    logger.info("🚀 OPTA PIPELINE - MULTI-COMPETITION MODE")
+    logger.info("="*80)
+
+    total_competitions = len(competitions)
+    print(f"\n📊 Processing {total_competitions} competition(s):")
+    logger.info(f"📊 Processing {total_competitions} competition(s):")
+
+    for comp in competitions:
+        print(f"   • {comp['league_name']} ({comp['season']})")
+        logger.info(f"   • {comp['league_name']} ({comp['season']})")
+    print()
+
+    # Process each competition
+    all_results = []
+
+    for idx, competition_info in enumerate(competitions, 1):
+        league_name = competition_info['league_name']
+        season = competition_info['season']
+
+        print("\n" + "="*80)
+        print(f"🏆 COMPETITION {idx}/{total_competitions}: {league_name}")
+        print(f"📅 Season: {season}")
+        print("="*80)
+        logger.info("="*80)
+        logger.info(f"🏆 COMPETITION {idx}/{total_competitions}: {league_name}")
+        logger.info(f"📅 Season: {season}")
+        logger.info("="*80)
+
+        results = process_competition(config, competition_info, args, logger)
+        all_results.append(results)
+
+        if results['status'] == 'success':
+            print(f"\n✅ {league_name} completed successfully")
+            if not args.transform_only:
+                print(f"   Scraped: {results['scraped']}")
+                print(f"   Downloaded: {results['downloaded']}")
+            print(f"   Match files: {results['match_transformed']}")
+            print(f"   Event files: {results['event_transformed']}")
         else:
-            logger.warning(f"No matches CSV found at: {matches_csv_path}")
-    
-    # Step 3: Transformation
-    logger.info("\n" + "="*60)
-    logger.info("🔄 STEP 3: TRANSFORMING DATA TO PARQUET")
-    logger.info("="*60)
-    
-    # Transform match info
-    logger.info("\n📋 Transforming Match Info...")
-    match_transformer = MatchTransformer(config, logger)
-    match_count = match_transformer.transform_all()
-    
-    # Transform match events
-    logger.info("\n⚽ Transforming Match Events...")
-    event_transformer = MatchEventTransformer(config, logger)
-    event_count = event_transformer.transform_all()
-    
+            print(f"\n❌ {league_name} failed")
+
     # Final summary
-    logger.info("\n" + "="*60)
-    logger.info("✅ PIPELINE COMPLETE!")
-    logger.info("="*60)
-    logger.info(f"\n📁 Results: data/result/{league_name}/{season}/")
-    logger.info(f"\nTransformation Summary:")
-    logger.info(f"  - Match: {match_count} files")
-    logger.info(f"  - Match Events: {event_count} files")
-    logger.info(f"\n📂 Directory Structure:")
-    logger.info(f"  data/target/{league_name}/{season}/")
-    logger.info(f"  └── matchdata/          (Raw JSON files)")
-    logger.info(f"\n  data/result/{league_name}/{season}/")
-    logger.info(f"  ├── matches_urls.csv")
-    logger.info(f"  ├── match/              (Match metadata)")
-    logger.info(f"  └── match_event/        (Event-level data)")
+    print("\n" + "="*80)
+    print("📈 FINAL SUMMARY - ALL COMPETITIONS")
+    print("="*80)
+    logger.info("="*80)
+    logger.info("📈 FINAL SUMMARY - ALL COMPETITIONS")
+    logger.info("="*80)
+
+    successful = [r for r in all_results if r['status'] == 'success']
+    failed = [r for r in all_results if r['status'] == 'failed']
+
+    print(f"\n✅ Successful: {len(successful)}/{total_competitions}")
+    print(f"❌ Failed: {len(failed)}/{total_competitions}")
+
+    if not args.transform_only:
+        total_scraped = sum(r['scraped'] for r in all_results)
+        total_downloaded = sum(r['downloaded'] for r in all_results)
+        print(f"\n📊 Scraping & Download:")
+        print(f"   Total scraped: {total_scraped}")
+        print(f"   Total downloaded: {total_downloaded}")
+
+    total_match = sum(r['match_transformed'] for r in all_results)
+    total_event = sum(r['event_transformed'] for r in all_results)
+    print(f"\n🔄 Transformation:")
+    print(f"   Match parquets: {total_match}")
+    print(f"   Event parquets: {total_event}")
+
+    print("\n📁 Output directories:")
+    for comp in competitions:
+        print(f"   data/result/{comp['league_name']}/{comp['season']}/")
+
+    print("="*80)
+    print()
+
+    logger.info(f"✅ Successful: {len(successful)}/{total_competitions}")
+    logger.info(f"❌ Failed: {len(failed)}/{total_competitions}")
+    logger.info(f"Match parquets: {total_match}")
+    logger.info(f"Event parquets: {total_event}")
 
 
 if __name__ == "__main__":
