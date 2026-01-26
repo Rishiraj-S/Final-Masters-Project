@@ -1,20 +1,29 @@
 """
 CuléVision - FC Barcelona Game Analysis Tool
-Main Dash Application
+Main Dash Application with Login System
 """
 
 import dash
-from dash import html, dcc, dash_table
+from dash import html, dcc, dash_table, callback_context
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 import plotly.express as px
 import plotly.graph_objects as go
+import subprocess
+import threading
+import os
 from config import COLORS, APP_CONFIG, NAV_LINKS
 from data_utils import (
     get_match_results, get_player_stats, get_season_summary,
     get_top_scorers, get_match_stats, get_match_events_timeline,
     get_all_barcelona_players, get_player_match_stats, get_all_events
 )
+
+# User credentials
+USERS = {
+    'Guest': {'password': 'guest', 'role': 'guest'},
+    'Rishi': {'password': 'admin', 'role': 'admin'}
+}
 
 # Initialize the Dash app with Bootstrap theme
 app = dash.Dash(
@@ -24,7 +33,7 @@ app = dash.Dash(
     title=APP_CONFIG['title']
 )
 
-# Custom CSS for dark theme
+# Custom CSS for dark theme with login styles
 app.index_string = '''
 <!DOCTYPE html>
 <html>
@@ -100,6 +109,58 @@ app.index_string = '''
             .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
                 background-color: #151932 !important;
             }
+            .login-container {
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .login-card {
+                width: 400px;
+                background-color: #151932;
+                border: 1px solid #2A2F4A;
+                border-radius: 10px;
+                padding: 40px;
+            }
+            .login-input {
+                background-color: #1E2139 !important;
+                border: 1px solid #2A2F4A !important;
+                color: #E8E9ED !important;
+            }
+            .login-input:focus {
+                background-color: #1E2139 !important;
+                border-color: #EDBB00 !important;
+                color: #E8E9ED !important;
+                box-shadow: 0 0 0 0.2rem rgba(237, 187, 0, 0.25) !important;
+            }
+            .login-input::placeholder {
+                color: #A5A8B8 !important;
+            }
+            .update-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(10, 14, 39, 0.95);
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+            .spinner-border {
+                width: 4rem;
+                height: 4rem;
+            }
+            @keyframes pulse {
+                0% { opacity: 1; }
+                50% { opacity: 0.5; }
+                100% { opacity: 1; }
+            }
+            .pulse-animation {
+                animation: pulse 2s infinite;
+            }
         </style>
     </head>
     <body>
@@ -112,31 +173,6 @@ app.index_string = '''
     </body>
 </html>
 '''
-
-# Navigation Bar
-navbar = dbc.Navbar(
-    dbc.Container([
-        dbc.Row([
-            dbc.Col([
-                html.H2("CuléVision", className="mb-0 culevision-brand",
-                       style={'fontWeight': 'bold'})
-            ], width="auto"),
-        ], align="center", className="g-0"),
-
-        dbc.Row([
-            dbc.Col([
-                dbc.Nav([
-                    dbc.NavItem(dbc.NavLink(link['label'], href=link['href'], active="exact"))
-                    for link in NAV_LINKS
-                ], navbar=True, className="ms-auto")
-            ])
-        ], align="center")
-    ], fluid=True),
-    color=COLORS['primary_blue'],
-    dark=True,
-    className="mb-4",
-    sticky="top"
-)
 
 
 def create_result_badge(result):
@@ -155,13 +191,118 @@ def create_stat_card(value, label, color=COLORS['gold']):
     ], className="h-100")
 
 
-def create_home_layout():
+def create_login_layout():
+    """Create the login page layout."""
+    return html.Div([
+        html.Div([
+            html.Div([
+                html.H1("CuléVision", className="culevision-brand text-center mb-2",
+                       style={'fontWeight': 'bold', 'fontSize': '3rem'}),
+                html.P("FC Barcelona Game Analysis Tool",
+                      className="text-center mb-4",
+                      style={'color': COLORS['text_secondary']}),
+                html.Hr(style={'borderColor': COLORS['dark_border']}),
+
+                # Username dropdown
+                html.Label("Username", style={'color': COLORS['text_secondary']}),
+                dcc.Dropdown(
+                    id='login-username',
+                    options=[
+                        {'label': 'Guest', 'value': 'Guest'},
+                        {'label': 'Rishi (Admin)', 'value': 'Rishi'}
+                    ],
+                    placeholder='Select user...',
+                    className="mb-3",
+                    style={'backgroundColor': '#1E2139'}
+                ),
+
+                # Password input
+                html.Label("Password", style={'color': COLORS['text_secondary']}),
+                dbc.Input(
+                    id='login-password',
+                    type='password',
+                    placeholder='Enter password...',
+                    className="login-input mb-4"
+                ),
+
+                # Error message
+                html.Div(id='login-error', className="text-danger mb-3"),
+
+                # Login button
+                dbc.Button(
+                    "Login",
+                    id='login-button',
+                    color="warning",
+                    className="w-100",
+                    style={'fontWeight': 'bold'}
+                )
+            ], className="login-card")
+        ], className="login-container")
+    ], style={'backgroundColor': COLORS['dark_bg'], 'minHeight': '100vh'})
+
+
+def create_navbar(user_info):
+    """Create navigation bar with user info and logout."""
+    username = user_info.get('username', 'User')
+    role = user_info.get('role', 'guest')
+
+    return dbc.Navbar(
+        dbc.Container([
+            dbc.Row([
+                dbc.Col([
+                    html.H2("CuléVision", className="mb-0 culevision-brand",
+                           style={'fontWeight': 'bold'})
+                ], width="auto"),
+            ], align="center", className="g-0"),
+
+            dbc.Row([
+                dbc.Col([
+                    dbc.Nav([
+                        dbc.NavItem(dbc.NavLink(link['label'], href=link['href'], active="exact"))
+                        for link in NAV_LINKS
+                    ], navbar=True, className="ms-auto")
+                ])
+            ], align="center"),
+
+            dbc.Row([
+                dbc.Col([
+                    html.Div([
+                        html.Span(f"{username}",
+                                 style={'color': COLORS['gold'], 'marginRight': '10px', 'fontWeight': 'bold'}),
+                        html.Span(f"({role.title()})",
+                                 style={'color': COLORS['text_secondary'], 'marginRight': '15px', 'fontSize': '0.85rem'}),
+                        dbc.Button("Logout", id='logout-button', color="outline-light", size="sm")
+                    ], style={'display': 'flex', 'alignItems': 'center'})
+                ], width="auto")
+            ], align="center")
+        ], fluid=True),
+        color=COLORS['primary_blue'],
+        dark=True,
+        className="mb-4",
+        sticky="top"
+    )
+
+
+def create_home_layout(is_admin=False):
     """Create the Home page layout with season overview."""
     # Get data
     summary = get_season_summary()
     results = get_match_results()
     top_scorers = get_top_scorers(10)
     recent_matches = results[:5] if results else []
+
+    # Admin button (only visible for admin users)
+    admin_button = html.Div()
+    if is_admin:
+        admin_button = html.Div([
+            dbc.Button(
+                [html.I(className="fas fa-database me-2"), "Update Databases"],
+                id='update-db-button',
+                color="warning",
+                className="mb-3",
+                style={'fontWeight': 'bold'}
+            )
+        ], style={'position': 'absolute', 'top': '0', 'right': '15px'})
 
     # Season stats cards
     stats_row = dbc.Row([
@@ -264,7 +405,10 @@ def create_home_layout():
     ])
 
     return dbc.Container([
-        html.H2("Season Overview 2025-2026", style={'color': COLORS['gold']}, className="mb-4"),
+        html.Div([
+            html.H2("Season Overview 2025-2026", style={'color': COLORS['gold']}, className="mb-4"),
+            admin_button
+        ], style={'position': 'relative'}),
         stats_row,
         dbc.Row([
             dbc.Col(recent_matches_card, width=6),
@@ -332,26 +476,174 @@ def create_team_insights_layout():
     ], fluid=True, className="py-4")
 
 
+def create_update_overlay():
+    """Create the database update overlay."""
+    return html.Div([
+        html.Div([
+            html.Div(className="spinner-border text-warning mb-4", role="status"),
+            html.H2("Databases Are Being Updated",
+                   style={'color': COLORS['gold'], 'marginBottom': '20px'}),
+            html.P("Please wait while the system processes the latest match data...",
+                  style={'color': COLORS['text_secondary'], 'fontSize': '1.1rem'}),
+            html.Hr(style={'borderColor': COLORS['dark_border'], 'width': '300px', 'margin': '20px auto'}),
+            html.Div([
+                html.P([html.Strong("What's happening:"), " The pipeline is fetching and processing data from all competitions."],
+                      className="mb-2", style={'color': COLORS['text_primary']}),
+                html.P([html.Strong("Competitions:"), " La Liga, Copa del Rey, Spanish Super Cup, Champions League"],
+                      className="mb-2", style={'color': COLORS['text_primary']}),
+                html.P([html.Strong("Note:"), " Navigation is disabled during this process to ensure data integrity."],
+                      style={'color': '#ffc107'})
+            ], style={'textAlign': 'left', 'maxWidth': '500px', 'margin': '0 auto', 'padding': '20px',
+                     'backgroundColor': '#151932', 'borderRadius': '10px', 'border': '1px solid #2A2F4A'}),
+            html.Div([
+                html.Div(className="spinner-grow spinner-grow-sm text-warning me-2", role="status"),
+                html.Span("Processing...", className="pulse-animation", style={'color': COLORS['text_secondary']})
+            ], style={'marginTop': '30px'})
+        ], style={'textAlign': 'center'})
+    ], className="update-overlay", id='update-overlay')
+
+
 # Main App Layout
 app.layout = html.Div([
+    # Session storage
+    dcc.Store(id='session-store', storage_type='session'),
+    dcc.Store(id='update-status-store', data={'updating': False}),
+
+    # Update overlay (hidden by default)
+    html.Div(id='update-overlay-container'),
+
+    # Location for URL routing
     dcc.Location(id='url', refresh=False),
-    navbar,
-    html.Div(id='page-content')
+
+    # Interval for checking update status
+    dcc.Interval(id='update-check-interval', interval=2000, disabled=True),
+
+    # Main content container
+    html.Div(id='main-container')
 ], style={'backgroundColor': COLORS['dark_bg'], 'minHeight': '100vh'})
 
 
-# Callback for page navigation
+# Callback for main container - handles login state
 @app.callback(
-    Output('page-content', 'children'),
-    Input('url', 'pathname')
+    Output('main-container', 'children'),
+    Output('url', 'pathname'),
+    Input('session-store', 'data'),
+    Input('url', 'pathname'),
+    State('update-status-store', 'data')
 )
-def display_page(pathname):
+def update_main_container(session_data, pathname, update_status):
+    # Check if user is logged in
+    if not session_data or not session_data.get('logged_in'):
+        return create_login_layout(), '/'
+
+    # User is logged in - show main app
+    user_info = session_data
+    is_admin = user_info.get('role') == 'admin'
+
+    # Create navbar
+    navbar = create_navbar(user_info)
+
+    # Determine which page to show
     if pathname == '/match-analysis':
-        return create_match_analysis_layout()
+        page_content = create_match_analysis_layout()
     elif pathname == '/team-insights':
-        return create_team_insights_layout()
+        page_content = create_team_insights_layout()
     else:
-        return create_home_layout()
+        page_content = create_home_layout(is_admin)
+        pathname = '/'
+
+    return html.Div([navbar, html.Div(id='page-content', children=page_content)]), pathname
+
+
+# Login callback
+@app.callback(
+    Output('session-store', 'data'),
+    Output('login-error', 'children'),
+    Input('login-button', 'n_clicks'),
+    Input('logout-button', 'n_clicks'),
+    State('login-username', 'value'),
+    State('login-password', 'value'),
+    State('session-store', 'data'),
+    prevent_initial_call=True
+)
+def handle_auth(login_clicks, logout_clicks, username, password, current_session):
+    ctx = callback_context
+    if not ctx.triggered:
+        return current_session, ""
+
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    if trigger_id == 'logout-button':
+        return None, ""
+
+    if trigger_id == 'login-button':
+        if not username or not password:
+            return current_session, "Please select a user and enter password."
+
+        if username in USERS and USERS[username]['password'] == password:
+            return {
+                'logged_in': True,
+                'username': username,
+                'role': USERS[username]['role']
+            }, ""
+        else:
+            return current_session, "Invalid credentials. Please try again."
+
+    return current_session, ""
+
+
+# Update overlay callback
+@app.callback(
+    Output('update-overlay-container', 'children'),
+    Input('update-status-store', 'data')
+)
+def show_update_overlay(update_status):
+    if update_status and update_status.get('updating'):
+        return create_update_overlay()
+    return html.Div()
+
+
+# Database update callback
+@app.callback(
+    Output('update-status-store', 'data'),
+    Output('update-check-interval', 'disabled'),
+    Input('update-db-button', 'n_clicks'),
+    Input('update-check-interval', 'n_intervals'),
+    State('update-status-store', 'data'),
+    prevent_initial_call=True
+)
+def handle_database_update(n_clicks, n_intervals, current_status):
+    ctx = callback_context
+    if not ctx.triggered:
+        return current_status, True
+
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    if trigger_id == 'update-db-button' and n_clicks:
+        # Start the database update process
+        def run_pipeline():
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            pipeline_path = os.path.join(script_dir, 'opta_pipeline', 'main.py')
+            subprocess.run(['python', pipeline_path], cwd=script_dir)
+
+        # Start update in background thread
+        thread = threading.Thread(target=run_pipeline, daemon=True)
+        thread.start()
+
+        # Store the thread reference (we'll check if it's alive)
+        app._update_thread = thread
+
+        return {'updating': True, 'started': True}, False
+
+    if trigger_id == 'update-check-interval':
+        # Check if update is still running
+        if hasattr(app, '_update_thread') and app._update_thread.is_alive():
+            return {'updating': True}, False
+        else:
+            # Update finished
+            return {'updating': False}, True
+
+    return current_status, True
 
 
 # Callback for match analysis content
@@ -650,6 +942,16 @@ def update_player_insights(player_name):
 
 # Run the app
 if __name__ == '__main__':
+    print("\n" + "="*60)
+    print("  CuléVision - FC Barcelona Game Analysis Tool")
+    print("  Login System Enabled")
+    print("="*60)
+    print("\n  Available Users:")
+    print("    - Guest (password: guest)")
+    print("    - Rishi (Admin) (password: admin)")
+    print("\n  Admin users can update databases from the Home tab.")
+    print("="*60 + "\n")
+
     app.run_server(
         debug=APP_CONFIG['debug'],
         host=APP_CONFIG['host'],
