@@ -28,8 +28,18 @@ def load_config(config_path: str = None) -> dict:
         # Default to config.yaml in the same directory as this script
         script_dir = Path(__file__).parent
         config_path = script_dir / "config.yaml"
+    else:
+        script_dir = Path(__file__).parent
+
     with open(config_path, 'r') as f:
-        return yaml.safe_load(f)
+        config = yaml.safe_load(f)
+
+    # Resolve mappings_dir relative to script location if it's a relative path
+    mappings_dir = config.get('paths', {}).get('mappings_dir', 'mappings')
+    if not Path(mappings_dir).is_absolute():
+        config['paths']['mappings_dir'] = str(script_dir / mappings_dir)
+
+    return config
 
 
 def process_competition(config: dict, competition_info: dict, args, logger) -> dict:
