@@ -22,8 +22,12 @@ from modules import (
 from modules.utils import get_organized_path_reversed
 
 
-def load_config(config_path: str = "config.yaml") -> dict:
+def load_config(config_path: str = None) -> dict:
     """Load configuration from YAML file"""
+    if config_path is None:
+        # Default to config.yaml in the same directory as this script
+        script_dir = Path(__file__).parent
+        config_path = script_dir / "config.yaml"
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
@@ -180,7 +184,7 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
 def main():
     """Main pipeline execution - iterates through all competitions"""
     parser = argparse.ArgumentParser(description='Opta Match Data Pipeline - Multi-Competition')
-    parser.add_argument('--config', default='config.yaml', help='Path to config file')
+    parser.add_argument('--config', default=None, help='Path to config file (defaults to config.yaml in script directory)')
     parser.add_argument('--skip-scraping', action='store_true', help='Skip scraping step')
     parser.add_argument('--skip-download', action='store_true', help='Skip download step')
     parser.add_argument('--transform-only', action='store_true', help='Only transform existing JSONs')
