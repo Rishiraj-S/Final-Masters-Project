@@ -7,8 +7,8 @@ from dash import html, dcc
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
-from config import COLORS
-from data_utils import get_match_results, get_match_stats, get_match_events_timeline
+from utils.config import COLORS
+from utils.data_utils import get_match_results, get_match_stats, get_match_events_timeline
 
 
 def create_match_analysis_layout():
