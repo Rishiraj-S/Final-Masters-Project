@@ -8,7 +8,7 @@ import pandas as pd
 from pathlib import Path
 
 # Data paths
-SCRIPT_DIR = Path(__file__).parent
+SCRIPT_DIR = Path(__file__).parent.parent  # Go up one level from utils/ to project root
 DATA_PATH = SCRIPT_DIR / "opta_pipeline" / "data" / "result"
 
 COMPETITIONS = {

@@ -8,8 +8,8 @@ from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
-from config import COLORS
-from data_utils import get_all_barcelona_players, get_player_stats, get_player_match_stats
+from utils.config import COLORS
+from utils.data_utils import get_all_barcelona_players, get_player_stats, get_player_match_stats
 
 
 def create_stat_card(value, label, color=None):

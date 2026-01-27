@@ -22,7 +22,7 @@ import subprocess
 import threading
 import os
 
-from config import COLORS, APP_CONFIG, NAV_LINKS
+from utils.config import COLORS, APP_CONFIG, NAV_LINKS
 from pages import (
     create_home_layout,
     create_match_analysis_layout,

@@ -5,8 +5,8 @@ Displays season statistics, recent matches, top scorers, and squad statistics
 
 from dash import html, dash_table
 import dash_bootstrap_components as dbc
-from config import COLORS
-from data_utils import (
+from utils.config import COLORS
+from utils.data_utils import (
     get_match_results, get_player_stats, get_season_summary, get_top_scorers
 )
 

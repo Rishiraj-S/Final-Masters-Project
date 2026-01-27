@@ -13,8 +13,8 @@ import plotly.graph_objects as go
 import subprocess
 import threading
 import os
-from config import COLORS, APP_CONFIG, NAV_LINKS
-from data_utils import (
+from .config import COLORS, APP_CONFIG, NAV_LINKS
+from .data_utils import (
     get_match_results, get_player_stats, get_season_summary,
     get_top_scorers, get_match_stats, get_match_events_timeline,
     get_all_barcelona_players, get_player_match_stats, get_all_events
@@ -625,7 +625,8 @@ def handle_database_update(n_clicks, n_intervals, current_status):
     if trigger_id == 'update-db-button' and n_clicks:
         # Start the database update process
         def run_pipeline():
-            script_dir = os.path.dirname(os.path.abspath(__file__))
+            # Go up one level from utils/ to project root
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             pipeline_path = os.path.join(script_dir, 'opta_pipeline', 'main.py')
             subprocess.run(['python', pipeline_path], cwd=script_dir)
 
