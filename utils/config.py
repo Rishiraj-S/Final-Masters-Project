@@ -43,6 +43,7 @@ LOGO_CONFIG = {
 NAV_LINKS = [
     {'label': 'Home', 'href': '/'},
     {'label': 'Match Analysis', 'href': '/match-analysis'},
+    {'label': 'Post-Match Analysis', 'href': '/post-match-analysis'},
     {'label': 'Team Insights', 'href': '/team-insights'}
 ]
 
