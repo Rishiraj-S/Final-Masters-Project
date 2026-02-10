@@ -28,7 +28,9 @@ from pages import (
     create_match_analysis_layout,
     register_match_analysis_callbacks,
     create_team_insights_layout,
-    register_team_insights_callbacks
+    register_team_insights_callbacks,
+    create_post_match_analysis_layout,
+    register_post_match_analysis_callbacks,
 )
 
 # User credentials
@@ -362,6 +364,8 @@ def update_main_container(session_data, pathname, update_status):
         page_content = create_match_analysis_layout()
     elif pathname == '/team-insights':
         page_content = create_team_insights_layout()
+    elif pathname == '/post-match-analysis':
+        page_content = create_post_match_analysis_layout()
     else:
         page_content = create_home_layout(is_admin)
         pathname = '/'
@@ -473,6 +477,7 @@ def handle_database_update(n_clicks, n_intervals, current_status):
 # Register callbacks from page modules
 register_match_analysis_callbacks(app)
 register_team_insights_callbacks(app)
+register_post_match_analysis_callbacks(app)
 
 
 # =============================================================================
@@ -491,6 +496,7 @@ if __name__ == '__main__':
     print("\n  Pages:")
     print("    - Home (Season Overview)")
     print("    - Match Analysis")
+    print("    - Post-Match Analysis (Phase-Based)")
     print("    - Team Insights")
     print("="*60 + "\n")
 
