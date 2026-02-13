@@ -43,7 +43,8 @@ LOGO_CONFIG = {
 NAV_LINKS = [
     {'label': 'Home', 'href': '/'},
     {'label': 'Match Analysis', 'href': '/match-analysis'},
-    {'label': 'Team Insights', 'href': '/team-insights'}
+    {'label': 'Player Analysis', 'href': '/player-analysis'},
+    {'label': 'Opposition Analysis', 'href': '/opposition-analysis'}
 ]
 
 # Feature Cards Configuration

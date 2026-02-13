@@ -21,7 +21,7 @@ from .shared import (
     CHART_LAYOUT_DEFAULTS, CHART_CONFIG,
     HOME_COLOR, AWAY_COLOR, GOLD,
     empty_fig, section_card, kpi_row,
-    add_pitch_shapes_full,
+    add_pitch_background, PITCH_AXIS_FULL,
 )
 
 
@@ -46,7 +46,7 @@ def _build_transition_map(sequences, title):
     origins_df = pd.DataFrame(origins)
 
     fig = go.Figure()
-    add_pitch_shapes_full(fig)
+    add_pitch_background(fig)
 
     fig.add_trace(go.Scatter(
         x=origins_df['x'], y=origins_df['y'],
@@ -61,10 +61,7 @@ def _build_transition_map(sequences, title):
     fig.update_layout(
         **CHART_LAYOUT_DEFAULTS, height=350,
         title=dict(text=title, font=dict(size=13, color=GOLD)),
-        xaxis=dict(range=[-1, 101], showgrid=False, zeroline=False,
-                   showticklabels=False, fixedrange=True),
-        yaxis=dict(range=[-1, 101], showgrid=False, zeroline=False,
-                   showticklabels=False, scaleanchor='x', fixedrange=True),
+        **PITCH_AXIS_FULL,
     )
     return fig
 

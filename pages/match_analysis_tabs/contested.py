@@ -21,7 +21,7 @@ from .shared import (
     CHART_LAYOUT_DEFAULTS, CHART_CONFIG,
     HOME_COLOR, AWAY_COLOR, GOLD,
     empty_fig, section_card, kpi_row,
-    add_pitch_shapes_full,
+    add_pitch_background, PITCH_AXIS_FULL,
 )
 
 
@@ -33,7 +33,7 @@ def _build_contested_map(contested_df, title):
         return empty_fig(f"No coordinates for {title.lower()}")
 
     fig = go.Figure()
-    add_pitch_shapes_full(fig)
+    add_pitch_background(fig)
 
     for team_code, color, name in [('BAR', HOME_COLOR, 'Barcelona')]:
         team = (contested_df[contested_df['team_code'] == team_code]
@@ -57,10 +57,7 @@ def _build_contested_map(contested_df, title):
     fig.update_layout(
         **CHART_LAYOUT_DEFAULTS, height=350,
         title=dict(text=title, font=dict(size=13, color=GOLD)),
-        xaxis=dict(range=[-1, 101], showgrid=False, zeroline=False,
-                   showticklabels=False, fixedrange=True),
-        yaxis=dict(range=[-1, 101], showgrid=False, zeroline=False,
-                   showticklabels=False, scaleanchor='x', fixedrange=True),
+        **PITCH_AXIS_FULL,
     )
     return fig
 
@@ -79,15 +76,12 @@ def _build_contested_heatmap(events_df, title):
         showscale=False,
     ))
 
-    add_pitch_shapes_full(fig)
+    add_pitch_background(fig)
 
     fig.update_layout(
         **CHART_LAYOUT_DEFAULTS, height=400,
         title=dict(text=title, font=dict(size=13, color=GOLD)),
-        xaxis=dict(range=[-1, 101], showgrid=False, zeroline=False,
-                   showticklabels=False, fixedrange=True),
-        yaxis=dict(range=[-1, 101], showgrid=False, zeroline=False,
-                   showticklabels=False, scaleanchor='x', fixedrange=True),
+        **PITCH_AXIS_FULL,
     )
     return fig
 

@@ -24,7 +24,7 @@ from .shared import (
     CHART_LAYOUT_DEFAULTS, CHART_CONFIG,
     HOME_COLOR, AWAY_COLOR, GOLD,
     empty_fig, section_card,
-    add_pitch_shapes_half,
+    add_pitch_background, PITCH_AXIS_HALF,
 )
 
 
@@ -140,7 +140,7 @@ def _build_shot_map(events, home_team, away_team):
         return empty_fig("No shot coordinate data available")
 
     fig = go.Figure()
-    add_pitch_shapes_half(fig)
+    add_pitch_background(fig, half=True)
 
     for team_pos, color, name in [('home', HOME_COLOR, home_team),
                                    ('away', AWAY_COLOR, away_team)]:
@@ -165,10 +165,7 @@ def _build_shot_map(events, home_team, away_team):
 
     fig.update_layout(
         **CHART_LAYOUT_DEFAULTS, height=400, showlegend=True,
-        xaxis=dict(range=[49, 101], showgrid=False, zeroline=False,
-                   showticklabels=False, fixedrange=True),
-        yaxis=dict(range=[-1, 101], showgrid=False, zeroline=False,
-                   showticklabels=False, scaleanchor='x', fixedrange=True),
+        **PITCH_AXIS_HALF,
     )
     return fig
 

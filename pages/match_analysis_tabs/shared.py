@@ -1,7 +1,17 @@
 """
 Shared constants, helpers, and pitch-drawing utilities used across all
 match analysis tabs.
+
+Pitch backgrounds are generated using the mplsoccer library (same approach
+as utils/interactive_pitch_visualization.py) and cached for performance.
 """
+
+import matplotlib
+matplotlib.use('Agg')  # non-interactive backend for server use
+import matplotlib.pyplot as plt
+from mplsoccer import Pitch
+import io
+import base64
 
 from dash import html, dcc
 import dash_bootstrap_components as dbc
@@ -88,48 +98,83 @@ def kpi_row(kpis: dict, columns: list, colors: dict = None):
 
 
 # =============================================================================
-# Pitch drawing helpers
+# mplsoccer grass pitch background (cached)
 # =============================================================================
 
-def add_pitch_shapes_half(fig):
-    """Add half-pitch markings as Plotly shapes."""
-    line_color = 'rgba(255,255,255,0.3)'
-    lw = 1
-
-    shapes = [
-        dict(type='rect', x0=50, y0=0, x1=100, y1=100,
-             line=dict(color=line_color, width=lw)),
-        dict(type='rect', x0=83, y0=21.1, x1=100, y1=78.9,
-             line=dict(color=line_color, width=lw)),
-        dict(type='rect', x0=94.2, y0=36.8, x1=100, y1=63.2,
-             line=dict(color=line_color, width=lw)),
-        dict(type='circle', x0=87.5, y0=49, x1=88.5, y1=51,
-             line=dict(color=line_color, width=lw)),
-        dict(type='circle', x0=40, y0=40, x1=60, y1=60,
-             line=dict(color=line_color, width=lw)),
-    ]
-
-    for s in shapes:
-        s['fillcolor'] = 'rgba(0,0,0,0)'
-        fig.add_shape(**s)
+_PITCH_CACHE: dict[str, str] = {}
 
 
-def add_pitch_shapes_full(fig):
-    """Add full pitch markings as Plotly shapes."""
-    line_color = 'rgba(255,255,255,0.3)'
-    lw = 1
+def _generate_pitch_image(half: bool = False) -> str:
+    """Generate a grass pitch PNG via mplsoccer and return as base64 string."""
+    key = 'half' if half else 'full'
+    if key in _PITCH_CACHE:
+        return _PITCH_CACHE[key]
 
-    shapes = [
-        dict(type='rect', x0=0, y0=0, x1=100, y1=100),
-        dict(type='line', x0=50, y0=0, x1=50, y1=100),
-        dict(type='circle', x0=40, y0=40, x1=60, y1=60),
-        dict(type='rect', x0=0, y0=21.1, x1=17, y1=78.9),
-        dict(type='rect', x0=83, y0=21.1, x1=100, y1=78.9),
-        dict(type='rect', x0=0, y0=36.8, x1=5.8, y1=63.2),
-        dict(type='rect', x0=94.2, y0=36.8, x1=100, y1=63.2),
-    ]
+    pitch_kwargs = dict(
+        pitch_type='opta',
+        pitch_color='grass',
+        line_color='white',
+        stripe=True,
+        goal_type='box',
+        goal_alpha=0.8,
+        pad_top=2,
+        pad_bottom=2,
+    )
+    if half:
+        pitch_kwargs.update(half=True, pad_left=2, pad_right=5)
+    else:
+        pitch_kwargs.update(pad_left=5, pad_right=5)
 
-    for s in shapes:
-        s['line'] = dict(color=line_color, width=lw)
-        s['fillcolor'] = 'rgba(0,0,0,0)'
-        fig.add_shape(**s)
+    pitch = Pitch(**pitch_kwargs)
+    fig_mpl, _ = pitch.draw(figsize=(15, 10))
+
+    buf = io.BytesIO()
+    fig_mpl.savefig(buf, format='png', dpi=100, bbox_inches='tight', pad_inches=0)
+    buf.seek(0)
+    _PITCH_CACHE[key] = base64.b64encode(buf.read()).decode()
+    plt.close(fig_mpl)
+
+    return _PITCH_CACHE[key]
+
+
+def add_pitch_background(fig: go.Figure, half: bool = False) -> None:
+    """
+    Add a mplsoccer grass pitch as a background image to a Plotly figure.
+
+    Coordinate system matches Opta (0-100 for both axes). The image includes
+    padding for goal posts.
+    """
+    img = _generate_pitch_image(half=half)
+
+    if half:
+        # Half pitch covers x: 48..105, y: -2..102
+        fig.add_layout_image(dict(
+            source=f'data:image/png;base64,{img}',
+            xref='x', yref='y',
+            x=48, y=102, sizex=57, sizey=104,
+            sizing='stretch', opacity=1, layer='below',
+        ))
+    else:
+        # Full pitch covers x: -5..105, y: -2..102
+        fig.add_layout_image(dict(
+            source=f'data:image/png;base64,{img}',
+            xref='x', yref='y',
+            x=-5, y=102, sizex=110, sizey=104,
+            sizing='stretch', opacity=1, layer='below',
+        ))
+
+
+# Pre-built axis dicts that match the pitch background dimensions
+PITCH_AXIS_FULL = dict(
+    xaxis=dict(range=[-5, 105], showgrid=False, zeroline=False,
+               showticklabels=False, fixedrange=True),
+    yaxis=dict(range=[-2, 102], showgrid=False, zeroline=False,
+               showticklabels=False, scaleanchor='x', fixedrange=True),
+)
+
+PITCH_AXIS_HALF = dict(
+    xaxis=dict(range=[48, 105], showgrid=False, zeroline=False,
+               showticklabels=False, fixedrange=True),
+    yaxis=dict(range=[-2, 102], showgrid=False, zeroline=False,
+               showticklabels=False, scaleanchor='x', fixedrange=True),
+)

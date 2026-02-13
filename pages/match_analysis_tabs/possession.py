@@ -22,7 +22,7 @@ from .shared import (
     CHART_LAYOUT_DEFAULTS, CHART_CONFIG,
     HOME_COLOR, AWAY_COLOR, GOLD,
     empty_fig, section_card, kpi_row,
-    add_pitch_shapes_half, add_pitch_shapes_full,
+    add_pitch_background, PITCH_AXIS_FULL, PITCH_AXIS_HALF,
 )
 
 
@@ -44,15 +44,12 @@ def _build_phase_action_map(tagged_events, phase, title):
         showscale=False,
     ))
 
-    add_pitch_shapes_full(fig)
+    add_pitch_background(fig)
 
     fig.update_layout(
         **CHART_LAYOUT_DEFAULTS, height=300,
         title=dict(text=title, font=dict(size=13, color=GOLD)),
-        xaxis=dict(range=[-1, 101], showgrid=False, zeroline=False,
-                   showticklabels=False, fixedrange=True),
-        yaxis=dict(range=[-1, 101], showgrid=False, zeroline=False,
-                   showticklabels=False, scaleanchor='x', fixedrange=True),
+        **PITCH_AXIS_FULL,
     )
     return fig
 
@@ -67,7 +64,7 @@ def _build_finishing_map(tagged_events):
         return empty_fig("No shot location data")
 
     fig = go.Figure()
-    add_pitch_shapes_half(fig)
+    add_pitch_background(fig, half=True)
 
     for evt_type, symbol, color, size in [
         ('Goal', 'star', '#28a745', 18),
@@ -89,10 +86,7 @@ def _build_finishing_map(tagged_events):
 
     fig.update_layout(
         **CHART_LAYOUT_DEFAULTS, height=300,
-        xaxis=dict(range=[49, 101], showgrid=False, zeroline=False,
-                   showticklabels=False, fixedrange=True),
-        yaxis=dict(range=[-1, 101], showgrid=False, zeroline=False,
-                   showticklabels=False, scaleanchor='x', fixedrange=True),
+        **PITCH_AXIS_HALF,
     )
     return fig
 

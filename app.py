@@ -11,7 +11,8 @@ This is the main entry point for the application. It handles:
 Individual pages are organized in the pages/ directory:
 - pages/home.py: Season Overview
 - pages/match_analysis.py: Match Analysis (phase-based post-match analysis)
-- pages/team_insights.py: Team Insights
+- pages/team_insights.py: Player Analysis
+- pages/opposition_analysis.py: Opposition Analysis
 """
 
 import dash
@@ -25,10 +26,9 @@ import os
 from utils.config import COLORS, APP_CONFIG, NAV_LINKS
 from pages import (
     create_home_layout,
-    create_match_analysis_layout,
     register_match_analysis_callbacks,
-    create_team_insights_layout,
     register_team_insights_callbacks,
+    register_opposition_analysis_callbacks,
 )
 
 # User credentials
@@ -310,6 +310,38 @@ def create_update_overlay():
     ], className="update-overlay", id='update-overlay')
 
 
+_PAGE_TITLES = {
+    '/match-analysis': 'Match Analysis',
+    '/player-analysis': 'Player Analysis',
+    '/opposition-analysis': 'Opposition Analysis',
+}
+
+
+def _create_under_development_layout(pathname):
+    """Create a placeholder page for tabs that are under development."""
+    title = _PAGE_TITLES.get(pathname, 'Page')
+    return dbc.Container([
+        dbc.Row([
+            dbc.Col([
+                html.H2(title, style={'color': COLORS['gold']}),
+            ])
+        ], className="mb-4"),
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H4("Under Development", className="text-center",
+                                style={'color': COLORS['text_primary']}),
+                        html.P(f"{title} features are currently under development.",
+                               className="text-center",
+                               style={'color': COLORS['text_secondary']})
+                    ])
+                ])
+            ])
+        ])
+    ], fluid=True)
+
+
 # =============================================================================
 # Main App Layout
 # =============================================================================
@@ -358,10 +390,8 @@ def update_main_container(session_data, pathname, update_status):
     navbar = create_navbar(user_info)
 
     # Determine which page to show based on URL
-    if pathname == '/match-analysis':
-        page_content = create_match_analysis_layout()
-    elif pathname == '/team-insights':
-        page_content = create_team_insights_layout()
+    if pathname in ('/match-analysis', '/player-analysis', '/opposition-analysis'):
+        page_content = _create_under_development_layout(pathname)
     else:
         page_content = create_home_layout(is_admin)
         pathname = '/'
@@ -473,6 +503,7 @@ def handle_database_update(n_clicks, n_intervals, current_status):
 # Register callbacks from page modules
 register_match_analysis_callbacks(app)
 register_team_insights_callbacks(app)
+register_opposition_analysis_callbacks(app)
 
 
 # =============================================================================

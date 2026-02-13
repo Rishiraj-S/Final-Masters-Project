@@ -1643,3 +1643,1431 @@ Stacktrace:
 2026-02-05 13:21:21,037 - OptaPipeline - INFO - ❌ Failed: 0/4
 2026-02-05 13:21:21,037 - OptaPipeline - INFO - Match parquets: 35
 2026-02-05 13:21:21,037 - OptaPipeline - INFO - Event parquets: 35
+2026-02-13 15:42:25,931 - OptaPipeline - INFO - ================================================================================
+2026-02-13 15:42:25,932 - OptaPipeline - INFO - 🚀 OPTA PIPELINE - MULTI-COMPETITION MODE
+2026-02-13 15:42:25,932 - OptaPipeline - INFO - ================================================================================
+2026-02-13 15:42:25,932 - OptaPipeline - INFO - 📊 Processing 4 competition(s):
+2026-02-13 15:42:25,932 - OptaPipeline - INFO -    • Spain_Copa_del_Rey (2025-2026)
+2026-02-13 15:42:25,932 - OptaPipeline - INFO -    • Spain_Primera_Division (2025-2026)
+2026-02-13 15:42:25,932 - OptaPipeline - INFO -    • Spain_Super_Cup (2025-2026)
+2026-02-13 15:42:25,932 - OptaPipeline - INFO -    • UEFA_Champions_League (2025-2026)
+2026-02-13 15:42:25,932 - OptaPipeline - INFO - ================================================================================
+2026-02-13 15:42:25,932 - OptaPipeline - INFO - 🏆 COMPETITION 1/4: Spain_Copa_del_Rey
+2026-02-13 15:42:25,932 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-02-13 15:42:25,932 - OptaPipeline - INFO - ================================================================================
+2026-02-13 15:42:25,932 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-02-13 15:42:25,932 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/copa-del-rey-2025-2026/3lmujqli8r9m12i28wgjxnnys/results
+2026-02-13 15:42:25,932 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-02-13 15:43:58,113 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.485
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x0000000102cdb928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000102cd3c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x00000001027b683c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x00000001027a0cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x00000001027a0a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x000000010279e620 chromedriver + 222752
+6   chromedriver                        0x000000010279f214 chromedriver + 225812
+7   chromedriver                        0x00000001027acbc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x00000001027c3508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x000000010279f880 chromedriver + 227456
+10  chromedriver                        0x00000001027c32d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x000000010283f2f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x00000001027f407c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x0000000102c9a884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000102c9dfcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000102c7f578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000102c9e850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000102c6f640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000102cc2194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000102cc2310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x0000000102cd385c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+Traceback (most recent call last):
+  File "/Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/modules/scraper.py", line 181, in scrape_matches
+    driver.get(results_url)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 357, in get
+    self.execute(Command.GET, {"url": url})
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 348, in execute
+    self.error_handler.check_response(response)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/errorhandler.py", line 229, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: timeout: Timed out receiving message from renderer: 83.485
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x0000000102cdb928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000102cd3c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x00000001027b683c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x00000001027a0cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x00000001027a0a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x000000010279e620 chromedriver + 222752
+6   chromedriver                        0x000000010279f214 chromedriver + 225812
+7   chromedriver                        0x00000001027acbc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x00000001027c3508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x000000010279f880 chromedriver + 227456
+10  chromedriver                        0x00000001027c32d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x000000010283f2f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x00000001027f407c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x0000000102c9a884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000102c9dfcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000102c7f578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000102c9e850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000102c6f640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000102cc2194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000102cc2310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x0000000102cd385c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 15:43:58,227 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.485
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x0000000102cdb928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000102cd3c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x00000001027b683c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x00000001027a0cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x00000001027a0a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x000000010279e620 chromedriver + 222752
+6   chromedriver                        0x000000010279f214 chromedriver + 225812
+7   chromedriver                        0x00000001027acbc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x00000001027c3508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x000000010279f880 chromedriver + 227456
+10  chromedriver                        0x00000001027c32d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x000000010283f2f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x00000001027f407c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x0000000102c9a884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000102c9dfcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000102c7f578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000102c9e850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000102c6f640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000102cc2194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000102cc2310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x0000000102cd385c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 15:43:58,228 - OptaPipeline - INFO - 💡 Continuing with existing data...
+2026-02-13 15:43:58,228 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-02-13 15:43:58,231 - OptaPipeline - INFO - [1/3] Match: 433pzlem1yzj0ac0mg58m4x04
+2026-02-13 15:43:58,231 - OptaPipeline - INFO -    ⏭️  Already exists: 433pzlem1yzj0ac0mg58m4x04
+2026-02-13 15:43:58,231 - OptaPipeline - INFO - [2/3] Match: 62gdakw1aqqhoomsor9xrhg4
+2026-02-13 15:43:58,231 - OptaPipeline - INFO -    ⏭️  Already exists: 62gdakw1aqqhoomsor9xrhg4
+2026-02-13 15:43:58,232 - OptaPipeline - INFO - [3/3] Match: 3sx6fp8e2gg1kinflvk8ejg2c
+2026-02-13 15:43:58,232 - OptaPipeline - INFO -    ⏭️  Already exists: 3sx6fp8e2gg1kinflvk8ejg2c
+2026-02-13 15:43:58,232 - OptaPipeline - INFO - 📊 Downloaded: 3, Skipped: 0
+2026-02-13 15:43:58,232 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-02-13 15:43:58,232 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-02-13 15:43:58,232 - OptaPipeline - INFO - 🔄 Found 3 matchdata files
+2026-02-13 15:43:58,232 - OptaPipeline - INFO - 
+[1/3] Processing: 3sx6fp8e2gg1kinflvk8ejg2c
+2026-02-13 15:43:58,263 - OptaPipeline - INFO -    ✅ match: 2025-12-16_GUA_vs_BAR_3sx6fp8e2gg1kinflvk8ejg2c.parquet
+2026-02-13 15:43:58,264 - OptaPipeline - INFO - 
+[2/3] Processing: 433pzlem1yzj0ac0mg58m4x04
+2026-02-13 15:43:58,272 - OptaPipeline - INFO -    ✅ match: 2026-02-03_ALB_vs_BAR_433pzlem1yzj0ac0mg58m4x04.parquet
+2026-02-13 15:43:58,272 - OptaPipeline - INFO - 
+[3/3] Processing: 62gdakw1aqqhoomsor9xrhg4
+2026-02-13 15:43:58,281 - OptaPipeline - INFO -    ✅ match: 2026-01-15_RAC_vs_BAR_62gdakw1aqqhoomsor9xrhg4.parquet
+2026-02-13 15:43:58,282 - OptaPipeline - INFO - 
+✅ Transformed 3/3 match files
+2026-02-13 15:43:58,282 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-02-13 15:43:58,284 - OptaPipeline - INFO - 🔄 Found 3 matchdata files
+2026-02-13 15:43:58,284 - OptaPipeline - INFO - 
+[1/3] Processing: 3sx6fp8e2gg1kinflvk8ejg2c
+2026-02-13 15:43:58,735 - OptaPipeline - INFO -    ✅ match_event: 2025-12-16_GUA_vs_BAR_3sx6fp8e2gg1kinflvk8ejg2c.parquet (1704 events)
+2026-02-13 15:43:58,736 - OptaPipeline - INFO - 
+[2/3] Processing: 433pzlem1yzj0ac0mg58m4x04
+2026-02-13 15:43:59,190 - OptaPipeline - INFO -    ✅ match_event: 2026-02-03_ALB_vs_BAR_433pzlem1yzj0ac0mg58m4x04.parquet (1698 events)
+2026-02-13 15:43:59,191 - OptaPipeline - INFO - 
+[3/3] Processing: 62gdakw1aqqhoomsor9xrhg4
+2026-02-13 15:43:59,675 - OptaPipeline - INFO -    ✅ match_event: 2026-01-15_RAC_vs_BAR_62gdakw1aqqhoomsor9xrhg4.parquet (1762 events)
+2026-02-13 15:43:59,677 - OptaPipeline - INFO - 
+✅ Transformed 3/3 match events
+2026-02-13 15:43:59,677 - OptaPipeline - INFO - ================================================================================
+2026-02-13 15:43:59,677 - OptaPipeline - INFO - 🏆 COMPETITION 2/4: Spain_Primera_Division
+2026-02-13 15:43:59,677 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-02-13 15:43:59,677 - OptaPipeline - INFO - ================================================================================
+2026-02-13 15:43:59,677 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-02-13 15:43:59,677 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/primera-divisi%C3%B3n-2025-2026/80zg2v1cuqcfhphn56u4qpyqc/results
+2026-02-13 15:43:59,677 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-02-13 15:45:30,923 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.834
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x000000010137f928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000101377c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x0000000100e5a83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000100e44cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000100e44a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x0000000100e42620 chromedriver + 222752
+6   chromedriver                        0x0000000100e43214 chromedriver + 225812
+7   chromedriver                        0x0000000100e50bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x0000000100e67508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x0000000100e43880 chromedriver + 227456
+10  chromedriver                        0x0000000100e672d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x0000000100ee32f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x0000000100e9807c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x000000010133e884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000101341fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000101323578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000101342850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000101313640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000101366194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000101366310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x000000010137785c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+Traceback (most recent call last):
+  File "/Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/modules/scraper.py", line 181, in scrape_matches
+    driver.get(results_url)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 357, in get
+    self.execute(Command.GET, {"url": url})
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 348, in execute
+    self.error_handler.check_response(response)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/errorhandler.py", line 229, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: timeout: Timed out receiving message from renderer: 83.834
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x000000010137f928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000101377c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x0000000100e5a83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000100e44cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000100e44a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x0000000100e42620 chromedriver + 222752
+6   chromedriver                        0x0000000100e43214 chromedriver + 225812
+7   chromedriver                        0x0000000100e50bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x0000000100e67508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x0000000100e43880 chromedriver + 227456
+10  chromedriver                        0x0000000100e672d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x0000000100ee32f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x0000000100e9807c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x000000010133e884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000101341fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000101323578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000101342850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000101313640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000101366194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000101366310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x000000010137785c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 15:45:31,029 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.834
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x000000010137f928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000101377c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x0000000100e5a83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000100e44cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000100e44a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x0000000100e42620 chromedriver + 222752
+6   chromedriver                        0x0000000100e43214 chromedriver + 225812
+7   chromedriver                        0x0000000100e50bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x0000000100e67508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x0000000100e43880 chromedriver + 227456
+10  chromedriver                        0x0000000100e672d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x0000000100ee32f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x0000000100e9807c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x000000010133e884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000101341fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000101323578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000101342850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000101313640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000101366194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000101366310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x000000010137785c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 15:45:31,030 - OptaPipeline - INFO - 💡 Continuing with existing data...
+2026-02-13 15:45:31,030 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-02-13 15:45:31,032 - OptaPipeline - INFO - [1/22] Match: 26p4gv6nxij3gqaoea17rxct0
+2026-02-13 15:45:31,032 - OptaPipeline - INFO -    ⏭️  Already exists: 26p4gv6nxij3gqaoea17rxct0
+2026-02-13 15:45:31,032 - OptaPipeline - INFO - [2/22] Match: 257ci0bd6g6l3uk1fn5a0ob2s
+2026-02-13 15:45:31,032 - OptaPipeline - INFO -    ⏭️  Already exists: 257ci0bd6g6l3uk1fn5a0ob2s
+2026-02-13 15:45:31,032 - OptaPipeline - INFO - [3/22] Match: 20boml0nnzxlvqvyy0ylfxdlg
+2026-02-13 15:45:31,032 - OptaPipeline - INFO -    ⏭️  Already exists: 20boml0nnzxlvqvyy0ylfxdlg
+2026-02-13 15:45:31,032 - OptaPipeline - INFO - [4/22] Match: 1v9qqviahmnia4ewmzd4aejv8
+2026-02-13 15:45:31,033 - OptaPipeline - INFO -    ⏭️  Already exists: 1v9qqviahmnia4ewmzd4aejv8
+2026-02-13 15:45:31,033 - OptaPipeline - INFO - [5/22] Match: 1rvgcgz2ftmamcay54gz2qtjo
+2026-02-13 15:45:31,033 - OptaPipeline - INFO -    ⏭️  Already exists: 1rvgcgz2ftmamcay54gz2qtjo
+2026-02-13 15:45:31,033 - OptaPipeline - INFO - [6/22] Match: 1oi5jmg0ldrmljyz46todfbpw
+2026-02-13 15:45:31,033 - OptaPipeline - INFO -    ⏭️  Already exists: 1oi5jmg0ldrmljyz46todfbpw
+2026-02-13 15:45:31,033 - OptaPipeline - INFO - [7/22] Match: 1myp00g7w796yt6ts8ojdkys4
+2026-02-13 15:45:31,033 - OptaPipeline - INFO -    ⏭️  Already exists: 1myp00g7w796yt6ts8ojdkys4
+2026-02-13 15:45:31,033 - OptaPipeline - INFO - [8/22] Match: 1gkqfp2d7qi9h6k34k3mo8zkk
+2026-02-13 15:45:31,033 - OptaPipeline - INFO -    ⏭️  Already exists: 1gkqfp2d7qi9h6k34k3mo8zkk
+2026-02-13 15:45:31,033 - OptaPipeline - INFO - [9/22] Match: 1dk2hnl09qux7z4fqn1qxq238
+2026-02-13 15:45:31,033 - OptaPipeline - INFO -    ⏭️  Already exists: 1dk2hnl09qux7z4fqn1qxq238
+2026-02-13 15:45:31,033 - OptaPipeline - INFO - [10/22] Match: 1a7radhhole7vfnciarzauq6s
+2026-02-13 15:45:31,033 - OptaPipeline - INFO -    ⏭️  Already exists: 1a7radhhole7vfnciarzauq6s
+2026-02-13 15:45:31,033 - OptaPipeline - INFO - [11/22] Match: 16t0fdut4ky4b4es7i0trovtg
+2026-02-13 15:45:31,033 - OptaPipeline - INFO -    ⏭️  Already exists: 16t0fdut4ky4b4es7i0trovtg
+2026-02-13 15:45:31,033 - OptaPipeline - INFO - [12/22] Match: 113wccwt50kebz0thqf0fxkpg
+2026-02-13 15:45:31,033 - OptaPipeline - INFO -    ⏭️  Already exists: 113wccwt50kebz0thqf0fxkpg
+2026-02-13 15:45:31,033 - OptaPipeline - INFO - [13/22] Match: ytxz0i1eppxxqupm27ktuln8
+2026-02-13 15:45:31,033 - OptaPipeline - INFO -    ⏭️  Already exists: ytxz0i1eppxxqupm27ktuln8
+2026-02-13 15:45:31,033 - OptaPipeline - INFO - [14/22] Match: txn45zihl3cp2bv3lj5rmot0
+2026-02-13 15:45:31,034 - OptaPipeline - INFO -    ⏭️  Already exists: txn45zihl3cp2bv3lj5rmot0
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - [15/22] Match: rbyhgw1kyp0ghg2qpvznvvv8
+2026-02-13 15:45:31,034 - OptaPipeline - INFO -    ⏭️  Already exists: rbyhgw1kyp0ghg2qpvznvvv8
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - [16/22] Match: mh9g8wbjyoe3ub3ouu0nnsb8
+2026-02-13 15:45:31,034 - OptaPipeline - INFO -    ⏭️  Already exists: mh9g8wbjyoe3ub3ouu0nnsb8
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - [17/22] Match: kkl8x55qltpl4g1v5260df6c
+2026-02-13 15:45:31,034 - OptaPipeline - INFO -    ⏭️  Already exists: kkl8x55qltpl4g1v5260df6c
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - [18/22] Match: ekk0usjk6blgzpziu4ho01zo
+2026-02-13 15:45:31,034 - OptaPipeline - INFO -    ⏭️  Already exists: ekk0usjk6blgzpziu4ho01zo
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - [19/22] Match: b88u5e429cnb6ng0i5t4f9jo
+2026-02-13 15:45:31,034 - OptaPipeline - INFO -    ⏭️  Already exists: b88u5e429cnb6ng0i5t4f9jo
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - [20/22] Match: a4rapcrtfjbf1vihoi65rm6s
+2026-02-13 15:45:31,034 - OptaPipeline - INFO -    ⏭️  Already exists: a4rapcrtfjbf1vihoi65rm6s
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - [21/22] Match: 5pp18hcr9ery2hv17q7q6eqc
+2026-02-13 15:45:31,034 - OptaPipeline - INFO -    ⏭️  Already exists: 5pp18hcr9ery2hv17q7q6eqc
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - [22/22] Match: 2d4xobwd1t1rd2kxlcjmqcyc
+2026-02-13 15:45:31,034 - OptaPipeline - INFO -    ⏭️  Already exists: 2d4xobwd1t1rd2kxlcjmqcyc
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - 📊 Downloaded: 22, Skipped: 0
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - 🔄 Found 22 matchdata files
+2026-02-13 15:45:31,034 - OptaPipeline - INFO - 
+[1/22] Processing: 113wccwt50kebz0thqf0fxkpg
+2026-02-13 15:45:31,045 - OptaPipeline - INFO -    ✅ match: 2025-11-02_BAR_vs_ELC_113wccwt50kebz0thqf0fxkpg.parquet
+2026-02-13 15:45:31,045 - OptaPipeline - INFO - 
+[2/22] Processing: 16t0fdut4ky4b4es7i0trovtg
+2026-02-13 15:45:31,058 - OptaPipeline - INFO -    ✅ match: 2025-11-09_CEL_vs_BAR_16t0fdut4ky4b4es7i0trovtg.parquet
+2026-02-13 15:45:31,058 - OptaPipeline - INFO - 
+[3/22] Processing: 1a7radhhole7vfnciarzauq6s
+2026-02-13 15:45:31,068 - OptaPipeline - INFO -    ✅ match: 2025-11-22_BAR_vs_ATH_1a7radhhole7vfnciarzauq6s.parquet
+2026-02-13 15:45:31,069 - OptaPipeline - INFO - 
+[4/22] Processing: 1dk2hnl09qux7z4fqn1qxq238
+2026-02-13 15:45:31,077 - OptaPipeline - INFO -    ✅ match: 2025-11-29_BAR_vs_ALA_1dk2hnl09qux7z4fqn1qxq238.parquet
+2026-02-13 15:45:31,077 - OptaPipeline - INFO - 
+[5/22] Processing: 1gkqfp2d7qi9h6k34k3mo8zkk
+2026-02-13 15:45:31,085 - OptaPipeline - INFO -    ✅ match: 2025-12-06_BET_vs_BAR_1gkqfp2d7qi9h6k34k3mo8zkk.parquet
+2026-02-13 15:45:31,085 - OptaPipeline - INFO - 
+[6/22] Processing: 1myp00g7w796yt6ts8ojdkys4
+2026-02-13 15:45:31,093 - OptaPipeline - INFO -    ✅ match: 2025-12-13_BAR_vs_OSA_1myp00g7w796yt6ts8ojdkys4.parquet
+2026-02-13 15:45:31,093 - OptaPipeline - INFO - 
+[7/22] Processing: 1oi5jmg0ldrmljyz46todfbpw
+2026-02-13 15:45:31,101 - OptaPipeline - INFO -    ✅ match: 2025-12-21_VIL_vs_BAR_1oi5jmg0ldrmljyz46todfbpw.parquet
+2026-02-13 15:45:31,101 - OptaPipeline - INFO - 
+[8/22] Processing: 1rvgcgz2ftmamcay54gz2qtjo
+2026-02-13 15:45:31,109 - OptaPipeline - INFO -    ✅ match: 2026-01-03_ESP_vs_BAR_1rvgcgz2ftmamcay54gz2qtjo.parquet
+2026-02-13 15:45:31,109 - OptaPipeline - INFO - 
+[9/22] Processing: 1v9qqviahmnia4ewmzd4aejv8
+2026-02-13 15:45:31,119 - OptaPipeline - INFO -    ✅ match: 2025-12-02_BAR_vs_ATM_1v9qqviahmnia4ewmzd4aejv8.parquet
+2026-02-13 15:45:31,119 - OptaPipeline - INFO - 
+[10/22] Processing: 20boml0nnzxlvqvyy0ylfxdlg
+2026-02-13 15:45:31,128 - OptaPipeline - INFO -    ✅ match: 2026-01-18_RSO_vs_BAR_20boml0nnzxlvqvyy0ylfxdlg.parquet
+2026-02-13 15:45:31,128 - OptaPipeline - INFO - 
+[11/22] Processing: 257ci0bd6g6l3uk1fn5a0ob2s
+2026-02-13 15:45:31,149 - OptaPipeline - INFO -    ✅ match: 2026-01-25_BAR_vs_OVI_257ci0bd6g6l3uk1fn5a0ob2s.parquet
+2026-02-13 15:45:31,149 - OptaPipeline - INFO - 
+[12/22] Processing: 26p4gv6nxij3gqaoea17rxct0
+2026-02-13 15:45:31,157 - OptaPipeline - INFO -    ✅ match: 2026-01-31_ELC_vs_BAR_26p4gv6nxij3gqaoea17rxct0.parquet
+2026-02-13 15:45:31,157 - OptaPipeline - INFO - 
+[13/22] Processing: 2d4xobwd1t1rd2kxlcjmqcyc
+2026-02-13 15:45:31,164 - OptaPipeline - INFO -    ✅ match: 2025-08-16_MLL_vs_BAR_2d4xobwd1t1rd2kxlcjmqcyc.parquet
+2026-02-13 15:45:31,164 - OptaPipeline - INFO - 
+[14/22] Processing: 5pp18hcr9ery2hv17q7q6eqc
+2026-02-13 15:45:31,172 - OptaPipeline - INFO -    ✅ match: 2025-08-23_LEV_vs_BAR_5pp18hcr9ery2hv17q7q6eqc.parquet
+2026-02-13 15:45:31,172 - OptaPipeline - INFO - 
+[15/22] Processing: a4rapcrtfjbf1vihoi65rm6s
+2026-02-13 15:45:31,180 - OptaPipeline - INFO -    ✅ match: 2025-08-31_RAY_vs_BAR_a4rapcrtfjbf1vihoi65rm6s.parquet
+2026-02-13 15:45:31,181 - OptaPipeline - INFO - 
+[16/22] Processing: b88u5e429cnb6ng0i5t4f9jo
+2026-02-13 15:45:31,188 - OptaPipeline - INFO -    ✅ match: 2025-09-14_BAR_vs_VAL_b88u5e429cnb6ng0i5t4f9jo.parquet
+2026-02-13 15:45:31,188 - OptaPipeline - INFO - 
+[17/22] Processing: ekk0usjk6blgzpziu4ho01zo
+2026-02-13 15:45:31,196 - OptaPipeline - INFO -    ✅ match: 2025-09-21_BAR_vs_GET_ekk0usjk6blgzpziu4ho01zo.parquet
+2026-02-13 15:45:31,196 - OptaPipeline - INFO - 
+[18/22] Processing: kkl8x55qltpl4g1v5260df6c
+2026-02-13 15:45:31,205 - OptaPipeline - INFO -    ✅ match: 2025-09-25_OVI_vs_BAR_kkl8x55qltpl4g1v5260df6c.parquet
+2026-02-13 15:45:31,205 - OptaPipeline - INFO - 
+[19/22] Processing: mh9g8wbjyoe3ub3ouu0nnsb8
+2026-02-13 15:45:31,214 - OptaPipeline - INFO -    ✅ match: 2025-09-28_BAR_vs_RSO_mh9g8wbjyoe3ub3ouu0nnsb8.parquet
+2026-02-13 15:45:31,214 - OptaPipeline - INFO - 
+[20/22] Processing: rbyhgw1kyp0ghg2qpvznvvv8
+2026-02-13 15:45:31,222 - OptaPipeline - INFO -    ✅ match: 2025-10-05_SEV_vs_BAR_rbyhgw1kyp0ghg2qpvznvvv8.parquet
+2026-02-13 15:45:31,222 - OptaPipeline - INFO - 
+[21/22] Processing: txn45zihl3cp2bv3lj5rmot0
+2026-02-13 15:45:31,231 - OptaPipeline - INFO -    ✅ match: 2025-10-18_BAR_vs_GIR_txn45zihl3cp2bv3lj5rmot0.parquet
+2026-02-13 15:45:31,231 - OptaPipeline - INFO - 
+[22/22] Processing: ytxz0i1eppxxqupm27ktuln8
+2026-02-13 15:45:31,240 - OptaPipeline - INFO -    ✅ match: 2025-10-26_RMA_vs_BAR_ytxz0i1eppxxqupm27ktuln8.parquet
+2026-02-13 15:45:31,241 - OptaPipeline - INFO - 
+✅ Transformed 22/22 match files
+2026-02-13 15:45:31,241 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-02-13 15:45:31,242 - OptaPipeline - INFO - 🔄 Found 22 matchdata files
+2026-02-13 15:45:31,242 - OptaPipeline - INFO - 
+[1/22] Processing: 113wccwt50kebz0thqf0fxkpg
+2026-02-13 15:45:31,733 - OptaPipeline - INFO -    ✅ match_event: 2025-11-02_BAR_vs_ELC_113wccwt50kebz0thqf0fxkpg.parquet (1627 events)
+2026-02-13 15:45:31,735 - OptaPipeline - INFO - 
+[2/22] Processing: 16t0fdut4ky4b4es7i0trovtg
+2026-02-13 15:45:32,258 - OptaPipeline - INFO -    ✅ match_event: 2025-11-09_CEL_vs_BAR_16t0fdut4ky4b4es7i0trovtg.parquet (1918 events)
+2026-02-13 15:45:32,260 - OptaPipeline - INFO - 
+[3/22] Processing: 1a7radhhole7vfnciarzauq6s
+2026-02-13 15:45:32,746 - OptaPipeline - INFO -    ✅ match_event: 2025-11-22_BAR_vs_ATH_1a7radhhole7vfnciarzauq6s.parquet (1793 events)
+2026-02-13 15:45:32,747 - OptaPipeline - INFO - 
+[4/22] Processing: 1dk2hnl09qux7z4fqn1qxq238
+2026-02-13 15:45:33,242 - OptaPipeline - INFO -    ✅ match_event: 2025-11-29_BAR_vs_ALA_1dk2hnl09qux7z4fqn1qxq238.parquet (1861 events)
+2026-02-13 15:45:33,243 - OptaPipeline - INFO - 
+[5/22] Processing: 1gkqfp2d7qi9h6k34k3mo8zkk
+2026-02-13 15:45:33,718 - OptaPipeline - INFO -    ✅ match_event: 2025-12-06_BET_vs_BAR_1gkqfp2d7qi9h6k34k3mo8zkk.parquet (1775 events)
+2026-02-13 15:45:33,719 - OptaPipeline - INFO - 
+[6/22] Processing: 1myp00g7w796yt6ts8ojdkys4
+2026-02-13 15:45:34,200 - OptaPipeline - INFO -    ✅ match_event: 2025-12-13_BAR_vs_OSA_1myp00g7w796yt6ts8ojdkys4.parquet (1710 events)
+2026-02-13 15:45:34,201 - OptaPipeline - INFO - 
+[7/22] Processing: 1oi5jmg0ldrmljyz46todfbpw
+2026-02-13 15:45:34,687 - OptaPipeline - INFO -    ✅ match_event: 2025-12-21_VIL_vs_BAR_1oi5jmg0ldrmljyz46todfbpw.parquet (1769 events)
+2026-02-13 15:45:34,688 - OptaPipeline - INFO - 
+[8/22] Processing: 1rvgcgz2ftmamcay54gz2qtjo
+2026-02-13 15:45:35,109 - OptaPipeline - INFO -    ✅ match_event: 2026-01-03_ESP_vs_BAR_1rvgcgz2ftmamcay54gz2qtjo.parquet (1570 events)
+2026-02-13 15:45:35,110 - OptaPipeline - INFO - 
+[9/22] Processing: 1v9qqviahmnia4ewmzd4aejv8
+2026-02-13 15:45:35,592 - OptaPipeline - INFO -    ✅ match_event: 2025-12-02_BAR_vs_ATM_1v9qqviahmnia4ewmzd4aejv8.parquet (1824 events)
+2026-02-13 15:45:35,593 - OptaPipeline - INFO - 
+[10/22] Processing: 20boml0nnzxlvqvyy0ylfxdlg
+2026-02-13 15:45:36,053 - OptaPipeline - INFO -    ✅ match_event: 2026-01-18_RSO_vs_BAR_20boml0nnzxlvqvyy0ylfxdlg.parquet (1725 events)
+2026-02-13 15:45:36,054 - OptaPipeline - INFO - 
+[11/22] Processing: 257ci0bd6g6l3uk1fn5a0ob2s
+2026-02-13 15:45:36,525 - OptaPipeline - INFO -    ✅ match_event: 2026-01-25_BAR_vs_OVI_257ci0bd6g6l3uk1fn5a0ob2s.parquet (1784 events)
+2026-02-13 15:45:36,527 - OptaPipeline - INFO - 
+[12/22] Processing: 26p4gv6nxij3gqaoea17rxct0
+2026-02-13 15:45:36,980 - OptaPipeline - INFO -    ✅ match_event: 2026-01-31_ELC_vs_BAR_26p4gv6nxij3gqaoea17rxct0.parquet (1718 events)
+2026-02-13 15:45:36,981 - OptaPipeline - INFO - 
+[13/22] Processing: 2d4xobwd1t1rd2kxlcjmqcyc
+2026-02-13 15:45:37,393 - OptaPipeline - INFO -    ✅ match_event: 2025-08-16_MLL_vs_BAR_2d4xobwd1t1rd2kxlcjmqcyc.parquet (1500 events)
+2026-02-13 15:45:37,394 - OptaPipeline - INFO - 
+[14/22] Processing: 5pp18hcr9ery2hv17q7q6eqc
+2026-02-13 15:45:37,891 - OptaPipeline - INFO -    ✅ match_event: 2025-08-23_LEV_vs_BAR_5pp18hcr9ery2hv17q7q6eqc.parquet (1780 events)
+2026-02-13 15:45:37,893 - OptaPipeline - INFO - 
+[15/22] Processing: a4rapcrtfjbf1vihoi65rm6s
+2026-02-13 15:45:38,315 - OptaPipeline - INFO -    ✅ match_event: 2025-08-31_RAY_vs_BAR_a4rapcrtfjbf1vihoi65rm6s.parquet (1663 events)
+2026-02-13 15:45:38,316 - OptaPipeline - INFO - 
+[16/22] Processing: b88u5e429cnb6ng0i5t4f9jo
+2026-02-13 15:45:38,767 - OptaPipeline - INFO -    ✅ match_event: 2025-09-14_BAR_vs_VAL_b88u5e429cnb6ng0i5t4f9jo.parquet (1684 events)
+2026-02-13 15:45:38,768 - OptaPipeline - INFO - 
+[17/22] Processing: ekk0usjk6blgzpziu4ho01zo
+2026-02-13 15:45:39,254 - OptaPipeline - INFO -    ✅ match_event: 2025-09-21_BAR_vs_GET_ekk0usjk6blgzpziu4ho01zo.parquet (1839 events)
+2026-02-13 15:45:39,256 - OptaPipeline - INFO - 
+[18/22] Processing: kkl8x55qltpl4g1v5260df6c
+2026-02-13 15:45:39,747 - OptaPipeline - INFO -    ✅ match_event: 2025-09-25_OVI_vs_BAR_kkl8x55qltpl4g1v5260df6c.parquet (1783 events)
+2026-02-13 15:45:39,748 - OptaPipeline - INFO - 
+[19/22] Processing: mh9g8wbjyoe3ub3ouu0nnsb8
+2026-02-13 15:45:40,249 - OptaPipeline - INFO -    ✅ match_event: 2025-09-28_BAR_vs_RSO_mh9g8wbjyoe3ub3ouu0nnsb8.parquet (1794 events)
+2026-02-13 15:45:40,250 - OptaPipeline - INFO - 
+[20/22] Processing: rbyhgw1kyp0ghg2qpvznvvv8
+2026-02-13 15:45:40,653 - OptaPipeline - INFO -    ✅ match_event: 2025-10-05_SEV_vs_BAR_rbyhgw1kyp0ghg2qpvznvvv8.parquet (1523 events)
+2026-02-13 15:45:40,654 - OptaPipeline - INFO - 
+[21/22] Processing: txn45zihl3cp2bv3lj5rmot0
+2026-02-13 15:45:41,138 - OptaPipeline - INFO -    ✅ match_event: 2025-10-18_BAR_vs_GIR_txn45zihl3cp2bv3lj5rmot0.parquet (1743 events)
+2026-02-13 15:45:41,139 - OptaPipeline - INFO - 
+[22/22] Processing: ytxz0i1eppxxqupm27ktuln8
+2026-02-13 15:45:41,616 - OptaPipeline - INFO -    ✅ match_event: 2025-10-26_RMA_vs_BAR_ytxz0i1eppxxqupm27ktuln8.parquet (1783 events)
+2026-02-13 15:45:41,617 - OptaPipeline - INFO - 
+✅ Transformed 22/22 match events
+2026-02-13 15:45:41,617 - OptaPipeline - INFO - ================================================================================
+2026-02-13 15:45:41,617 - OptaPipeline - INFO - 🏆 COMPETITION 3/4: Spain_Super_Cup
+2026-02-13 15:45:41,617 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-02-13 15:45:41,617 - OptaPipeline - INFO - ================================================================================
+2026-02-13 15:45:41,617 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-02-13 15:45:41,617 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/supercopa-de-espana-2025-2026/calfow53qyurf0wi9rr96m6tw/results
+2026-02-13 15:45:41,617 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-02-13 15:48:30,019 - OptaPipeline - ERROR - ❌ Scraping failed: Message: 
+Stacktrace:
+0   chromedriver                        0x00000001032cb928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x00000001032c3c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x0000000102da683c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000102defd7c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 375360
+4   chromedriver                        0x0000000102e2efe8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634028
+5   chromedriver                        0x0000000102de407c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+6   chromedriver                        0x000000010328a884 cxxbridge1$str$ptr + 2831984
+7   chromedriver                        0x000000010328dfcc cxxbridge1$str$ptr + 2846136
+8   chromedriver                        0x000000010326f578 cxxbridge1$str$ptr + 2720612
+9   chromedriver                        0x000000010328e850 cxxbridge1$str$ptr + 2848316
+10  chromedriver                        0x000000010325f640 cxxbridge1$str$ptr + 2655276
+11  chromedriver                        0x00000001032b2194 cxxbridge1$str$ptr + 2994048
+12  chromedriver                        0x00000001032b2310 cxxbridge1$str$ptr + 2994428
+13  chromedriver                        0x00000001032c385c cxxbridge1$str$ptr + 3065416
+14  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+15  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+Traceback (most recent call last):
+  File "/Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/modules/scraper.py", line 190, in scrape_matches
+    self.wait_for_opta_widget(driver)
+  File "/Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/modules/scraper.py", line 88, in wait_for_opta_widget
+    WebDriverWait(driver, self.timeout).until(
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/support/wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+0   chromedriver                        0x00000001032cb928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x00000001032c3c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x0000000102da683c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000102defd7c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 375360
+4   chromedriver                        0x0000000102e2efe8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634028
+5   chromedriver                        0x0000000102de407c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+6   chromedriver                        0x000000010328a884 cxxbridge1$str$ptr + 2831984
+7   chromedriver                        0x000000010328dfcc cxxbridge1$str$ptr + 2846136
+8   chromedriver                        0x000000010326f578 cxxbridge1$str$ptr + 2720612
+9   chromedriver                        0x000000010328e850 cxxbridge1$str$ptr + 2848316
+10  chromedriver                        0x000000010325f640 cxxbridge1$str$ptr + 2655276
+11  chromedriver                        0x00000001032b2194 cxxbridge1$str$ptr + 2994048
+12  chromedriver                        0x00000001032b2310 cxxbridge1$str$ptr + 2994428
+13  chromedriver                        0x00000001032c385c cxxbridge1$str$ptr + 3065416
+14  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+15  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 15:48:30,162 - OptaPipeline - ERROR - ❌ Scraping failed: Message: 
+Stacktrace:
+0   chromedriver                        0x00000001032cb928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x00000001032c3c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x0000000102da683c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000102defd7c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 375360
+4   chromedriver                        0x0000000102e2efe8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634028
+5   chromedriver                        0x0000000102de407c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+6   chromedriver                        0x000000010328a884 cxxbridge1$str$ptr + 2831984
+7   chromedriver                        0x000000010328dfcc cxxbridge1$str$ptr + 2846136
+8   chromedriver                        0x000000010326f578 cxxbridge1$str$ptr + 2720612
+9   chromedriver                        0x000000010328e850 cxxbridge1$str$ptr + 2848316
+10  chromedriver                        0x000000010325f640 cxxbridge1$str$ptr + 2655276
+11  chromedriver                        0x00000001032b2194 cxxbridge1$str$ptr + 2994048
+12  chromedriver                        0x00000001032b2310 cxxbridge1$str$ptr + 2994428
+13  chromedriver                        0x00000001032c385c cxxbridge1$str$ptr + 3065416
+14  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+15  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 15:48:30,162 - OptaPipeline - INFO - 💡 Continuing with existing data...
+2026-02-13 15:48:30,163 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-02-13 15:48:30,164 - OptaPipeline - INFO - [1/2] Match: 18rkqb1lhon6ne1hdb6d15as
+2026-02-13 15:48:30,164 - OptaPipeline - INFO -    ⏭️  Already exists: 18rkqb1lhon6ne1hdb6d15as
+2026-02-13 15:48:30,164 - OptaPipeline - INFO - [2/2] Match: z5hatp2undeejhiga4xoytjo
+2026-02-13 15:48:30,164 - OptaPipeline - INFO -    ⏭️  Already exists: z5hatp2undeejhiga4xoytjo
+2026-02-13 15:48:30,164 - OptaPipeline - INFO - 📊 Downloaded: 2, Skipped: 0
+2026-02-13 15:48:30,164 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-02-13 15:48:30,164 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-02-13 15:48:30,164 - OptaPipeline - INFO - 🔄 Found 2 matchdata files
+2026-02-13 15:48:30,165 - OptaPipeline - INFO - 
+[1/2] Processing: 18rkqb1lhon6ne1hdb6d15as
+2026-02-13 15:48:30,173 - OptaPipeline - INFO -    ✅ match: 2026-01-11_BAR_vs_RMA_18rkqb1lhon6ne1hdb6d15as.parquet
+2026-02-13 15:48:30,174 - OptaPipeline - INFO - 
+[2/2] Processing: z5hatp2undeejhiga4xoytjo
+2026-02-13 15:48:30,182 - OptaPipeline - INFO -    ✅ match: 2026-01-07_BAR_vs_ATH_z5hatp2undeejhiga4xoytjo.parquet
+2026-02-13 15:48:30,182 - OptaPipeline - INFO - 
+✅ Transformed 2/2 match files
+2026-02-13 15:48:30,182 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-02-13 15:48:30,184 - OptaPipeline - INFO - 🔄 Found 2 matchdata files
+2026-02-13 15:48:30,184 - OptaPipeline - INFO - 
+[1/2] Processing: 18rkqb1lhon6ne1hdb6d15as
+2026-02-13 15:48:30,644 - OptaPipeline - INFO -    ✅ match_event: 2026-01-11_BAR_vs_RMA_18rkqb1lhon6ne1hdb6d15as.parquet (1726 events)
+2026-02-13 15:48:30,645 - OptaPipeline - INFO - 
+[2/2] Processing: z5hatp2undeejhiga4xoytjo
+2026-02-13 15:48:31,122 - OptaPipeline - INFO -    ✅ match_event: 2026-01-07_BAR_vs_ATH_z5hatp2undeejhiga4xoytjo.parquet (1759 events)
+2026-02-13 15:48:31,123 - OptaPipeline - INFO - 
+✅ Transformed 2/2 match events
+2026-02-13 15:48:31,123 - OptaPipeline - INFO - ================================================================================
+2026-02-13 15:48:31,123 - OptaPipeline - INFO - 🏆 COMPETITION 4/4: UEFA_Champions_League
+2026-02-13 15:48:31,123 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-02-13 15:48:31,123 - OptaPipeline - INFO - ================================================================================
+2026-02-13 15:48:31,123 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-02-13 15:48:31,123 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/uefa-champions-league-2025-2026/2mr0u0l78k2gdsm79q56tb2fo/results
+2026-02-13 15:48:31,123 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-02-13 15:50:02,400 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.834
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x0000000104c5b928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000104c53c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x000000010473683c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000104720cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000104720a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x000000010471e620 chromedriver + 222752
+6   chromedriver                        0x000000010471f214 chromedriver + 225812
+7   chromedriver                        0x000000010472cbc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x0000000104743508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x000000010471f880 chromedriver + 227456
+10  chromedriver                        0x00000001047432d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x00000001047bf2f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x000000010477407c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x0000000104c1a884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000104c1dfcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000104bff578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000104c1e850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000104bef640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000104c42194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000104c42310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x0000000104c5385c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+Traceback (most recent call last):
+  File "/Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/modules/scraper.py", line 181, in scrape_matches
+    driver.get(results_url)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 357, in get
+    self.execute(Command.GET, {"url": url})
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 348, in execute
+    self.error_handler.check_response(response)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/errorhandler.py", line 229, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: timeout: Timed out receiving message from renderer: 83.834
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x0000000104c5b928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000104c53c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x000000010473683c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000104720cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000104720a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x000000010471e620 chromedriver + 222752
+6   chromedriver                        0x000000010471f214 chromedriver + 225812
+7   chromedriver                        0x000000010472cbc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x0000000104743508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x000000010471f880 chromedriver + 227456
+10  chromedriver                        0x00000001047432d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x00000001047bf2f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x000000010477407c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x0000000104c1a884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000104c1dfcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000104bff578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000104c1e850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000104bef640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000104c42194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000104c42310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x0000000104c5385c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 15:50:02,514 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.834
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x0000000104c5b928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000104c53c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x000000010473683c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000104720cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000104720a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x000000010471e620 chromedriver + 222752
+6   chromedriver                        0x000000010471f214 chromedriver + 225812
+7   chromedriver                        0x000000010472cbc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x0000000104743508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x000000010471f880 chromedriver + 227456
+10  chromedriver                        0x00000001047432d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x00000001047bf2f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x000000010477407c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x0000000104c1a884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000104c1dfcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000104bff578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000104c1e850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000104bef640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000104c42194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000104c42310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x0000000104c5385c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 15:50:02,514 - OptaPipeline - INFO - 💡 Continuing with existing data...
+2026-02-13 15:50:02,514 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - [1/8] Match: 65lxswiag0r6pt7m7s7nz6g44
+2026-02-13 15:50:02,516 - OptaPipeline - INFO -    ⏭️  Already exists: 65lxswiag0r6pt7m7s7nz6g44
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - [2/8] Match: 61upafdbc4mwkdmp1k5ajqu50
+2026-02-13 15:50:02,516 - OptaPipeline - INFO -    ⏭️  Already exists: 61upafdbc4mwkdmp1k5ajqu50
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - [3/8] Match: 5q05t4o4el0d6rhmncz6pxqms
+2026-02-13 15:50:02,516 - OptaPipeline - INFO -    ⏭️  Already exists: 5q05t4o4el0d6rhmncz6pxqms
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - [4/8] Match: 5iss7tc562nnymg0uiewtt0r8
+2026-02-13 15:50:02,516 - OptaPipeline - INFO -    ⏭️  Already exists: 5iss7tc562nnymg0uiewtt0r8
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - [5/8] Match: 5fbfmxmdror7xvtcq3a41pkpg
+2026-02-13 15:50:02,516 - OptaPipeline - INFO -    ⏭️  Already exists: 5fbfmxmdror7xvtcq3a41pkpg
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - [6/8] Match: 547fv6pkd98zbsl3ha92ih0d0
+2026-02-13 15:50:02,516 - OptaPipeline - INFO -    ⏭️  Already exists: 547fv6pkd98zbsl3ha92ih0d0
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - [7/8] Match: 535v16ejka2ckhekin6euxg5w
+2026-02-13 15:50:02,516 - OptaPipeline - INFO -    ⏭️  Already exists: 535v16ejka2ckhekin6euxg5w
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - [8/8] Match: 4x2w9j51dk7kc90orh6vkm2hg
+2026-02-13 15:50:02,516 - OptaPipeline - INFO -    ⏭️  Already exists: 4x2w9j51dk7kc90orh6vkm2hg
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - 📊 Downloaded: 8, Skipped: 0
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - 🔄 Found 8 matchdata files
+2026-02-13 15:50:02,516 - OptaPipeline - INFO - 
+[1/8] Processing: 4x2w9j51dk7kc90orh6vkm2hg
+2026-02-13 15:50:02,525 - OptaPipeline - INFO -    ✅ match: 2025-09-18_NEW_vs_BAR_4x2w9j51dk7kc90orh6vkm2hg.parquet
+2026-02-13 15:50:02,525 - OptaPipeline - INFO - 
+[2/8] Processing: 535v16ejka2ckhekin6euxg5w
+2026-02-13 15:50:02,547 - OptaPipeline - INFO -    ✅ match: 2025-10-01_BAR_vs_PSG_535v16ejka2ckhekin6euxg5w.parquet
+2026-02-13 15:50:02,548 - OptaPipeline - INFO - 
+[3/8] Processing: 547fv6pkd98zbsl3ha92ih0d0
+2026-02-13 15:50:02,557 - OptaPipeline - INFO -    ✅ match: 2025-10-21_BAR_vs_OLY_547fv6pkd98zbsl3ha92ih0d0.parquet
+2026-02-13 15:50:02,557 - OptaPipeline - INFO - 
+[4/8] Processing: 5fbfmxmdror7xvtcq3a41pkpg
+2026-02-13 15:50:02,566 - OptaPipeline - INFO -    ✅ match: 2025-11-05_CLU_vs_BAR_5fbfmxmdror7xvtcq3a41pkpg.parquet
+2026-02-13 15:50:02,566 - OptaPipeline - INFO - 
+[5/8] Processing: 5iss7tc562nnymg0uiewtt0r8
+2026-02-13 15:50:02,573 - OptaPipeline - INFO -    ✅ match: 2025-11-25_CHE_vs_BAR_5iss7tc562nnymg0uiewtt0r8.parquet
+2026-02-13 15:50:02,574 - OptaPipeline - INFO - 
+[6/8] Processing: 5q05t4o4el0d6rhmncz6pxqms
+2026-02-13 15:50:02,581 - OptaPipeline - INFO -    ✅ match: 2025-12-09_BAR_vs_SGE_5q05t4o4el0d6rhmncz6pxqms.parquet
+2026-02-13 15:50:02,582 - OptaPipeline - INFO - 
+[7/8] Processing: 61upafdbc4mwkdmp1k5ajqu50
+2026-02-13 15:50:02,591 - OptaPipeline - INFO -    ✅ match: 2026-01-21_SLA_vs_BAR_61upafdbc4mwkdmp1k5ajqu50.parquet
+2026-02-13 15:50:02,591 - OptaPipeline - INFO - 
+[8/8] Processing: 65lxswiag0r6pt7m7s7nz6g44
+2026-02-13 15:50:02,599 - OptaPipeline - INFO -    ✅ match: 2026-01-28_BAR_vs_FCK_65lxswiag0r6pt7m7s7nz6g44.parquet
+2026-02-13 15:50:02,600 - OptaPipeline - INFO - 
+✅ Transformed 8/8 match files
+2026-02-13 15:50:02,600 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-02-13 15:50:02,602 - OptaPipeline - INFO - 🔄 Found 8 matchdata files
+2026-02-13 15:50:02,602 - OptaPipeline - INFO - 
+[1/8] Processing: 4x2w9j51dk7kc90orh6vkm2hg
+2026-02-13 15:50:03,041 - OptaPipeline - INFO -    ✅ match_event: 2025-09-18_NEW_vs_BAR_4x2w9j51dk7kc90orh6vkm2hg.parquet (1690 events)
+2026-02-13 15:50:03,042 - OptaPipeline - INFO - 
+[2/8] Processing: 535v16ejka2ckhekin6euxg5w
+2026-02-13 15:50:03,475 - OptaPipeline - INFO -    ✅ match_event: 2025-10-01_BAR_vs_PSG_535v16ejka2ckhekin6euxg5w.parquet (1657 events)
+2026-02-13 15:50:03,476 - OptaPipeline - INFO - 
+[3/8] Processing: 547fv6pkd98zbsl3ha92ih0d0
+2026-02-13 15:50:03,928 - OptaPipeline - INFO -    ✅ match_event: 2025-10-21_BAR_vs_OLY_547fv6pkd98zbsl3ha92ih0d0.parquet (1661 events)
+2026-02-13 15:50:03,929 - OptaPipeline - INFO - 
+[4/8] Processing: 5fbfmxmdror7xvtcq3a41pkpg
+2026-02-13 15:50:04,386 - OptaPipeline - INFO -    ✅ match_event: 2025-11-05_CLU_vs_BAR_5fbfmxmdror7xvtcq3a41pkpg.parquet (1670 events)
+2026-02-13 15:50:04,387 - OptaPipeline - INFO - 
+[5/8] Processing: 5iss7tc562nnymg0uiewtt0r8
+2026-02-13 15:50:04,829 - OptaPipeline - INFO -    ✅ match_event: 2025-11-25_CHE_vs_BAR_5iss7tc562nnymg0uiewtt0r8.parquet (1694 events)
+2026-02-13 15:50:04,831 - OptaPipeline - INFO - 
+[6/8] Processing: 5q05t4o4el0d6rhmncz6pxqms
+2026-02-13 15:50:05,345 - OptaPipeline - INFO -    ✅ match_event: 2025-12-09_BAR_vs_SGE_5q05t4o4el0d6rhmncz6pxqms.parquet (1893 events)
+2026-02-13 15:50:05,347 - OptaPipeline - INFO - 
+[7/8] Processing: 61upafdbc4mwkdmp1k5ajqu50
+2026-02-13 15:50:05,790 - OptaPipeline - INFO -    ✅ match_event: 2026-01-21_SLA_vs_BAR_61upafdbc4mwkdmp1k5ajqu50.parquet (1715 events)
+2026-02-13 15:50:05,791 - OptaPipeline - INFO - 
+[8/8] Processing: 65lxswiag0r6pt7m7s7nz6g44
+2026-02-13 15:50:06,258 - OptaPipeline - INFO -    ✅ match_event: 2026-01-28_BAR_vs_FCK_65lxswiag0r6pt7m7s7nz6g44.parquet (1771 events)
+2026-02-13 15:50:06,260 - OptaPipeline - INFO - 
+✅ Transformed 8/8 match events
+2026-02-13 15:50:06,260 - OptaPipeline - INFO - ================================================================================
+2026-02-13 15:50:06,260 - OptaPipeline - INFO - 📈 FINAL SUMMARY - ALL COMPETITIONS
+2026-02-13 15:50:06,260 - OptaPipeline - INFO - ================================================================================
+2026-02-13 15:50:06,260 - OptaPipeline - INFO - ✅ Successful: 4/4
+2026-02-13 15:50:06,260 - OptaPipeline - INFO - ❌ Failed: 0/4
+2026-02-13 15:50:06,260 - OptaPipeline - INFO - Match parquets: 35
+2026-02-13 15:50:06,260 - OptaPipeline - INFO - Event parquets: 35
+2026-02-13 16:04:40,712 - OptaPipeline - INFO - ================================================================================
+2026-02-13 16:04:40,713 - OptaPipeline - INFO - 🚀 OPTA PIPELINE - MULTI-COMPETITION MODE
+2026-02-13 16:04:40,713 - OptaPipeline - INFO - ================================================================================
+2026-02-13 16:04:40,713 - OptaPipeline - INFO - 📊 Processing 4 competition(s):
+2026-02-13 16:04:40,713 - OptaPipeline - INFO -    • Spain_Copa_del_Rey (2025-2026)
+2026-02-13 16:04:40,713 - OptaPipeline - INFO -    • Spain_Primera_Division (2025-2026)
+2026-02-13 16:04:40,713 - OptaPipeline - INFO -    • Spain_Super_Cup (2025-2026)
+2026-02-13 16:04:40,713 - OptaPipeline - INFO -    • UEFA_Champions_League (2025-2026)
+2026-02-13 16:04:40,713 - OptaPipeline - INFO - ================================================================================
+2026-02-13 16:04:40,713 - OptaPipeline - INFO - 🏆 COMPETITION 1/4: Spain_Copa_del_Rey
+2026-02-13 16:04:40,713 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-02-13 16:04:40,713 - OptaPipeline - INFO - ================================================================================
+2026-02-13 16:04:40,713 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-02-13 16:04:40,713 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/copa-del-rey-2025-2026/3lmujqli8r9m12i28wgjxnnys/results
+2026-02-13 16:04:40,713 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-02-13 16:06:15,009 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.849
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x0000000102db3928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000102dabc04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x000000010288e83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000102878cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000102878a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x0000000102876620 chromedriver + 222752
+6   chromedriver                        0x0000000102877214 chromedriver + 225812
+7   chromedriver                        0x0000000102884bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x000000010289b508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x0000000102877880 chromedriver + 227456
+10  chromedriver                        0x000000010289b2d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x00000001029172f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x00000001028cc07c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x0000000102d72884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000102d75fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000102d57578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000102d76850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000102d47640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000102d9a194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000102d9a310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x0000000102dab85c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+Traceback (most recent call last):
+  File "/Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/modules/scraper.py", line 181, in scrape_matches
+    driver.get(results_url)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 357, in get
+    self.execute(Command.GET, {"url": url})
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 348, in execute
+    self.error_handler.check_response(response)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/errorhandler.py", line 229, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: timeout: Timed out receiving message from renderer: 83.849
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x0000000102db3928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000102dabc04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x000000010288e83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000102878cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000102878a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x0000000102876620 chromedriver + 222752
+6   chromedriver                        0x0000000102877214 chromedriver + 225812
+7   chromedriver                        0x0000000102884bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x000000010289b508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x0000000102877880 chromedriver + 227456
+10  chromedriver                        0x000000010289b2d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x00000001029172f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x00000001028cc07c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x0000000102d72884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000102d75fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000102d57578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000102d76850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000102d47640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000102d9a194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000102d9a310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x0000000102dab85c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 16:06:15,117 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.849
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x0000000102db3928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000102dabc04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x000000010288e83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000102878cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000102878a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x0000000102876620 chromedriver + 222752
+6   chromedriver                        0x0000000102877214 chromedriver + 225812
+7   chromedriver                        0x0000000102884bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x000000010289b508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x0000000102877880 chromedriver + 227456
+10  chromedriver                        0x000000010289b2d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x00000001029172f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x00000001028cc07c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x0000000102d72884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000102d75fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000102d57578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000102d76850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000102d47640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000102d9a194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000102d9a310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x0000000102dab85c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 16:06:15,117 - OptaPipeline - INFO - 💡 Continuing with existing data...
+2026-02-13 16:06:15,118 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-02-13 16:06:15,121 - OptaPipeline - INFO - [1/3] Match: 433pzlem1yzj0ac0mg58m4x04
+2026-02-13 16:06:15,121 - OptaPipeline - INFO -    ⏭️  Already exists: 433pzlem1yzj0ac0mg58m4x04
+2026-02-13 16:06:15,121 - OptaPipeline - INFO - [2/3] Match: 62gdakw1aqqhoomsor9xrhg4
+2026-02-13 16:06:15,121 - OptaPipeline - INFO -    ⏭️  Already exists: 62gdakw1aqqhoomsor9xrhg4
+2026-02-13 16:06:15,121 - OptaPipeline - INFO - [3/3] Match: 3sx6fp8e2gg1kinflvk8ejg2c
+2026-02-13 16:06:15,121 - OptaPipeline - INFO -    ⏭️  Already exists: 3sx6fp8e2gg1kinflvk8ejg2c
+2026-02-13 16:06:15,121 - OptaPipeline - INFO - 📊 Downloaded: 3, Skipped: 0
+2026-02-13 16:06:15,121 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-02-13 16:06:15,121 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-02-13 16:06:15,121 - OptaPipeline - INFO - 🔄 Found 3 matchdata files
+2026-02-13 16:06:15,121 - OptaPipeline - INFO - 
+[1/3] Processing: 3sx6fp8e2gg1kinflvk8ejg2c
+2026-02-13 16:06:15,145 - OptaPipeline - INFO -    ✅ match: 2025-12-16_GUA_vs_BAR_3sx6fp8e2gg1kinflvk8ejg2c.parquet
+2026-02-13 16:06:15,146 - OptaPipeline - INFO - 
+[2/3] Processing: 433pzlem1yzj0ac0mg58m4x04
+2026-02-13 16:06:15,153 - OptaPipeline - INFO -    ✅ match: 2026-02-03_ALB_vs_BAR_433pzlem1yzj0ac0mg58m4x04.parquet
+2026-02-13 16:06:15,154 - OptaPipeline - INFO - 
+[3/3] Processing: 62gdakw1aqqhoomsor9xrhg4
+2026-02-13 16:06:15,161 - OptaPipeline - INFO -    ✅ match: 2026-01-15_RAC_vs_BAR_62gdakw1aqqhoomsor9xrhg4.parquet
+2026-02-13 16:06:15,162 - OptaPipeline - INFO - 
+✅ Transformed 3/3 match files
+2026-02-13 16:06:15,162 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-02-13 16:06:15,163 - OptaPipeline - INFO - 🔄 Found 3 matchdata files
+2026-02-13 16:06:15,163 - OptaPipeline - INFO - 
+[1/3] Processing: 3sx6fp8e2gg1kinflvk8ejg2c
+2026-02-13 16:06:15,602 - OptaPipeline - INFO -    ✅ match_event: 2025-12-16_GUA_vs_BAR_3sx6fp8e2gg1kinflvk8ejg2c.parquet (1704 events)
+2026-02-13 16:06:15,603 - OptaPipeline - INFO - 
+[2/3] Processing: 433pzlem1yzj0ac0mg58m4x04
+2026-02-13 16:06:16,038 - OptaPipeline - INFO -    ✅ match_event: 2026-02-03_ALB_vs_BAR_433pzlem1yzj0ac0mg58m4x04.parquet (1698 events)
+2026-02-13 16:06:16,039 - OptaPipeline - INFO - 
+[3/3] Processing: 62gdakw1aqqhoomsor9xrhg4
+2026-02-13 16:06:16,519 - OptaPipeline - INFO -    ✅ match_event: 2026-01-15_RAC_vs_BAR_62gdakw1aqqhoomsor9xrhg4.parquet (1762 events)
+2026-02-13 16:06:16,520 - OptaPipeline - INFO - 
+✅ Transformed 3/3 match events
+2026-02-13 16:06:16,520 - OptaPipeline - INFO - ================================================================================
+2026-02-13 16:06:16,520 - OptaPipeline - INFO - 🏆 COMPETITION 2/4: Spain_Primera_Division
+2026-02-13 16:06:16,520 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-02-13 16:06:16,520 - OptaPipeline - INFO - ================================================================================
+2026-02-13 16:06:16,520 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-02-13 16:06:16,520 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/primera-divisi%C3%B3n-2025-2026/80zg2v1cuqcfhphn56u4qpyqc/results
+2026-02-13 16:06:16,520 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-02-13 16:07:47,720 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.780
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x00000001027b7928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x00000001027afc04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x000000010229283c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x000000010227ccfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x000000010227ca5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x000000010227a620 chromedriver + 222752
+6   chromedriver                        0x000000010227b214 chromedriver + 225812
+7   chromedriver                        0x0000000102288bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x000000010229f508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x000000010227b880 chromedriver + 227456
+10  chromedriver                        0x000000010229f2d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x000000010231b2f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x00000001022d007c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x0000000102776884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000102779fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x000000010275b578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x000000010277a850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x000000010274b640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x000000010279e194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x000000010279e310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x00000001027af85c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+Traceback (most recent call last):
+  File "/Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/modules/scraper.py", line 181, in scrape_matches
+    driver.get(results_url)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 357, in get
+    self.execute(Command.GET, {"url": url})
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 348, in execute
+    self.error_handler.check_response(response)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/errorhandler.py", line 229, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: timeout: Timed out receiving message from renderer: 83.780
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x00000001027b7928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x00000001027afc04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x000000010229283c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x000000010227ccfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x000000010227ca5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x000000010227a620 chromedriver + 222752
+6   chromedriver                        0x000000010227b214 chromedriver + 225812
+7   chromedriver                        0x0000000102288bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x000000010229f508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x000000010227b880 chromedriver + 227456
+10  chromedriver                        0x000000010229f2d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x000000010231b2f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x00000001022d007c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x0000000102776884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000102779fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x000000010275b578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x000000010277a850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x000000010274b640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x000000010279e194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x000000010279e310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x00000001027af85c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 16:07:47,799 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.780
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x00000001027b7928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x00000001027afc04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x000000010229283c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x000000010227ccfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x000000010227ca5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x000000010227a620 chromedriver + 222752
+6   chromedriver                        0x000000010227b214 chromedriver + 225812
+7   chromedriver                        0x0000000102288bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x000000010229f508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x000000010227b880 chromedriver + 227456
+10  chromedriver                        0x000000010229f2d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x000000010231b2f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x00000001022d007c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x0000000102776884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000102779fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x000000010275b578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x000000010277a850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x000000010274b640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x000000010279e194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x000000010279e310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x00000001027af85c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 16:07:47,800 - OptaPipeline - INFO - 💡 Continuing with existing data...
+2026-02-13 16:07:47,801 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-02-13 16:07:47,803 - OptaPipeline - INFO - [1/22] Match: 26p4gv6nxij3gqaoea17rxct0
+2026-02-13 16:07:47,804 - OptaPipeline - INFO -    ⏭️  Already exists: 26p4gv6nxij3gqaoea17rxct0
+2026-02-13 16:07:47,804 - OptaPipeline - INFO - [2/22] Match: 257ci0bd6g6l3uk1fn5a0ob2s
+2026-02-13 16:07:47,804 - OptaPipeline - INFO -    ⏭️  Already exists: 257ci0bd6g6l3uk1fn5a0ob2s
+2026-02-13 16:07:47,804 - OptaPipeline - INFO - [3/22] Match: 20boml0nnzxlvqvyy0ylfxdlg
+2026-02-13 16:07:47,804 - OptaPipeline - INFO -    ⏭️  Already exists: 20boml0nnzxlvqvyy0ylfxdlg
+2026-02-13 16:07:47,804 - OptaPipeline - INFO - [4/22] Match: 1v9qqviahmnia4ewmzd4aejv8
+2026-02-13 16:07:47,804 - OptaPipeline - INFO -    ⏭️  Already exists: 1v9qqviahmnia4ewmzd4aejv8
+2026-02-13 16:07:47,804 - OptaPipeline - INFO - [5/22] Match: 1rvgcgz2ftmamcay54gz2qtjo
+2026-02-13 16:07:47,804 - OptaPipeline - INFO -    ⏭️  Already exists: 1rvgcgz2ftmamcay54gz2qtjo
+2026-02-13 16:07:47,804 - OptaPipeline - INFO - [6/22] Match: 1oi5jmg0ldrmljyz46todfbpw
+2026-02-13 16:07:47,804 - OptaPipeline - INFO -    ⏭️  Already exists: 1oi5jmg0ldrmljyz46todfbpw
+2026-02-13 16:07:47,804 - OptaPipeline - INFO - [7/22] Match: 1myp00g7w796yt6ts8ojdkys4
+2026-02-13 16:07:47,804 - OptaPipeline - INFO -    ⏭️  Already exists: 1myp00g7w796yt6ts8ojdkys4
+2026-02-13 16:07:47,804 - OptaPipeline - INFO - [8/22] Match: 1gkqfp2d7qi9h6k34k3mo8zkk
+2026-02-13 16:07:47,804 - OptaPipeline - INFO -    ⏭️  Already exists: 1gkqfp2d7qi9h6k34k3mo8zkk
+2026-02-13 16:07:47,804 - OptaPipeline - INFO - [9/22] Match: 1dk2hnl09qux7z4fqn1qxq238
+2026-02-13 16:07:47,804 - OptaPipeline - INFO -    ⏭️  Already exists: 1dk2hnl09qux7z4fqn1qxq238
+2026-02-13 16:07:47,804 - OptaPipeline - INFO - [10/22] Match: 1a7radhhole7vfnciarzauq6s
+2026-02-13 16:07:47,804 - OptaPipeline - INFO -    ⏭️  Already exists: 1a7radhhole7vfnciarzauq6s
+2026-02-13 16:07:47,805 - OptaPipeline - INFO - [11/22] Match: 16t0fdut4ky4b4es7i0trovtg
+2026-02-13 16:07:47,805 - OptaPipeline - INFO -    ⏭️  Already exists: 16t0fdut4ky4b4es7i0trovtg
+2026-02-13 16:07:47,805 - OptaPipeline - INFO - [12/22] Match: 113wccwt50kebz0thqf0fxkpg
+2026-02-13 16:07:47,805 - OptaPipeline - INFO -    ⏭️  Already exists: 113wccwt50kebz0thqf0fxkpg
+2026-02-13 16:07:47,805 - OptaPipeline - INFO - [13/22] Match: ytxz0i1eppxxqupm27ktuln8
+2026-02-13 16:07:47,805 - OptaPipeline - INFO -    ⏭️  Already exists: ytxz0i1eppxxqupm27ktuln8
+2026-02-13 16:07:47,805 - OptaPipeline - INFO - [14/22] Match: txn45zihl3cp2bv3lj5rmot0
+2026-02-13 16:07:47,805 - OptaPipeline - INFO -    ⏭️  Already exists: txn45zihl3cp2bv3lj5rmot0
+2026-02-13 16:07:47,805 - OptaPipeline - INFO - [15/22] Match: rbyhgw1kyp0ghg2qpvznvvv8
+2026-02-13 16:07:47,805 - OptaPipeline - INFO -    ⏭️  Already exists: rbyhgw1kyp0ghg2qpvznvvv8
+2026-02-13 16:07:47,805 - OptaPipeline - INFO - [16/22] Match: mh9g8wbjyoe3ub3ouu0nnsb8
+2026-02-13 16:07:47,805 - OptaPipeline - INFO -    ⏭️  Already exists: mh9g8wbjyoe3ub3ouu0nnsb8
+2026-02-13 16:07:47,805 - OptaPipeline - INFO - [17/22] Match: kkl8x55qltpl4g1v5260df6c
+2026-02-13 16:07:47,806 - OptaPipeline - INFO -    ⏭️  Already exists: kkl8x55qltpl4g1v5260df6c
+2026-02-13 16:07:47,806 - OptaPipeline - INFO - [18/22] Match: ekk0usjk6blgzpziu4ho01zo
+2026-02-13 16:07:47,806 - OptaPipeline - INFO -    ⏭️  Already exists: ekk0usjk6blgzpziu4ho01zo
+2026-02-13 16:07:47,806 - OptaPipeline - INFO - [19/22] Match: b88u5e429cnb6ng0i5t4f9jo
+2026-02-13 16:07:47,806 - OptaPipeline - INFO -    ⏭️  Already exists: b88u5e429cnb6ng0i5t4f9jo
+2026-02-13 16:07:47,806 - OptaPipeline - INFO - [20/22] Match: a4rapcrtfjbf1vihoi65rm6s
+2026-02-13 16:07:47,806 - OptaPipeline - INFO -    ⏭️  Already exists: a4rapcrtfjbf1vihoi65rm6s
+2026-02-13 16:07:47,806 - OptaPipeline - INFO - [21/22] Match: 5pp18hcr9ery2hv17q7q6eqc
+2026-02-13 16:07:47,806 - OptaPipeline - INFO -    ⏭️  Already exists: 5pp18hcr9ery2hv17q7q6eqc
+2026-02-13 16:07:47,806 - OptaPipeline - INFO - [22/22] Match: 2d4xobwd1t1rd2kxlcjmqcyc
+2026-02-13 16:07:47,806 - OptaPipeline - INFO -    ⏭️  Already exists: 2d4xobwd1t1rd2kxlcjmqcyc
+2026-02-13 16:07:47,806 - OptaPipeline - INFO - 📊 Downloaded: 22, Skipped: 0
+2026-02-13 16:07:47,806 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-02-13 16:07:47,806 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-02-13 16:07:47,806 - OptaPipeline - INFO - 🔄 Found 22 matchdata files
+2026-02-13 16:07:47,807 - OptaPipeline - INFO - 
+[1/22] Processing: 113wccwt50kebz0thqf0fxkpg
+2026-02-13 16:07:47,817 - OptaPipeline - INFO -    ✅ match: 2025-11-02_BAR_vs_ELC_113wccwt50kebz0thqf0fxkpg.parquet
+2026-02-13 16:07:47,817 - OptaPipeline - INFO - 
+[2/22] Processing: 16t0fdut4ky4b4es7i0trovtg
+2026-02-13 16:07:47,828 - OptaPipeline - INFO -    ✅ match: 2025-11-09_CEL_vs_BAR_16t0fdut4ky4b4es7i0trovtg.parquet
+2026-02-13 16:07:47,828 - OptaPipeline - INFO - 
+[3/22] Processing: 1a7radhhole7vfnciarzauq6s
+2026-02-13 16:07:47,838 - OptaPipeline - INFO -    ✅ match: 2025-11-22_BAR_vs_ATH_1a7radhhole7vfnciarzauq6s.parquet
+2026-02-13 16:07:47,839 - OptaPipeline - INFO - 
+[4/22] Processing: 1dk2hnl09qux7z4fqn1qxq238
+2026-02-13 16:07:47,847 - OptaPipeline - INFO -    ✅ match: 2025-11-29_BAR_vs_ALA_1dk2hnl09qux7z4fqn1qxq238.parquet
+2026-02-13 16:07:47,847 - OptaPipeline - INFO - 
+[5/22] Processing: 1gkqfp2d7qi9h6k34k3mo8zkk
+2026-02-13 16:07:47,856 - OptaPipeline - INFO -    ✅ match: 2025-12-06_BET_vs_BAR_1gkqfp2d7qi9h6k34k3mo8zkk.parquet
+2026-02-13 16:07:47,856 - OptaPipeline - INFO - 
+[6/22] Processing: 1myp00g7w796yt6ts8ojdkys4
+2026-02-13 16:07:47,864 - OptaPipeline - INFO -    ✅ match: 2025-12-13_BAR_vs_OSA_1myp00g7w796yt6ts8ojdkys4.parquet
+2026-02-13 16:07:47,865 - OptaPipeline - INFO - 
+[7/22] Processing: 1oi5jmg0ldrmljyz46todfbpw
+2026-02-13 16:07:47,873 - OptaPipeline - INFO -    ✅ match: 2025-12-21_VIL_vs_BAR_1oi5jmg0ldrmljyz46todfbpw.parquet
+2026-02-13 16:07:47,874 - OptaPipeline - INFO - 
+[8/22] Processing: 1rvgcgz2ftmamcay54gz2qtjo
+2026-02-13 16:07:47,882 - OptaPipeline - INFO -    ✅ match: 2026-01-03_ESP_vs_BAR_1rvgcgz2ftmamcay54gz2qtjo.parquet
+2026-02-13 16:07:47,882 - OptaPipeline - INFO - 
+[9/22] Processing: 1v9qqviahmnia4ewmzd4aejv8
+2026-02-13 16:07:47,892 - OptaPipeline - INFO -    ✅ match: 2025-12-02_BAR_vs_ATM_1v9qqviahmnia4ewmzd4aejv8.parquet
+2026-02-13 16:07:47,893 - OptaPipeline - INFO - 
+[10/22] Processing: 20boml0nnzxlvqvyy0ylfxdlg
+2026-02-13 16:07:47,901 - OptaPipeline - INFO -    ✅ match: 2026-01-18_RSO_vs_BAR_20boml0nnzxlvqvyy0ylfxdlg.parquet
+2026-02-13 16:07:47,902 - OptaPipeline - INFO - 
+[11/22] Processing: 257ci0bd6g6l3uk1fn5a0ob2s
+2026-02-13 16:07:47,924 - OptaPipeline - INFO -    ✅ match: 2026-01-25_BAR_vs_OVI_257ci0bd6g6l3uk1fn5a0ob2s.parquet
+2026-02-13 16:07:47,924 - OptaPipeline - INFO - 
+[12/22] Processing: 26p4gv6nxij3gqaoea17rxct0
+2026-02-13 16:07:47,932 - OptaPipeline - INFO -    ✅ match: 2026-01-31_ELC_vs_BAR_26p4gv6nxij3gqaoea17rxct0.parquet
+2026-02-13 16:07:47,932 - OptaPipeline - INFO - 
+[13/22] Processing: 2d4xobwd1t1rd2kxlcjmqcyc
+2026-02-13 16:07:47,939 - OptaPipeline - INFO -    ✅ match: 2025-08-16_MLL_vs_BAR_2d4xobwd1t1rd2kxlcjmqcyc.parquet
+2026-02-13 16:07:47,939 - OptaPipeline - INFO - 
+[14/22] Processing: 5pp18hcr9ery2hv17q7q6eqc
+2026-02-13 16:07:47,946 - OptaPipeline - INFO -    ✅ match: 2025-08-23_LEV_vs_BAR_5pp18hcr9ery2hv17q7q6eqc.parquet
+2026-02-13 16:07:47,946 - OptaPipeline - INFO - 
+[15/22] Processing: a4rapcrtfjbf1vihoi65rm6s
+2026-02-13 16:07:47,954 - OptaPipeline - INFO -    ✅ match: 2025-08-31_RAY_vs_BAR_a4rapcrtfjbf1vihoi65rm6s.parquet
+2026-02-13 16:07:47,955 - OptaPipeline - INFO - 
+[16/22] Processing: b88u5e429cnb6ng0i5t4f9jo
+2026-02-13 16:07:47,961 - OptaPipeline - INFO -    ✅ match: 2025-09-14_BAR_vs_VAL_b88u5e429cnb6ng0i5t4f9jo.parquet
+2026-02-13 16:07:47,962 - OptaPipeline - INFO - 
+[17/22] Processing: ekk0usjk6blgzpziu4ho01zo
+2026-02-13 16:07:47,970 - OptaPipeline - INFO -    ✅ match: 2025-09-21_BAR_vs_GET_ekk0usjk6blgzpziu4ho01zo.parquet
+2026-02-13 16:07:47,970 - OptaPipeline - INFO - 
+[18/22] Processing: kkl8x55qltpl4g1v5260df6c
+2026-02-13 16:07:47,979 - OptaPipeline - INFO -    ✅ match: 2025-09-25_OVI_vs_BAR_kkl8x55qltpl4g1v5260df6c.parquet
+2026-02-13 16:07:47,979 - OptaPipeline - INFO - 
+[19/22] Processing: mh9g8wbjyoe3ub3ouu0nnsb8
+2026-02-13 16:07:47,988 - OptaPipeline - INFO -    ✅ match: 2025-09-28_BAR_vs_RSO_mh9g8wbjyoe3ub3ouu0nnsb8.parquet
+2026-02-13 16:07:47,989 - OptaPipeline - INFO - 
+[20/22] Processing: rbyhgw1kyp0ghg2qpvznvvv8
+2026-02-13 16:07:47,996 - OptaPipeline - INFO -    ✅ match: 2025-10-05_SEV_vs_BAR_rbyhgw1kyp0ghg2qpvznvvv8.parquet
+2026-02-13 16:07:47,997 - OptaPipeline - INFO - 
+[21/22] Processing: txn45zihl3cp2bv3lj5rmot0
+2026-02-13 16:07:48,005 - OptaPipeline - INFO -    ✅ match: 2025-10-18_BAR_vs_GIR_txn45zihl3cp2bv3lj5rmot0.parquet
+2026-02-13 16:07:48,006 - OptaPipeline - INFO - 
+[22/22] Processing: ytxz0i1eppxxqupm27ktuln8
+2026-02-13 16:07:48,014 - OptaPipeline - INFO -    ✅ match: 2025-10-26_RMA_vs_BAR_ytxz0i1eppxxqupm27ktuln8.parquet
+2026-02-13 16:07:48,015 - OptaPipeline - INFO - 
+✅ Transformed 22/22 match files
+2026-02-13 16:07:48,015 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-02-13 16:07:48,016 - OptaPipeline - INFO - 🔄 Found 22 matchdata files
+2026-02-13 16:07:48,016 - OptaPipeline - INFO - 
+[1/22] Processing: 113wccwt50kebz0thqf0fxkpg
+2026-02-13 16:07:48,460 - OptaPipeline - INFO -    ✅ match_event: 2025-11-02_BAR_vs_ELC_113wccwt50kebz0thqf0fxkpg.parquet (1627 events)
+2026-02-13 16:07:48,461 - OptaPipeline - INFO - 
+[2/22] Processing: 16t0fdut4ky4b4es7i0trovtg
+2026-02-13 16:07:48,985 - OptaPipeline - INFO -    ✅ match_event: 2025-11-09_CEL_vs_BAR_16t0fdut4ky4b4es7i0trovtg.parquet (1918 events)
+2026-02-13 16:07:48,986 - OptaPipeline - INFO - 
+[3/22] Processing: 1a7radhhole7vfnciarzauq6s
+2026-02-13 16:07:49,495 - OptaPipeline - INFO -    ✅ match_event: 2025-11-22_BAR_vs_ATH_1a7radhhole7vfnciarzauq6s.parquet (1793 events)
+2026-02-13 16:07:49,497 - OptaPipeline - INFO - 
+[4/22] Processing: 1dk2hnl09qux7z4fqn1qxq238
+2026-02-13 16:07:50,002 - OptaPipeline - INFO -    ✅ match_event: 2025-11-29_BAR_vs_ALA_1dk2hnl09qux7z4fqn1qxq238.parquet (1861 events)
+2026-02-13 16:07:50,004 - OptaPipeline - INFO - 
+[5/22] Processing: 1gkqfp2d7qi9h6k34k3mo8zkk
+2026-02-13 16:07:50,500 - OptaPipeline - INFO -    ✅ match_event: 2025-12-06_BET_vs_BAR_1gkqfp2d7qi9h6k34k3mo8zkk.parquet (1775 events)
+2026-02-13 16:07:50,501 - OptaPipeline - INFO - 
+[6/22] Processing: 1myp00g7w796yt6ts8ojdkys4
+2026-02-13 16:07:50,977 - OptaPipeline - INFO -    ✅ match_event: 2025-12-13_BAR_vs_OSA_1myp00g7w796yt6ts8ojdkys4.parquet (1710 events)
+2026-02-13 16:07:50,979 - OptaPipeline - INFO - 
+[7/22] Processing: 1oi5jmg0ldrmljyz46todfbpw
+2026-02-13 16:07:51,450 - OptaPipeline - INFO -    ✅ match_event: 2025-12-21_VIL_vs_BAR_1oi5jmg0ldrmljyz46todfbpw.parquet (1769 events)
+2026-02-13 16:07:51,452 - OptaPipeline - INFO - 
+[8/22] Processing: 1rvgcgz2ftmamcay54gz2qtjo
+2026-02-13 16:07:51,876 - OptaPipeline - INFO -    ✅ match_event: 2026-01-03_ESP_vs_BAR_1rvgcgz2ftmamcay54gz2qtjo.parquet (1570 events)
+2026-02-13 16:07:51,877 - OptaPipeline - INFO - 
+[9/22] Processing: 1v9qqviahmnia4ewmzd4aejv8
+2026-02-13 16:07:52,358 - OptaPipeline - INFO -    ✅ match_event: 2025-12-02_BAR_vs_ATM_1v9qqviahmnia4ewmzd4aejv8.parquet (1824 events)
+2026-02-13 16:07:52,360 - OptaPipeline - INFO - 
+[10/22] Processing: 20boml0nnzxlvqvyy0ylfxdlg
+2026-02-13 16:07:52,812 - OptaPipeline - INFO -    ✅ match_event: 2026-01-18_RSO_vs_BAR_20boml0nnzxlvqvyy0ylfxdlg.parquet (1725 events)
+2026-02-13 16:07:52,813 - OptaPipeline - INFO - 
+[11/22] Processing: 257ci0bd6g6l3uk1fn5a0ob2s
+2026-02-13 16:07:53,274 - OptaPipeline - INFO -    ✅ match_event: 2026-01-25_BAR_vs_OVI_257ci0bd6g6l3uk1fn5a0ob2s.parquet (1784 events)
+2026-02-13 16:07:53,275 - OptaPipeline - INFO - 
+[12/22] Processing: 26p4gv6nxij3gqaoea17rxct0
+2026-02-13 16:07:53,725 - OptaPipeline - INFO -    ✅ match_event: 2026-01-31_ELC_vs_BAR_26p4gv6nxij3gqaoea17rxct0.parquet (1718 events)
+2026-02-13 16:07:53,726 - OptaPipeline - INFO - 
+[13/22] Processing: 2d4xobwd1t1rd2kxlcjmqcyc
+2026-02-13 16:07:54,121 - OptaPipeline - INFO -    ✅ match_event: 2025-08-16_MLL_vs_BAR_2d4xobwd1t1rd2kxlcjmqcyc.parquet (1500 events)
+2026-02-13 16:07:54,123 - OptaPipeline - INFO - 
+[14/22] Processing: 5pp18hcr9ery2hv17q7q6eqc
+2026-02-13 16:07:54,610 - OptaPipeline - INFO -    ✅ match_event: 2025-08-23_LEV_vs_BAR_5pp18hcr9ery2hv17q7q6eqc.parquet (1780 events)
+2026-02-13 16:07:54,612 - OptaPipeline - INFO - 
+[15/22] Processing: a4rapcrtfjbf1vihoi65rm6s
+2026-02-13 16:07:55,036 - OptaPipeline - INFO -    ✅ match_event: 2025-08-31_RAY_vs_BAR_a4rapcrtfjbf1vihoi65rm6s.parquet (1663 events)
+2026-02-13 16:07:55,037 - OptaPipeline - INFO - 
+[16/22] Processing: b88u5e429cnb6ng0i5t4f9jo
+2026-02-13 16:07:55,491 - OptaPipeline - INFO -    ✅ match_event: 2025-09-14_BAR_vs_VAL_b88u5e429cnb6ng0i5t4f9jo.parquet (1684 events)
+2026-02-13 16:07:55,492 - OptaPipeline - INFO - 
+[17/22] Processing: ekk0usjk6blgzpziu4ho01zo
+2026-02-13 16:07:55,976 - OptaPipeline - INFO -    ✅ match_event: 2025-09-21_BAR_vs_GET_ekk0usjk6blgzpziu4ho01zo.parquet (1839 events)
+2026-02-13 16:07:55,977 - OptaPipeline - INFO - 
+[18/22] Processing: kkl8x55qltpl4g1v5260df6c
+2026-02-13 16:07:56,454 - OptaPipeline - INFO -    ✅ match_event: 2025-09-25_OVI_vs_BAR_kkl8x55qltpl4g1v5260df6c.parquet (1783 events)
+2026-02-13 16:07:56,455 - OptaPipeline - INFO - 
+[19/22] Processing: mh9g8wbjyoe3ub3ouu0nnsb8
+2026-02-13 16:07:56,953 - OptaPipeline - INFO -    ✅ match_event: 2025-09-28_BAR_vs_RSO_mh9g8wbjyoe3ub3ouu0nnsb8.parquet (1794 events)
+2026-02-13 16:07:56,954 - OptaPipeline - INFO - 
+[20/22] Processing: rbyhgw1kyp0ghg2qpvznvvv8
+2026-02-13 16:07:57,352 - OptaPipeline - INFO -    ✅ match_event: 2025-10-05_SEV_vs_BAR_rbyhgw1kyp0ghg2qpvznvvv8.parquet (1523 events)
+2026-02-13 16:07:57,353 - OptaPipeline - INFO - 
+[21/22] Processing: txn45zihl3cp2bv3lj5rmot0
+2026-02-13 16:07:57,828 - OptaPipeline - INFO -    ✅ match_event: 2025-10-18_BAR_vs_GIR_txn45zihl3cp2bv3lj5rmot0.parquet (1743 events)
+2026-02-13 16:07:57,830 - OptaPipeline - INFO - 
+[22/22] Processing: ytxz0i1eppxxqupm27ktuln8
+2026-02-13 16:07:58,303 - OptaPipeline - INFO -    ✅ match_event: 2025-10-26_RMA_vs_BAR_ytxz0i1eppxxqupm27ktuln8.parquet (1783 events)
+2026-02-13 16:07:58,304 - OptaPipeline - INFO - 
+✅ Transformed 22/22 match events
+2026-02-13 16:07:58,304 - OptaPipeline - INFO - ================================================================================
+2026-02-13 16:07:58,304 - OptaPipeline - INFO - 🏆 COMPETITION 3/4: Spain_Super_Cup
+2026-02-13 16:07:58,305 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-02-13 16:07:58,305 - OptaPipeline - INFO - ================================================================================
+2026-02-13 16:07:58,305 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-02-13 16:07:58,305 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/supercopa-de-espana-2025-2026/calfow53qyurf0wi9rr96m6tw/results
+2026-02-13 16:07:58,305 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-02-13 16:09:29,482 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.823
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x000000010108f928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000101087c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x0000000100b6a83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000100b54cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000100b54a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x0000000100b52620 chromedriver + 222752
+6   chromedriver                        0x0000000100b53214 chromedriver + 225812
+7   chromedriver                        0x0000000100b60bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x0000000100b77508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x0000000100b53880 chromedriver + 227456
+10  chromedriver                        0x0000000100b772d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x0000000100bf32f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x0000000100ba807c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x000000010104e884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000101051fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000101033578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000101052850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000101023640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000101076194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000101076310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x000000010108785c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+Traceback (most recent call last):
+  File "/Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/modules/scraper.py", line 181, in scrape_matches
+    driver.get(results_url)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 357, in get
+    self.execute(Command.GET, {"url": url})
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 348, in execute
+    self.error_handler.check_response(response)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/errorhandler.py", line 229, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: timeout: Timed out receiving message from renderer: 83.823
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x000000010108f928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000101087c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x0000000100b6a83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000100b54cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000100b54a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x0000000100b52620 chromedriver + 222752
+6   chromedriver                        0x0000000100b53214 chromedriver + 225812
+7   chromedriver                        0x0000000100b60bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x0000000100b77508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x0000000100b53880 chromedriver + 227456
+10  chromedriver                        0x0000000100b772d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x0000000100bf32f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x0000000100ba807c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x000000010104e884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000101051fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000101033578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000101052850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000101023640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000101076194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000101076310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x000000010108785c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 16:09:29,572 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.823
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x000000010108f928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000101087c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x0000000100b6a83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000100b54cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000100b54a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x0000000100b52620 chromedriver + 222752
+6   chromedriver                        0x0000000100b53214 chromedriver + 225812
+7   chromedriver                        0x0000000100b60bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x0000000100b77508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x0000000100b53880 chromedriver + 227456
+10  chromedriver                        0x0000000100b772d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x0000000100bf32f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x0000000100ba807c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x000000010104e884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000101051fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000101033578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000101052850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000101023640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x0000000101076194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x0000000101076310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x000000010108785c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 16:09:29,573 - OptaPipeline - INFO - 💡 Continuing with existing data...
+2026-02-13 16:09:29,573 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-02-13 16:09:29,575 - OptaPipeline - INFO - [1/2] Match: 18rkqb1lhon6ne1hdb6d15as
+2026-02-13 16:09:29,575 - OptaPipeline - INFO -    ⏭️  Already exists: 18rkqb1lhon6ne1hdb6d15as
+2026-02-13 16:09:29,575 - OptaPipeline - INFO - [2/2] Match: z5hatp2undeejhiga4xoytjo
+2026-02-13 16:09:29,575 - OptaPipeline - INFO -    ⏭️  Already exists: z5hatp2undeejhiga4xoytjo
+2026-02-13 16:09:29,575 - OptaPipeline - INFO - 📊 Downloaded: 2, Skipped: 0
+2026-02-13 16:09:29,575 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-02-13 16:09:29,575 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-02-13 16:09:29,575 - OptaPipeline - INFO - 🔄 Found 2 matchdata files
+2026-02-13 16:09:29,575 - OptaPipeline - INFO - 
+[1/2] Processing: 18rkqb1lhon6ne1hdb6d15as
+2026-02-13 16:09:29,587 - OptaPipeline - INFO -    ✅ match: 2026-01-11_BAR_vs_RMA_18rkqb1lhon6ne1hdb6d15as.parquet
+2026-02-13 16:09:29,587 - OptaPipeline - INFO - 
+[2/2] Processing: z5hatp2undeejhiga4xoytjo
+2026-02-13 16:09:29,596 - OptaPipeline - INFO -    ✅ match: 2026-01-07_BAR_vs_ATH_z5hatp2undeejhiga4xoytjo.parquet
+2026-02-13 16:09:29,596 - OptaPipeline - INFO - 
+✅ Transformed 2/2 match files
+2026-02-13 16:09:29,596 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-02-13 16:09:29,598 - OptaPipeline - INFO - 🔄 Found 2 matchdata files
+2026-02-13 16:09:29,598 - OptaPipeline - INFO - 
+[1/2] Processing: 18rkqb1lhon6ne1hdb6d15as
+2026-02-13 16:09:30,096 - OptaPipeline - INFO -    ✅ match_event: 2026-01-11_BAR_vs_RMA_18rkqb1lhon6ne1hdb6d15as.parquet (1726 events)
+2026-02-13 16:09:30,097 - OptaPipeline - INFO - 
+[2/2] Processing: z5hatp2undeejhiga4xoytjo
+2026-02-13 16:09:30,619 - OptaPipeline - INFO -    ✅ match_event: 2026-01-07_BAR_vs_ATH_z5hatp2undeejhiga4xoytjo.parquet (1759 events)
+2026-02-13 16:09:30,621 - OptaPipeline - INFO - 
+✅ Transformed 2/2 match events
+2026-02-13 16:09:30,621 - OptaPipeline - INFO - ================================================================================
+2026-02-13 16:09:30,621 - OptaPipeline - INFO - 🏆 COMPETITION 4/4: UEFA_Champions_League
+2026-02-13 16:09:30,621 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-02-13 16:09:30,621 - OptaPipeline - INFO - ================================================================================
+2026-02-13 16:09:30,621 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-02-13 16:09:30,621 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/uefa-champions-league-2025-2026/2mr0u0l78k2gdsm79q56tb2fo/results
+2026-02-13 16:09:30,621 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-02-13 16:11:01,786 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.866
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x00000001050bf928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x00000001050b7c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x0000000104b9a83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000104b84cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000104b84a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x0000000104b82620 chromedriver + 222752
+6   chromedriver                        0x0000000104b83214 chromedriver + 225812
+7   chromedriver                        0x0000000104b90bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x0000000104ba7508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x0000000104b83880 chromedriver + 227456
+10  chromedriver                        0x0000000104ba72d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x0000000104c232f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x0000000104bd807c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x000000010507e884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000105081fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000105063578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000105082850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000105053640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x00000001050a6194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x00000001050a6310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x00000001050b785c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+Traceback (most recent call last):
+  File "/Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/modules/scraper.py", line 181, in scrape_matches
+    driver.get(results_url)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 357, in get
+    self.execute(Command.GET, {"url": url})
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/webdriver.py", line 348, in execute
+    self.error_handler.check_response(response)
+  File "/opt/anaconda3/envs/final_masters_project/lib/python3.11/site-packages/selenium/webdriver/remote/errorhandler.py", line 229, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: timeout: Timed out receiving message from renderer: 83.866
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x00000001050bf928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x00000001050b7c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x0000000104b9a83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000104b84cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000104b84a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x0000000104b82620 chromedriver + 222752
+6   chromedriver                        0x0000000104b83214 chromedriver + 225812
+7   chromedriver                        0x0000000104b90bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x0000000104ba7508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x0000000104b83880 chromedriver + 227456
+10  chromedriver                        0x0000000104ba72d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x0000000104c232f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x0000000104bd807c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x000000010507e884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000105081fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000105063578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000105082850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000105053640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x00000001050a6194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x00000001050a6310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x00000001050b785c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 16:11:01,894 - OptaPipeline - ERROR - ❌ Scraping failed: Message: timeout: Timed out receiving message from renderer: 83.866
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   chromedriver                        0x00000001050bf928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x00000001050b7c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x0000000104b9a83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x0000000104b84cfc cxxbridge1$string$len + 4096
+4   chromedriver                        0x0000000104b84a5c cxxbridge1$string$len + 3424
+5   chromedriver                        0x0000000104b82620 chromedriver + 222752
+6   chromedriver                        0x0000000104b83214 chromedriver + 225812
+7   chromedriver                        0x0000000104b90bc0 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 34948
+8   chromedriver                        0x0000000104ba7508 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 127436
+9   chromedriver                        0x0000000104b83880 chromedriver + 227456
+10  chromedriver                        0x0000000104ba72d4 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 126872
+11  chromedriver                        0x0000000104c232f8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634812
+12  chromedriver                        0x0000000104bd807c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+13  chromedriver                        0x000000010507e884 cxxbridge1$str$ptr + 2831984
+14  chromedriver                        0x0000000105081fcc cxxbridge1$str$ptr + 2846136
+15  chromedriver                        0x0000000105063578 cxxbridge1$str$ptr + 2720612
+16  chromedriver                        0x0000000105082850 cxxbridge1$str$ptr + 2848316
+17  chromedriver                        0x0000000105053640 cxxbridge1$str$ptr + 2655276
+18  chromedriver                        0x00000001050a6194 cxxbridge1$str$ptr + 2994048
+19  chromedriver                        0x00000001050a6310 cxxbridge1$str$ptr + 2994428
+20  chromedriver                        0x00000001050b785c cxxbridge1$str$ptr + 3065416
+21  libsystem_pthread.dylib             0x0000000192f1dc08 _pthread_start + 136
+22  libsystem_pthread.dylib             0x0000000192f18ba8 thread_start + 8
+
+2026-02-13 16:11:01,894 - OptaPipeline - INFO - 💡 Continuing with existing data...
+2026-02-13 16:11:01,895 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-02-13 16:11:01,897 - OptaPipeline - INFO - [1/8] Match: 65lxswiag0r6pt7m7s7nz6g44
+2026-02-13 16:11:01,897 - OptaPipeline - INFO -    ⏭️  Already exists: 65lxswiag0r6pt7m7s7nz6g44
+2026-02-13 16:11:01,897 - OptaPipeline - INFO - [2/8] Match: 61upafdbc4mwkdmp1k5ajqu50
+2026-02-13 16:11:01,897 - OptaPipeline - INFO -    ⏭️  Already exists: 61upafdbc4mwkdmp1k5ajqu50
+2026-02-13 16:11:01,897 - OptaPipeline - INFO - [3/8] Match: 5q05t4o4el0d6rhmncz6pxqms
+2026-02-13 16:11:01,897 - OptaPipeline - INFO -    ⏭️  Already exists: 5q05t4o4el0d6rhmncz6pxqms
+2026-02-13 16:11:01,897 - OptaPipeline - INFO - [4/8] Match: 5iss7tc562nnymg0uiewtt0r8
+2026-02-13 16:11:01,897 - OptaPipeline - INFO -    ⏭️  Already exists: 5iss7tc562nnymg0uiewtt0r8
+2026-02-13 16:11:01,897 - OptaPipeline - INFO - [5/8] Match: 5fbfmxmdror7xvtcq3a41pkpg
+2026-02-13 16:11:01,897 - OptaPipeline - INFO -    ⏭️  Already exists: 5fbfmxmdror7xvtcq3a41pkpg
+2026-02-13 16:11:01,897 - OptaPipeline - INFO - [6/8] Match: 547fv6pkd98zbsl3ha92ih0d0
+2026-02-13 16:11:01,897 - OptaPipeline - INFO -    ⏭️  Already exists: 547fv6pkd98zbsl3ha92ih0d0
+2026-02-13 16:11:01,897 - OptaPipeline - INFO - [7/8] Match: 535v16ejka2ckhekin6euxg5w
+2026-02-13 16:11:01,897 - OptaPipeline - INFO -    ⏭️  Already exists: 535v16ejka2ckhekin6euxg5w
+2026-02-13 16:11:01,897 - OptaPipeline - INFO - [8/8] Match: 4x2w9j51dk7kc90orh6vkm2hg
+2026-02-13 16:11:01,897 - OptaPipeline - INFO -    ⏭️  Already exists: 4x2w9j51dk7kc90orh6vkm2hg
+2026-02-13 16:11:01,897 - OptaPipeline - INFO - 📊 Downloaded: 8, Skipped: 0
+2026-02-13 16:11:01,897 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-02-13 16:11:01,897 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-02-13 16:11:01,898 - OptaPipeline - INFO - 🔄 Found 8 matchdata files
+2026-02-13 16:11:01,898 - OptaPipeline - INFO - 
+[1/8] Processing: 4x2w9j51dk7kc90orh6vkm2hg
+2026-02-13 16:11:01,906 - OptaPipeline - INFO -    ✅ match: 2025-09-18_NEW_vs_BAR_4x2w9j51dk7kc90orh6vkm2hg.parquet
+2026-02-13 16:11:01,907 - OptaPipeline - INFO - 
+[2/8] Processing: 535v16ejka2ckhekin6euxg5w
+2026-02-13 16:11:01,931 - OptaPipeline - INFO -    ✅ match: 2025-10-01_BAR_vs_PSG_535v16ejka2ckhekin6euxg5w.parquet
+2026-02-13 16:11:01,932 - OptaPipeline - INFO - 
+[3/8] Processing: 547fv6pkd98zbsl3ha92ih0d0
+2026-02-13 16:11:01,940 - OptaPipeline - INFO -    ✅ match: 2025-10-21_BAR_vs_OLY_547fv6pkd98zbsl3ha92ih0d0.parquet
+2026-02-13 16:11:01,941 - OptaPipeline - INFO - 
+[4/8] Processing: 5fbfmxmdror7xvtcq3a41pkpg
+2026-02-13 16:11:01,949 - OptaPipeline - INFO -    ✅ match: 2025-11-05_CLU_vs_BAR_5fbfmxmdror7xvtcq3a41pkpg.parquet
+2026-02-13 16:11:01,949 - OptaPipeline - INFO - 
+[5/8] Processing: 5iss7tc562nnymg0uiewtt0r8
+2026-02-13 16:11:01,957 - OptaPipeline - INFO -    ✅ match: 2025-11-25_CHE_vs_BAR_5iss7tc562nnymg0uiewtt0r8.parquet
+2026-02-13 16:11:01,957 - OptaPipeline - INFO - 
+[6/8] Processing: 5q05t4o4el0d6rhmncz6pxqms
+2026-02-13 16:11:01,965 - OptaPipeline - INFO -    ✅ match: 2025-12-09_BAR_vs_SGE_5q05t4o4el0d6rhmncz6pxqms.parquet
+2026-02-13 16:11:01,965 - OptaPipeline - INFO - 
+[7/8] Processing: 61upafdbc4mwkdmp1k5ajqu50
+2026-02-13 16:11:01,975 - OptaPipeline - INFO -    ✅ match: 2026-01-21_SLA_vs_BAR_61upafdbc4mwkdmp1k5ajqu50.parquet
+2026-02-13 16:11:01,975 - OptaPipeline - INFO - 
+[8/8] Processing: 65lxswiag0r6pt7m7s7nz6g44
+2026-02-13 16:11:01,982 - OptaPipeline - INFO -    ✅ match: 2026-01-28_BAR_vs_FCK_65lxswiag0r6pt7m7s7nz6g44.parquet
+2026-02-13 16:11:01,983 - OptaPipeline - INFO - 
+✅ Transformed 8/8 match files
+2026-02-13 16:11:01,983 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-02-13 16:11:01,984 - OptaPipeline - INFO - 🔄 Found 8 matchdata files
+2026-02-13 16:11:01,984 - OptaPipeline - INFO - 
+[1/8] Processing: 4x2w9j51dk7kc90orh6vkm2hg
+2026-02-13 16:11:02,425 - OptaPipeline - INFO -    ✅ match_event: 2025-09-18_NEW_vs_BAR_4x2w9j51dk7kc90orh6vkm2hg.parquet (1690 events)
+2026-02-13 16:11:02,426 - OptaPipeline - INFO - 
+[2/8] Processing: 535v16ejka2ckhekin6euxg5w
+2026-02-13 16:11:02,864 - OptaPipeline - INFO -    ✅ match_event: 2025-10-01_BAR_vs_PSG_535v16ejka2ckhekin6euxg5w.parquet (1657 events)
+2026-02-13 16:11:02,865 - OptaPipeline - INFO - 
+[3/8] Processing: 547fv6pkd98zbsl3ha92ih0d0
+2026-02-13 16:11:03,315 - OptaPipeline - INFO -    ✅ match_event: 2025-10-21_BAR_vs_OLY_547fv6pkd98zbsl3ha92ih0d0.parquet (1661 events)
+2026-02-13 16:11:03,316 - OptaPipeline - INFO - 
+[4/8] Processing: 5fbfmxmdror7xvtcq3a41pkpg
+2026-02-13 16:11:03,783 - OptaPipeline - INFO -    ✅ match_event: 2025-11-05_CLU_vs_BAR_5fbfmxmdror7xvtcq3a41pkpg.parquet (1670 events)
+2026-02-13 16:11:03,784 - OptaPipeline - INFO - 
+[5/8] Processing: 5iss7tc562nnymg0uiewtt0r8
+2026-02-13 16:11:04,227 - OptaPipeline - INFO -    ✅ match_event: 2025-11-25_CHE_vs_BAR_5iss7tc562nnymg0uiewtt0r8.parquet (1694 events)
+2026-02-13 16:11:04,228 - OptaPipeline - INFO - 
+[6/8] Processing: 5q05t4o4el0d6rhmncz6pxqms
+2026-02-13 16:11:04,746 - OptaPipeline - INFO -    ✅ match_event: 2025-12-09_BAR_vs_SGE_5q05t4o4el0d6rhmncz6pxqms.parquet (1893 events)
+2026-02-13 16:11:04,747 - OptaPipeline - INFO - 
+[7/8] Processing: 61upafdbc4mwkdmp1k5ajqu50
+2026-02-13 16:11:05,231 - OptaPipeline - INFO -    ✅ match_event: 2026-01-21_SLA_vs_BAR_61upafdbc4mwkdmp1k5ajqu50.parquet (1715 events)
+2026-02-13 16:11:05,232 - OptaPipeline - INFO - 
+[8/8] Processing: 65lxswiag0r6pt7m7s7nz6g44
+2026-02-13 16:11:05,714 - OptaPipeline - INFO -    ✅ match_event: 2026-01-28_BAR_vs_FCK_65lxswiag0r6pt7m7s7nz6g44.parquet (1771 events)
+2026-02-13 16:11:05,715 - OptaPipeline - INFO - 
+✅ Transformed 8/8 match events
+2026-02-13 16:11:05,715 - OptaPipeline - INFO - ================================================================================
+2026-02-13 16:11:05,715 - OptaPipeline - INFO - 📈 FINAL SUMMARY - ALL COMPETITIONS
+2026-02-13 16:11:05,715 - OptaPipeline - INFO - ================================================================================
+2026-02-13 16:11:05,715 - OptaPipeline - INFO - ✅ Successful: 4/4
+2026-02-13 16:11:05,716 - OptaPipeline - INFO - ❌ Failed: 0/4
+2026-02-13 16:11:05,716 - OptaPipeline - INFO - Match parquets: 35
+2026-02-13 16:11:05,716 - OptaPipeline - INFO - Event parquets: 35
