@@ -395,6 +395,377 @@ a:hover {
     animation: fadeIn 0.5s ease-in-out;
 }
 
+/* =============================================================================
+   HOME PAGE - Hero Section
+   ============================================================================= */
+
+.hero-section {
+    position: relative;
+    background: linear-gradient(135deg, #001a3a 0%, #0A0E27 30%, #1a0020 70%, #0A0E27 100%);
+    border-radius: 16px;
+    padding: 3rem 2.5rem 2rem;
+    margin-bottom: 2rem;
+    overflow: hidden;
+    border: 1px solid var(--dark-border);
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -20%;
+    width: 60%;
+    height: 200%;
+    background: radial-gradient(ellipse, rgba(0, 77, 152, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.hero-section::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 60%;
+    height: 200%;
+    background: radial-gradient(ellipse, rgba(165, 0, 68, 0.12) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.hero-logo {
+    height: 100px;
+    width: auto;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+    transition: transform 0.3s ease;
+}
+
+.hero-logo:hover {
+    transform: scale(1.05);
+}
+
+.hero-title {
+    font-family: 'Barcelona', 'Segoe UI', sans-serif !important;
+    font-size: 2.8rem !important;
+    font-weight: 700 !important;
+    background: linear-gradient(135deg, #EDBB00 0%, #fff 50%, #EDBB00 100%);
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    margin-bottom: 0.25rem;
+}
+
+.hero-subtitle {
+    font-size: 1.1rem;
+    color: var(--text-secondary) !important;
+    letter-spacing: 0.5px;
+}
+
+.hero-stats-bar {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+}
+
+.hero-stat-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 0.75rem 1.25rem;
+    min-width: 100px;
+    transition: all 0.3s ease;
+}
+
+.hero-stat-pill:hover {
+    background: rgba(237, 187, 0, 0.1);
+    border-color: rgba(237, 187, 0, 0.3);
+    transform: translateY(-2px);
+}
+
+.hero-stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.hero-stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 0.25rem;
+}
+
+/* =============================================================================
+   HOME PAGE - Tournament Cards (Dark themed)
+   ============================================================================= */
+
+.tournament-card {
+    background: linear-gradient(135deg, var(--dark-secondary) 0%, var(--dark-tertiary) 100%) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 14px !important;
+    transition: all 0.3s ease !important;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.tournament-card:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 8px 24px rgba(0, 77, 152, 0.3), 0 4px 8px rgba(165, 0, 68, 0.2) !important;
+    border-color: var(--barca-blue) !important;
+}
+
+.tournament-logo-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--barca-gold);
+    padding: 12px;
+    margin: 0 auto;
+}
+
+.tournament-logo {
+    height: 52px;
+    width: auto;
+    max-width: 52px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+}
+
+.tournament-record {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin: 0.5rem 0;
+}
+
+.tournament-record-item {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+}
+
+.tournament-win-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    margin-top: 0.75rem;
+}
+
+.tournament-win-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--barca-blue), var(--barca-garnet));
+    transition: width 0.8s ease;
+}
+
+.tournament-expand-hint {
+    font-size: 0.7rem;
+    text-align: center;
+    margin-top: 0.5rem;
+    opacity: 0.6;
+    color: var(--text-secondary);
+}
+
+/* =============================================================================
+   HOME PAGE - Player Cards (Dark themed)
+   ============================================================================= */
+
+.player-contrib-card {
+    background: linear-gradient(135deg, var(--dark-secondary) 0%, var(--dark-tertiary) 100%) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 14px !important;
+    text-align: center;
+    padding: 1.5rem 1rem;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.player-contrib-card:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 8px 20px rgba(0, 77, 152, 0.3) !important;
+    border-color: var(--barca-blue) !important;
+}
+
+.player-photo {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--barca-gold);
+    margin-bottom: 0.75rem;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.player-stat-row {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 0.75rem;
+}
+
+.player-stat-item {
+    text-align: center;
+}
+
+.player-stat-num {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--barca-gold);
+}
+
+.player-stat-lbl {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+}
+
+/* =============================================================================
+   HOME PAGE - Trendline Checklist
+   ============================================================================= */
+
+.trendline-checklist label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.trendline-checklist input[type="checkbox"] {
+    accent-color: var(--barca-gold);
+}
+
+/* =============================================================================
+   GLOBAL - Dropdown Dark Theme (CuléVision)
+   ============================================================================= */
+
+.culevision-dropdown .Select-control,
+.culevision-dropdown .Select-menu-outer {
+    background-color: var(--dark-secondary) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.culevision-dropdown .Select-value-label,
+.culevision-dropdown .Select-placeholder {
+    color: var(--text-primary) !important;
+}
+
+.culevision-dropdown .Select-option {
+    background-color: var(--dark-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+.culevision-dropdown .Select-option:hover,
+.culevision-dropdown .Select-option.is-focused {
+    background-color: var(--dark-tertiary) !important;
+    color: var(--barca-gold) !important;
+}
+
+.culevision-dropdown .Select-option.is-selected {
+    background-color: rgba(0, 77, 152, 0.3) !important;
+    color: var(--barca-gold) !important;
+}
+
+.culevision-dropdown .Select-arrow-zone .Select-arrow {
+    border-top-color: var(--text-secondary) !important;
+}
+
+/* Dash dcc.Dropdown specific overrides */
+.culevision-dropdown .dash-dropdown .Select-control {
+    background-color: var(--dark-secondary) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 8px !important;
+}
+
+/* =============================================================================
+   HOME PAGE - Footer Navigation
+   ============================================================================= */
+
+.footer-nav-card {
+    background: linear-gradient(135deg, var(--dark-secondary) 0%, var(--dark-tertiary) 100%) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 14px !important;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease !important;
+    text-decoration: none !important;
+    display: block;
+    height: 100%;
+}
+
+.footer-nav-card:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 8px 20px rgba(0, 77, 152, 0.25) !important;
+    border-color: var(--barca-blue) !important;
+}
+
+.footer-nav-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+    background: linear-gradient(135deg, var(--barca-blue), var(--barca-garnet));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.footer-nav-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary) !important;
+    margin-bottom: 0.5rem;
+}
+
+.footer-nav-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary) !important;
+}
+
+/* =============================================================================
+   HOME PAGE - Section Headers
+   ============================================================================= */
+
+.section-header {
+    font-family: 'Barcelona', 'Segoe UI', sans-serif !important;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--barca-gold) !important;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--dark-border);
+}
+
+/* =============================================================================
+   HOME PAGE - Animations
+   ============================================================================= */
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hero-section {
+    animation: slideUp 0.6s ease-out;
+}
+
+.tournament-card {
+    animation: slideUp 0.5s ease-out;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .navbar-logo {
@@ -403,5 +774,31 @@ a:hover {
 
     .card {
         margin-bottom: 1rem !important;
+    }
+
+    .hero-title {
+        font-size: 1.8rem !important;
+    }
+
+    .hero-logo {
+        height: 60px;
+    }
+
+    .hero-stats-bar {
+        justify-content: center;
+    }
+
+    .hero-stat-pill {
+        min-width: 80px;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .hero-stat-value {
+        font-size: 1.4rem;
+    }
+
+    .player-photo {
+        width: 70px;
+        height: 70px;
     }
 }

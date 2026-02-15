@@ -44,25 +44,41 @@ class MatchDownloader:
         )
     
     def create_selenium_wire_driver(self, headless: bool = False) -> webdriver.Chrome:
-        """Create Selenium Wire driver"""
+        """Create Selenium Wire driver with anti-detection measures"""
         chrome_opts = Options()
         chrome_opts.add_argument("--start-maximized")
         chrome_opts.add_argument("--disable-gpu")
         chrome_opts.add_argument("--no-sandbox")
         chrome_opts.add_argument("--disable-dev-shm-usage")
         chrome_opts.add_argument("--lang=en-GB")
-        
+
+        # Anti-detection: realistic user-agent
+        chrome_opts.add_argument(
+            "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        )
+        # Disable automation flags that sites use to detect bots
+        chrome_opts.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_opts.add_experimental_option("useAutomationExtension", False)
+
         if headless:
             chrome_opts.add_argument("--headless=new")
-        
+            chrome_opts.add_argument("--window-size=1920,1080")
+
         sw_options = {
             "disable_encoding": True,
             "request_storage": "memory",
         }
-        
+
         driver = webdriver.Chrome(options=chrome_opts, seleniumwire_options=sw_options)
         driver.scopes = [r".*api\.performfeeds\.com/soccerdata/.*"]
-        
+
+        # Remove navigator.webdriver flag
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        })
+
         return driver
     
     def download_match_data(self, match_url: str, match_id: str) -> Optional[str]:
@@ -72,7 +88,7 @@ class MatchDownloader:
         Returns:
             Path to saved JSON file or None
         """
-        driver = self.create_selenium_wire_driver(headless=False)
+        driver = self.create_selenium_wire_driver(headless=True)
         
         try:
             player_stats_url = to_player_stats_url(match_url)

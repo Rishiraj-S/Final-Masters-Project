@@ -7,6 +7,7 @@ Iterates through all configured competitions
 
 import os
 import sys
+import json
 import yaml
 import argparse
 from pathlib import Path
@@ -42,6 +43,29 @@ def load_config(config_path: str = None) -> dict:
             config['paths'][path_key] = str(script_dir / path_value)
 
     return config
+
+
+PROGRESS_FILE = Path(__file__).parent / "logs" / "progress.json"
+
+
+def write_progress(competition: str = "", stage: str = "", detail: str = "",
+                   current_competition: int = 0, total_competitions: int = 0,
+                   current_match: int = 0, total_matches: int = 0):
+    """Write current pipeline progress to a JSON file for the UI to read."""
+    progress = {
+        "competition": competition,
+        "stage": stage,
+        "detail": detail,
+        "current_competition": current_competition,
+        "total_competitions": total_competitions,
+        "current_match": current_match,
+        "total_matches": total_matches,
+    }
+    try:
+        PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        PROGRESS_FILE.write_text(json.dumps(progress), encoding="utf-8")
+    except Exception:
+        pass
 
 
 def process_competition(config: dict, competition_info: dict, args, logger) -> dict:
@@ -83,19 +107,23 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
     }
 
     try:
+        comp_idx = competition_info.get('_idx', 0)
+        comp_total = competition_info.get('_total', 0)
+        display_name = league_name.replace('_', ' ')
+
         # ============================================================
         # TRANSFORM ONLY MODE
         # ============================================================
         if args.transform_only:
             logger.info("🔄 TRANSFORMING EXISTING DATA")
 
-            # Transform match info
-            logger.info("📋 Transforming Match Info...")
+            write_progress(display_name, "Transforming", "Match info",
+                           comp_idx, comp_total)
             match_transformer = MatchTransformer(config, logger)
             results['match_transformed'] = match_transformer.transform_all()
 
-            # Transform match events
-            logger.info("⚽ Transforming Match Events...")
+            write_progress(display_name, "Transforming", "Match events",
+                           comp_idx, comp_total)
             event_transformer = MatchEventTransformer(config, logger)
             results['event_transformed'] = event_transformer.transform_all()
 
@@ -108,25 +136,54 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
         # Step 1: Scraping
         if not args.skip_scraping:
             logger.info("🔍 Scraping match URLs...")
+            write_progress(display_name, "Scraping", "Fetching match URLs",
+                           comp_idx, comp_total)
 
             scraper = MatchScraper(config, logger)
 
             try:
-                matches_df = scraper.scrape_matches(
+                new_matches_df = scraper.scrape_matches(
                     results_url,
                     config['team']['name']
                 )
 
-                if not matches_df.empty:
+                if not new_matches_df.empty:
                     matches_csv_path = get_organized_path_reversed(
                         config['paths']['result_dir'],
                         league_name,
                         season,
                         'matches_urls.csv'
                     )
+
+                    # Merge with existing CSV so we never lose previously scraped matches
+                    if os.path.exists(matches_csv_path):
+                        existing_df = pd.read_csv(matches_csv_path)
+                        merged_df = pd.concat([existing_df, new_matches_df], ignore_index=True)
+                        # Keep the latest entry for each match_id (new data wins)
+                        merged_df = merged_df.drop_duplicates(subset=['match_id'], keep='last')
+                        merged_df = merged_df.drop_duplicates(subset=['url_match'], keep='last')
+                        new_count = len(merged_df) - len(existing_df)
+                        if new_count > 0:
+                            logger.info(f"🆕 Found {new_count} new match(es) not in existing CSV")
+                        else:
+                            logger.info("ℹ️  No new matches found (all already in CSV)")
+                        matches_df = merged_df
+                    else:
+                        matches_df = new_matches_df
+
+                    # Sort by date descending (most recent first)
+                    try:
+                        matches_df['_date_sort'] = pd.to_datetime(
+                            matches_df['date'], format='%d/%m/%Y', errors='coerce'
+                        )
+                        matches_df = matches_df.sort_values('_date_sort', ascending=False)
+                        matches_df = matches_df.drop(columns=['_date_sort'])
+                    except Exception:
+                        pass
+
                     matches_df.to_csv(matches_csv_path, index=False)
                     results['scraped'] = len(matches_df)
-                    logger.info(f"💾 Saved {len(matches_df)} matches to: {matches_csv_path}")
+                    logger.info(f"💾 Saved {len(matches_df)} total matches to: {matches_csv_path}")
 
             except Exception as e:
                 logger.error(f"❌ Scraping failed: {e}")
@@ -156,6 +213,16 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
                     match_id = row['match_id']
                     match_url = row['url_match']
 
+                    # Build a human-readable match label
+                    home = row.get('home', '')
+                    away = row.get('away', '')
+                    match_label = f"{home} vs {away}" if home and away else match_id
+
+                    write_progress(display_name, "Downloading",
+                                   match_label,
+                                   comp_idx, comp_total,
+                                   idx + 1, total)
+
                     logger.info(f"[{idx + 1}/{total}] Match: {match_id}")
 
                     success, result_path = downloader.download_match(match_id, match_url, competition_id)
@@ -174,12 +241,14 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
         # Step 3: Transformation
         logger.info("🔄 Transforming data to parquet...")
 
-        # Transform match info
+        write_progress(display_name, "Transforming", "Match info",
+                       comp_idx, comp_total)
         logger.info("📋 Transforming Match Info...")
         match_transformer = MatchTransformer(config, logger)
         results['match_transformed'] = match_transformer.transform_all()
 
-        # Transform match events
+        write_progress(display_name, "Transforming", "Match events",
+                       comp_idx, comp_total)
         logger.info("⚽ Transforming Match Events...")
         event_transformer = MatchEventTransformer(config, logger)
         results['event_transformed'] = event_transformer.transform_all()
@@ -269,6 +338,10 @@ def main():
         league_name = competition_info['league_name']
         season = competition_info['season']
 
+        # Pass index info so process_competition can write progress
+        competition_info['_idx'] = idx
+        competition_info['_total'] = total_competitions
+
         print("\n" + "="*80)
         print(f"🏆 COMPETITION {idx}/{total_competitions}: {league_name}")
         print(f"📅 Season: {season}")
@@ -329,6 +402,12 @@ def main():
     logger.info(f"❌ Failed: {len(failed)}/{total_competitions}")
     logger.info(f"Match parquets: {total_match}")
     logger.info(f"Event parquets: {total_event}")
+
+    # Clean up progress file
+    try:
+        PROGRESS_FILE.unlink(missing_ok=True)
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

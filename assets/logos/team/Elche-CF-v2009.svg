@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg data-name="图层_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 800 800">
-  <!-- Created by @FCLOGO 2025-5-29 GMT+8 10:08:40 . https://fclogo.top/ -->
-<!-- FOR PERSONAL USE ONLY NOT FOR COMMERCIAL USE -->
-  <sodipodi:namedview id="namedview127" bordercolor="#666666" borderopacity="1" fit-margin-bottom="0" fit-margin-left="0" fit-margin-right="0" fit-margin-top="0" gridtolerance="10" guidetolerance="10" objecttolerance="10" pagecolor="#ffffff" showgrid="false"/>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 800 800">
   <g id="surface1">
     <path d="M330.2333,50c-45.26,60.2738-107.4925,107.3649-177.2592,137.5018v160.1045c30.1733,32.0227,50.9175,73.4655,66.0041,114.8991,18.8583,62.1596,26.3925,124.3192,62.2234,180.8304,28.2875,47.0912,65.995,82.8764,115.0267,105.4791,1.075.5011,2.9517,1.2117,4.127,1.1843,1.1752-.0364,2.3049-.829,3.4164-1.1843,49.0317-22.6027,86.7483-58.3879,115.0267-105.4791,35.8308-56.5112,43.3742-118.6708,62.2325-180.8304,15.0867-41.4337,35.8308-82.8764,65.995-114.8991v-160.1045c-69.7667-30.1369-131.9992-77.228-177.2501-137.5018h-139.5425Z" style="fill: #f6be00;"/>
     <path d="M489.281,653.3845c-25.4086,35.2113-50.6897,58.2331-88.6524,75.9708h-.2733c-37.9626-17.7286-63.2346-40.7595-88.6524-75.9708h177.578Z" style="fill: #0063ab;"/>
