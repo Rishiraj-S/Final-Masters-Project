@@ -11,7 +11,7 @@ This is the main entry point for the application. It handles:
 Individual pages are organized in the pages/ directory:
 - pages/home.py: Season Overview
 - pages/match_analysis.py: Match Analysis (phase-based post-match analysis)
-- pages/team_insights.py: Player Analysis
+- pages/player_analysis.py: Player Analysis
 - pages/opposition_analysis.py: Opposition Analysis
 """
 
@@ -29,8 +29,13 @@ from utils.config import COLORS, APP_CONFIG, NAV_LINKS
 from pages import (
     create_home_layout,
     register_home_callbacks,
+    create_match_analysis_layout,
     register_match_analysis_callbacks,
-    register_team_insights_callbacks,
+    create_player_analysis_layout,
+    register_player_analysis_callbacks,
+    create_team_analysis_layout,
+    register_team_analysis_callbacks,
+    create_opposition_analysis_layout,
     register_opposition_analysis_callbacks,
 )
 
@@ -149,6 +154,39 @@ app.index_string = '''
                 box-shadow: 0 0 0 0.2rem rgba(237, 187, 0, 0.25) !important;
             }
             .login-input::placeholder {
+                color: #A5A8B8 !important;
+            }
+            /* Global dark-theme dropdown styles */
+            .Select-control {
+                background-color: #1E2139 !important;
+                border: 1px solid #2A2F4A !important;
+            }
+            .Select-value-label,
+            .Select input {
+                color: #E8E9ED !important;
+            }
+            .Select-placeholder {
+                color: #A5A8B8 !important;
+            }
+            .Select-menu-outer {
+                background-color: #1E2139 !important;
+                border: 1px solid #2A2F4A !important;
+            }
+            .VirtualizedSelectOption {
+                background-color: #1E2139 !important;
+                color: #E8E9ED !important;
+            }
+            .VirtualizedSelectFocusedOption {
+                background-color: #2A2F4A !important;
+                color: #EDBB00 !important;
+            }
+            .Select-arrow {
+                border-color: #E8E9ED transparent transparent !important;
+            }
+            .Select.is-open .Select-arrow {
+                border-color: transparent transparent #E8E9ED !important;
+            }
+            .Select-clear {
                 color: #A5A8B8 !important;
             }
             .update-overlay {
@@ -370,6 +408,7 @@ def create_update_overlay():
 _PAGE_TITLES = {
     '/match-analysis': 'Match Analysis',
     '/player-analysis': 'Player Analysis',
+    '/team-analysis': 'Team Analysis',
     '/opposition-analysis': 'Opposition Analysis',
 }
 
@@ -450,8 +489,14 @@ def update_main_container(session_data, pathname, update_status):
     navbar = create_navbar(user_info)
 
     # Determine which page to show based on URL
-    if pathname in ('/match-analysis', '/player-analysis', '/opposition-analysis'):
-        page_content = _create_under_development_layout(pathname)
+    if pathname == '/match-analysis':
+        page_content = create_match_analysis_layout()
+    elif pathname == '/player-analysis':
+        page_content = create_player_analysis_layout()
+    elif pathname == '/team-analysis':
+        page_content = create_team_analysis_layout()
+    elif pathname == '/opposition-analysis':
+        page_content = create_opposition_analysis_layout()
     else:
         page_content = create_home_layout(is_admin)
         pathname = '/'
@@ -536,11 +581,27 @@ def handle_database_update(n_clicks, n_intervals, current_status):
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if trigger_id == 'update-db-button' and n_clicks:
+        # Prevent double-start
+        if hasattr(app, '_update_thread') and app._update_thread.is_alive():
+            return {'updating': True}, False
+
         # Start the database update process
         def run_pipeline():
             script_dir = os.path.dirname(os.path.abspath(__file__))
             pipeline_path = os.path.join(script_dir, 'opta_pipeline', 'main.py')
-            subprocess.run([sys.executable, pipeline_path], cwd=script_dir)
+            result = subprocess.run(
+                [sys.executable, pipeline_path],
+                cwd=script_dir,
+                capture_output=True,
+                text=True
+            )
+            if result.returncode != 0:
+                # Log errors to pipeline log
+                log_path = os.path.join(script_dir, 'opta_pipeline', 'logs', 'pipeline_error.log')
+                with open(log_path, 'w') as f:
+                    f.write(f"Exit code: {result.returncode}\n")
+                    f.write(f"STDERR:\n{result.stderr}\n")
+                    f.write(f"STDOUT (last 2000 chars):\n{result.stdout[-2000:]}\n")
 
         # Start update in background thread
         thread = threading.Thread(target=run_pipeline, daemon=True)
@@ -569,7 +630,8 @@ def handle_database_update(n_clicks, n_intervals, current_status):
 # Register callbacks from page modules
 register_home_callbacks(app)
 register_match_analysis_callbacks(app)
-register_team_insights_callbacks(app)
+register_player_analysis_callbacks(app)
+register_team_analysis_callbacks(app)
 register_opposition_analysis_callbacks(app)
 
 

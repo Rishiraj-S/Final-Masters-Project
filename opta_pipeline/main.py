@@ -17,6 +17,7 @@ from modules import (
     MatchDownloader,
     MatchTransformer,
     MatchEventTransformer,
+    LineupTransformer,
     setup_logging,
     ensure_directories
 )
@@ -103,6 +104,7 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
         'skipped': 0,
         'match_transformed': 0,
         'event_transformed': 0,
+        'lineup_transformed': 0,
         'status': 'success'
     }
 
@@ -126,6 +128,11 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
                            comp_idx, comp_total)
             event_transformer = MatchEventTransformer(config, logger)
             results['event_transformed'] = event_transformer.transform_all()
+
+            write_progress(display_name, "Transforming", "Lineups",
+                           comp_idx, comp_total)
+            lineup_transformer = LineupTransformer(config, logger)
+            results['lineup_transformed'] = lineup_transformer.transform_all()
 
             return results
 
@@ -208,6 +215,7 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
                 total = len(matches_df)
                 downloaded = 0
                 skipped = 0
+                failed_matches = []
 
                 for idx, row in matches_df.iterrows():
                     match_id = row['match_id']
@@ -231,10 +239,13 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
                         downloaded += 1
                     else:
                         skipped += 1
+                        failed_matches.append(match_label)
 
                 results['downloaded'] = downloaded
                 results['skipped'] = skipped
-                logger.info(f"📊 Downloaded: {downloaded}, Skipped: {skipped}")
+                if failed_matches:
+                    logger.warning(f"⚠️  Failed downloads: {', '.join(failed_matches)}")
+                logger.info(f"📊 Downloaded: {downloaded}, Failed: {skipped}")
             else:
                 logger.warning(f"No matches CSV found at: {matches_csv_path}")
 
@@ -252,6 +263,12 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
         logger.info("⚽ Transforming Match Events...")
         event_transformer = MatchEventTransformer(config, logger)
         results['event_transformed'] = event_transformer.transform_all()
+
+        write_progress(display_name, "Transforming", "Lineups",
+                       comp_idx, comp_total)
+        logger.info("👥 Transforming Lineups...")
+        lineup_transformer = LineupTransformer(config, logger)
+        results['lineup_transformed'] = lineup_transformer.transform_all()
 
     except Exception as e:
         logger.error(f"❌ Error processing {league_name}: {e}")
@@ -314,6 +331,12 @@ def main():
         print("❌ No competitions configured")
         sys.exit(1)
 
+    # Clean up any stale progress file from a previous crashed run
+    try:
+        PROGRESS_FILE.unlink(missing_ok=True)
+    except Exception:
+        pass
+
     # Display header
     print("\n" + "="*80)
     print("🚀 OPTA PIPELINE - MULTI-COMPETITION MODE")
@@ -357,10 +380,11 @@ def main():
         if results['status'] == 'success':
             print(f"\n✅ {league_name} completed successfully")
             if not args.transform_only:
-                print(f"   Scraped: {results['scraped']}")
+                print(f"   Scraped:   {results['scraped']}")
                 print(f"   Downloaded: {results['downloaded']}")
-            print(f"   Match files: {results['match_transformed']}")
-            print(f"   Event files: {results['event_transformed']}")
+            print(f"   Match files:  {results['match_transformed']}")
+            print(f"   Event files:  {results['event_transformed']}")
+            print(f"   Lineup files: {results.get('lineup_transformed', 0)}")
         else:
             print(f"\n❌ {league_name} failed")
 
@@ -387,9 +411,11 @@ def main():
 
     total_match = sum(r['match_transformed'] for r in all_results)
     total_event = sum(r['event_transformed'] for r in all_results)
+    total_lineup = sum(r.get('lineup_transformed', 0) for r in all_results)
     print(f"\n🔄 Transformation:")
-    print(f"   Match parquets: {total_match}")
-    print(f"   Event parquets: {total_event}")
+    print(f"   Match parquets:  {total_match}")
+    print(f"   Event parquets:  {total_event}")
+    print(f"   Lineup parquets: {total_lineup}")
 
     print("\n📁 Output directories:")
     for comp in competitions:
@@ -400,8 +426,9 @@ def main():
 
     logger.info(f"✅ Successful: {len(successful)}/{total_competitions}")
     logger.info(f"❌ Failed: {len(failed)}/{total_competitions}")
-    logger.info(f"Match parquets: {total_match}")
-    logger.info(f"Event parquets: {total_event}")
+    logger.info(f"Match parquets:  {total_match}")
+    logger.info(f"Event parquets:  {total_event}")
+    logger.info(f"Lineup parquets: {total_lineup}")
 
     # Clean up progress file
     try:

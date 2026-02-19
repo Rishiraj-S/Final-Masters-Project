@@ -410,31 +410,36 @@ def _build_top_contributors(stats_df, n=5):
 
 
 def _create_footer_nav():
-    """Section: Quick-link footer navigation."""
+    """Section: Quick-link footer navigation — 2×2 grid of all four pages."""
     links = [
         {
             'title': 'Match Analysis',
-            'desc': 'Phase-based post-match tactical analysis with interactive visualizations',
+            'desc': 'Phase-based post-match tactical breakdown: overview, attack, defence, transitions and set pieces — with a downloadable PDF report.',
             'href': '/match-analysis',
             'icon': 'fas fa-futbol',
         },
         {
             'title': 'Player Analysis',
-            'desc': 'Individual player performance metrics and match-by-match breakdowns',
+            'desc': 'Individual Barcelona player profiles, shot maps, touch heatmaps and match-by-match performance logs across all competitions.',
             'href': '/player-analysis',
             'icon': 'fas fa-running',
         },
         {
+            'title': 'Team Analysis',
+            'desc': "Season-wide FC Barcelona performance across attack, defence, attacking & defensive transitions and set pieces — filterable by competition and match.",
+            'href': '/team-analysis',
+            'icon': 'fas fa-chart-bar',
+        },
+        {
             'title': 'Opposition Analysis',
-            'desc': 'Scouting reports and opposition tendencies across competitions',
+            'desc': 'Head-to-head records, tactical heatmaps and key-player profiles for every team that has faced Barça this season.',
             'href': '/opposition-analysis',
             'icon': 'fas fa-shield-alt',
         },
     ]
 
-    cols = []
-    for link in links:
-        cols.append(dbc.Col([
+    def _nav_col(link):
+        return dbc.Col([
             html.A([
                 html.Div([
                     html.Div(html.I(className=link['icon']), className="footer-nav-icon"),
@@ -442,12 +447,13 @@ def _create_footer_nav():
                     html.Div(link['desc'], className="footer-nav-desc"),
                 ], className="footer-nav-card")
             ], href=link['href'], style={'textDecoration': 'none'}),
-        ], lg=4, md=6, className="mb-3"))
+        ], lg=6, md=6, className="mb-3")
 
     return html.Div([
         html.H4("Explore More", className="section-header",
                  style={'fontFamily': BARCA_FONT}),
-        dbc.Row(cols),
+        dbc.Row([_nav_col(links[0]), _nav_col(links[1])]),
+        dbc.Row([_nav_col(links[2]), _nav_col(links[3])]),
     ], className="mb-4")
 
 

@@ -1,35 +1,469 @@
 """
 Tab 1 -- Match Overview
 
-TV-style match summary inspired by broadcast stat displays: large scoreline
-header with team names, and horizontal comparison bars for each stat growing
-outward from a centre divider.
+Horizontal mplsoccer pitch showing both starting XIs with formation dots,
+jersey numbers, player names, and captain badge. Substitutes panels flank
+the pitch. TV-style stat comparison bars are displayed below.
 """
 
-from dash import html, dcc
+import io
+import base64
+import matplotlib.pyplot as plt
+import matplotlib.patheffects as mpe
+from mplsoccer import Pitch
+import pandas as pd
+
+from dash import html
 import dash_bootstrap_components as dbc
-import plotly.graph_objects as go
 
 from utils.config import COLORS
+from utils.data_utils import get_match_lineup
 from utils.match_data_adapter import (
     get_match_metadata,
     compute_team_kpis,
-    compute_shot_quality_summary,
-    compute_territory_metrics,
-    compute_momentum_timeline,
-    get_shot_locations,
+    get_starting_lineups,
+    get_substitutions,
 )
+from utils.logos import team_logo_img, tournament_logo_img
 
-from .shared import (
-    CHART_LAYOUT_DEFAULTS, CHART_CONFIG,
-    HOME_COLOR, AWAY_COLOR, GOLD,
-    empty_fig, section_card,
-    add_pitch_background, PITCH_AXIS_HALF,
-)
+from .shared import HOME_COLOR, AWAY_COLOR, GOLD
 
 
 # =============================================================================
-# TV-style stat bar component (Dash dark-theme adaptation)
+# Formation → slot → (x, y) coordinate tables
+# =============================================================================
+# Coordinates are for the HOME team (attacking left → right).
+# x ∈ [2, 48]: distance from home goal (GK ≈ 4, forward line ≈ 48).
+# y ∈ [5, 95]: lateral position (0 = right touchline, 100 = left).
+# Away team mirrors via x_away = 100 − x_home.
+
+_COORDS: dict = {
+    "433": {
+        1:  (4,  50),   # GK
+        2:  (22, 13),   # RB
+        5:  (18, 33),   # CB-R
+        6:  (18, 67),   # CB-L
+        3:  (22, 87),   # LB
+        7:  (37, 23),   # MC-R
+        4:  (37, 50),   # MC-C
+        8:  (37, 77),   # MC-L
+        11: (47, 17),   # RW
+        9:  (47, 50),   # CF
+        10: (47, 83),   # LW
+    },
+    "4231": {
+        1:  (4,  50),   # GK
+        2:  (22, 13),   # RB
+        5:  (18, 33),   # CB-R
+        6:  (18, 67),   # CB-L
+        3:  (22, 87),   # LB
+        4:  (32, 37),   # CDM-R
+        8:  (32, 63),   # CDM-L
+        7:  (43, 17),   # RW
+        10: (43, 50),   # CAM
+        11: (43, 83),   # LW
+        9:  (48, 50),   # CF
+    },
+    "442": {
+        1:  (4,  50),
+        2:  (22, 13),   # RB
+        5:  (18, 33),   # CB-R
+        6:  (18, 67),   # CB-L
+        3:  (22, 87),   # LB
+        7:  (38, 12),   # RM
+        4:  (37, 37),   # CM-R
+        8:  (37, 63),   # CM-L
+        11: (38, 88),   # LM
+        9:  (47, 35),   # RS
+        10: (47, 65),   # LS
+    },
+    "4141": {
+        1:  (4,  50),
+        2:  (22, 13),   # RB
+        5:  (18, 33),   # CB-R
+        6:  (18, 67),   # CB-L
+        3:  (22, 87),   # LB
+        4:  (31, 50),   # CDM
+        7:  (40, 13),   # RM
+        8:  (40, 37),   # CM-R
+        10: (40, 63),   # CM-L
+        11: (40, 87),   # LM
+        9:  (48, 50),   # ST
+    },
+    "4321": {
+        1:  (4,  50),
+        2:  (22, 13),   # RB
+        5:  (18, 33),   # CB-R
+        6:  (18, 67),   # CB-L
+        3:  (22, 87),   # LB
+        4:  (34, 27),   # MC-R
+        7:  (34, 50),   # MC-C
+        8:  (34, 73),   # MC-L
+        9:  (44, 30),   # SS-R
+        10: (47, 50),   # CF
+        11: (44, 70),   # SS-L
+    },
+    "352": {
+        1:  (4,  50),
+        5:  (17, 23),   # CB-R
+        6:  (17, 50),   # CB-C
+        11: (17, 77),   # CB-L
+        2:  (30, 10),   # RWB
+        4:  (36, 30),   # CM-R
+        7:  (36, 50),   # CM-C
+        8:  (36, 70),   # CM-L
+        3:  (30, 90),   # LWB
+        9:  (47, 35),   # RS
+        10: (47, 65),   # LS
+    },
+    "451": {
+        1:  (4,  50),
+        2:  (22, 13),   # RB
+        5:  (18, 33),   # CB-R
+        6:  (18, 67),   # CB-L
+        3:  (22, 87),   # LB
+        7:  (37, 12),   # RM
+        4:  (37, 30),   # CM-R
+        8:  (37, 50),   # CM-C
+        10: (37, 70),   # CM-L
+        11: (37, 88),   # LM
+        9:  (47, 50),   # CF
+    },
+    "3421": {
+        1:  (4,  50),
+        5:  (18, 25),   # CB-R
+        6:  (18, 50),   # CB-C
+        8:  (18, 75),   # CB-L
+        2:  (33, 12),   # RM
+        4:  (38, 36),   # AM-R
+        7:  (38, 64),   # AM-L
+        3:  (33, 88),   # LM
+        9:  (45, 35),   # SS-R
+        10: (47, 50),   # CF
+        11: (45, 65),   # SS-L
+    },
+    "343": {
+        1:  (4,  50),
+        5:  (18, 25),   # CB-R
+        6:  (18, 50),   # CB-C
+        11: (18, 75),   # CB-L
+        2:  (36, 20),   # CM-R
+        3:  (36, 40),   # CM-CL
+        4:  (36, 60),   # CM-CR
+        10: (36, 80),   # CM-L
+        7:  (47, 20),   # RW/LW
+        8:  (47, 50),   # CF
+        9:  (47, 80),   # LW/RW
+    },
+    "4132": {
+        1:  (4,  50),
+        2:  (22, 13),   # RB
+        5:  (18, 33),   # CB-R
+        6:  (18, 67),   # CB-L
+        3:  (22, 87),   # LB
+        4:  (31, 50),   # CDM
+        7:  (39, 23),   # CM-R
+        8:  (39, 77),   # CM-L
+        11: (43, 50),   # CAM
+        9:  (47, 35),   # SS-R
+        10: (47, 65),   # SS-L
+    },
+    "4312": {
+        1:  (4,  50),
+        2:  (22, 13),   # RB
+        5:  (18, 33),   # CB-R
+        6:  (18, 67),   # CB-L
+        3:  (22, 87),   # LB
+        7:  (33, 23),   # MC-R
+        4:  (33, 50),   # MC-C
+        11: (33, 77),   # MC-L
+        8:  (42, 50),   # CAM
+        9:  (47, 33),   # SS-R
+        10: (47, 67),   # SS-L
+    },
+    "3142": {
+        1:  (4,  50),
+        5:  (17, 25),   # CB-R
+        6:  (17, 50),   # CB-C
+        11: (17, 75),   # CB-L
+        8:  (29, 50),   # CDM
+        2:  (37, 15),   # RM
+        7:  (37, 35),   # CM-R
+        4:  (37, 65),   # CM-L
+        3:  (37, 85),   # LM
+        9:  (47, 35),   # RS
+        10: (47, 65),   # LS
+    },
+}
+
+
+# =============================================================================
+# Helper functions
+# =============================================================================
+
+def _get_slot_coords(formation: str, slot: int, is_home: bool):
+    """Return Opta (x, y) pitch coordinates for a formation slot."""
+    coords_home = _COORDS.get(formation, {})
+    if slot in coords_home:
+        x, y = coords_home[slot]
+        return (x, y) if is_home else (100 - x, y)
+
+    # Generic fallback: parse formation string and distribute evenly
+    lines = [int(d) for d in formation if d.isdigit()]
+    if not lines:
+        lines = [4, 3, 3]
+
+    if slot == 1:
+        x, y = 4, 50
+    else:
+        x_steps = [20, 32, 40, 47]
+        idx = slot - 2
+        cum = 0
+        x, y = 37, 50
+        for li, count in enumerate(lines):
+            if idx < cum + count:
+                x = x_steps[min(li, len(x_steps) - 1)]
+                pos_in_line = idx - cum
+                y = 10 + (80 / max(count - 1, 1)) * pos_in_line if count > 1 else 50
+                break
+            cum += count
+
+    return (x, y) if is_home else (100 - x, y)
+
+
+def _shorten_name(name) -> str:
+    """Abbreviate long names: 'Roberto Lewandowski' → 'R. Lewandowski'."""
+    if not name or not isinstance(name, str):
+        return ''
+    name = name.strip()
+    if not name:
+        return ''
+    parts = name.split()
+    if len(parts) == 1 or len(name) <= 14:
+        return name
+    return f"{parts[0][0]}. {' '.join(parts[1:])}"
+
+
+def _format_formation(formation_str: str) -> str:
+    """Format '433' → '4-3-3'."""
+    if not formation_str or len(formation_str) < 2:
+        return formation_str or ''
+    return '-'.join(formation_str)
+
+
+# =============================================================================
+# Lineup pitch image generator (pitch only — side panels are HTML)
+# =============================================================================
+
+def _generate_lineup_pitch_image(
+    lineup_df: pd.DataFrame,
+    home_team: str,
+    away_team: str,
+    home_color: str,
+    away_color: str,
+) -> str | None:
+    """
+    Render a compact horizontal mplsoccer pitch with both starting XIs.
+
+    Side panels (starters list + subs) are handled as HTML components,
+    so this function draws only the pitch itself.
+    Returns a base64-encoded PNG string, or None on failure.
+    """
+    if lineup_df is None or lineup_df.empty:
+        return None
+
+    home = lineup_df[lineup_df['team_position'] == 'home']
+    away = lineup_df[lineup_df['team_position'] == 'away']
+
+    home_start = home[home['role'] == 'Start'].copy()
+    away_start = away[away['role'] == 'Start'].copy()
+
+    home_fmt = home_start['formation'].iloc[0] if not home_start.empty else ''
+    away_fmt = away_start['formation'].iloc[0] if not away_start.empty else ''
+
+    # ── Figure — pitch only ───────────────────────────────────────────────────
+    fig, ax_p = plt.subplots(figsize=(15, 7.5), facecolor='#0A0E27')
+    fig.subplots_adjust(left=0.01, right=0.99, top=0.90, bottom=0.02)
+    ax_p.set_facecolor('#0A0E27')
+
+    # ── Draw pitch ────────────────────────────────────────────────────────────
+    pitch = Pitch(
+        pitch_type='opta',
+        pitch_color='#3a7d44',
+        line_color='white',
+        stripe=True,
+        stripe_color='#2e6b39',
+        goal_type='box',
+        goal_alpha=0.85,
+        pad_top=5, pad_bottom=5, pad_left=3, pad_right=3,
+    )
+    pitch.draw(ax=ax_p)
+
+    # ── "Starting XI" title above the pitch ───────────────────────────────────
+    fig.text(0.5, 0.97, 'Starting XI',
+             ha='center', va='top',
+             fontsize=16, color='white', fontweight='bold',
+             path_effects=[mpe.withStroke(linewidth=3, foreground='#0A0E27')])
+
+    # ── Player dots renderer ──────────────────────────────────────────────────
+    def _draw_players(starters, formation, is_home, dot_color):
+        xs, ys, jerseys, names, caps = [], [], [], [], []
+
+        for _, row in starters.iterrows():
+            slot = int(row['formation_slot'])
+            name = str(row.get('player_name', '') or '').strip()
+            try:
+                jersey = int(row['jersey_number'])
+            except (ValueError, TypeError):
+                jersey = ''
+            is_cap = bool(row.get('is_captain', False))
+            x, y = _get_slot_coords(formation, slot, is_home)
+            xs.append(x); ys.append(y)
+            jerseys.append(str(jersey)); names.append(name); caps.append(is_cap)
+
+        if not xs:
+            return
+
+        # Glow rings
+        pitch.scatter(xs, ys, s=900, c=dot_color, ax=ax_p,
+                      zorder=4, alpha=0.22, edgecolors='none')
+        # Main filled circles
+        pitch.scatter(xs, ys, s=650, c=dot_color, ax=ax_p,
+                      zorder=5, alpha=0.95, edgecolors='white', linewidths=1.6)
+
+        # Jersey numbers, names, and captain badges
+        for i, (x, y) in enumerate(zip(xs, ys)):
+            # Jersey number inside dot
+            ax_p.text(x, y, jerseys[i],
+                      ha='center', va='center',
+                      fontsize=9, fontweight='bold', color='white', zorder=7)
+            # Player name below dot — larger, readable
+            short = _shorten_name(names[i])
+            ax_p.text(x, y - 5.2, short,
+                      ha='center', va='top',
+                      fontsize=8.5, color='white', zorder=7,
+                      path_effects=[mpe.withStroke(linewidth=2.5,
+                                                    foreground='#0A0E27')])
+            # Captain badge
+            if caps[i]:
+                bx = x + (3.0 if is_home else -3.0)
+                by = y + 3.0
+                pitch.scatter([bx], [by], s=160, c=GOLD, ax=ax_p,
+                              zorder=8, edgecolors='none')
+                ax_p.text(bx, by, 'C',
+                          ha='center', va='center',
+                          fontsize=5.5, fontweight='bold', color='#0A0E27', zorder=9)
+
+    _draw_players(home_start, home_fmt, True,  home_color)
+    _draw_players(away_start, away_fmt, False, away_color)
+
+    # ── Formation labels ──────────────────────────────────────────────────────
+    for tx, fmt, col in [
+        (14,  _format_formation(home_fmt),  home_color),
+        (86,  _format_formation(away_fmt),  away_color),
+    ]:
+        ax_p.text(tx, 107, fmt,
+                  ha='center', va='bottom',
+                  fontsize=13, color=col, fontweight='bold',
+                  path_effects=[mpe.withStroke(linewidth=2.5, foreground='#0A0E27')])
+
+    # ── Export ────────────────────────────────────────────────────────────────
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=130,
+                facecolor=fig.get_facecolor(), edgecolor='none',
+                bbox_inches='tight')
+    buf.seek(0)
+    img_b64 = base64.b64encode(buf.read()).decode()
+    plt.close(fig)
+    return img_b64
+
+
+# =============================================================================
+# HTML lineup side panel (starters list + substitution pairs)
+# =============================================================================
+
+def _build_lineup_html_panel(
+    subs_list: list,
+    color: str,
+    align: str = 'left',
+) -> html.Div:
+    """
+    Build an HTML side panel showing only substitutions for one team.
+
+    Each sub block shows the minute, who came off (↓ red), and who came on (↑ green).
+    """
+    is_right = align == 'right'
+    text_align = 'right' if is_right else 'left'
+
+    # ── Substitution pairs ────────────────────────────────────────────────────
+    sub_rows = []
+    for s in subs_list:
+        minute = s.get('minute', 0) or 0
+        p_off  = _shorten_name(s.get('player_off') or '')
+        p_on   = _shorten_name(s.get('player_on')  or '')
+        is_inj = s.get('reason', '') == 'Injury'
+
+        # Skip completely blank entries (e.g. injury sub with no paired name)
+        if not p_off and not p_on:
+            continue
+
+        inj_icon = html.Span(' ⚕', style={
+            'color': '#ff6b6b', 'fontSize': '0.72rem',
+        }) if is_inj else html.Span()
+
+        sub_rows.append(html.Div([
+            # Minute
+            html.Div(
+                html.Span(f"{minute}'", style={
+                    'color': GOLD, 'fontWeight': '700', 'fontSize': '0.82rem',
+                }),
+                style={'textAlign': text_align, 'marginBottom': '1px'},
+            ),
+            # Player off
+            html.Div([
+                html.Span('↓ ', style={'color': '#ff6b6b', 'fontWeight': '700',
+                                        'fontSize': '0.95rem'}),
+                html.Span(p_off or '—', style={'color': COLORS['text_secondary'],
+                                                'fontSize': '0.88rem'}),
+                inj_icon,
+            ], style={'textAlign': text_align}),
+            # Player on
+            html.Div([
+                html.Span('↑ ', style={'color': '#51cf66', 'fontWeight': '700',
+                                        'fontSize': '0.95rem'}),
+                html.Span(p_on or '—', style={'color': '#E8E9ED', 'fontSize': '0.88rem',
+                                               'fontWeight': '500'}),
+            ], style={'textAlign': text_align}),
+        ], style={
+            'padding': '6px 0',
+            'borderBottom': f"1px solid {COLORS['dark_border']}",
+        }))
+
+    header = html.Div('Substitutions', style={
+        'color': color, 'fontSize': '0.78rem', 'fontWeight': '700',
+        'textTransform': 'uppercase', 'letterSpacing': '0.05em',
+        'marginBottom': '8px', 'textAlign': text_align,
+    })
+
+    content = [header, *sub_rows] if sub_rows else [
+        header,
+        html.Div('No substitutions', style={
+            'color': COLORS['text_secondary'], 'fontSize': '0.82rem',
+            'textAlign': text_align,
+        }),
+    ]
+
+    return html.Div(content, style={
+        'padding': '14px 16px',
+        'backgroundColor': COLORS['dark_secondary'],
+        'borderRadius': '8px',
+        'border': f"1px solid {COLORS['dark_border']}",
+        'height': '100%',
+    })
+
+
+# =============================================================================
+# TV-style stat bar component
 # =============================================================================
 
 def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False):
@@ -38,11 +472,7 @@ def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False):
 
     Layout:  home_value  [=====|=====]  away_value
                       stat label
-
-    Bars grow outward from a centre divider. The longer bar fills its half
-    proportionally; the shorter bar scales relative to the longer one.
     """
-    # Normalise to float
     hv = float(home_val) if home_val else 0
     av = float(away_val) if away_val else 0
     max_val = max(hv, av, 1)
@@ -50,7 +480,6 @@ def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False):
     home_pct = (hv / max_val) * 100
     away_pct = (av / max_val) * 100
 
-    # Display strings
     if is_percentage:
         h_display = f"{hv:.1f}{suffix}"
         a_display = f"{av:.1f}{suffix}"
@@ -58,7 +487,6 @@ def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False):
         h_display = f"{int(hv)}{suffix}"
         a_display = f"{int(av)}{suffix}"
 
-    # Highlight the winning side
     h_weight = 'bold' if hv >= av else 'normal'
     a_weight = 'bold' if av >= hv else 'normal'
 
@@ -71,41 +499,34 @@ def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False):
     }
 
     return html.Div([
-        # Stat label centred above the bar
         html.Div(label, style={
             'textAlign': 'center',
             'color': COLORS['text_secondary'],
             'fontSize': '0.85rem',
             'marginBottom': '4px',
         }),
-        # Value + bar row
         html.Div([
-            # Home value
             html.Div(h_display, style={
                 'width': '65px', 'textAlign': 'right', 'fontWeight': h_weight,
                 'color': HOME_COLOR, 'fontSize': '1.05rem', 'paddingRight': '10px',
             }),
-            # Bar container (two halves + centre line)
             html.Div([
-                # Left half (home) -- bar grows right-to-left
                 html.Div([
                     html.Div(style={
                         'width': f'{home_pct}%',
                         'height': '100%',
                         'backgroundColor': HOME_COLOR,
                         'borderRadius': '7px 0 0 7px',
-                        'marginLeft': 'auto',  # push to right edge
+                        'marginLeft': 'auto',
                         'transition': 'width 0.4s ease',
                     })
                 ], style={**bar_track, 'width': '50%', 'justifyContent': 'flex-end',
                           'borderRadius': '7px 0 0 7px'}),
-                # Centre divider
                 html.Div(style={
                     'width': '2px', 'height': '14px',
                     'backgroundColor': COLORS['text_secondary'],
                     'flexShrink': '0',
                 }),
-                # Right half (away) -- bar grows left-to-right
                 html.Div([
                     html.Div(style={
                         'width': f'{away_pct}%',
@@ -116,7 +537,6 @@ def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False):
                     })
                 ], style={**bar_track, 'width': '50%', 'borderRadius': '0 7px 7px 0'}),
             ], style={'display': 'flex', 'alignItems': 'center', 'flex': '1'}),
-            # Away value
             html.Div(a_display, style={
                 'width': '65px', 'textAlign': 'left', 'fontWeight': a_weight,
                 'color': AWAY_COLOR, 'fontSize': '1.05rem', 'paddingLeft': '10px',
@@ -126,48 +546,119 @@ def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False):
 
 
 # =============================================================================
-# Shot map builder (reused from original overview)
+# Fallback text lineup components (used when no lineup parquet is found)
 # =============================================================================
 
-def _build_shot_map(events, home_team, away_team):
-    """Build a half-pitch shot map colour-coded by team and outcome."""
-    all_shots = get_shot_locations(events, team_code=None)
-    if all_shots.empty:
-        return empty_fig("No shot coordinate data available")
+_POS_LABEL_COLOR = {
+    'GK': '#ffc107',
+    'RB': '#4dabf7', 'CB': '#4dabf7', 'LB': '#4dabf7',
+    'CDM': '#51cf66', 'CM': '#51cf66', 'MC': '#51cf66', 'CAM': '#51cf66',
+    'RM': '#ff922b', 'RW': '#ff922b', 'LM': '#ff922b', 'LW': '#ff922b',
+    'CF': '#ff6b6b',
+}
 
-    shot_df = events[events['event_type'].isin(['Miss', 'Saved Shot', 'Goal'])].copy()
-    if shot_df.empty or 'x' not in shot_df.columns:
-        return empty_fig("No shot coordinate data available")
 
-    fig = go.Figure()
-    add_pitch_background(fig, half=True)
+def _build_lineup_card(team_name, lineup_data, color, align='start'):
+    """Build a text-based lineup card for one team (fallback)."""
+    formation = lineup_data.get('formation', '')
+    players = lineup_data.get('players', [])
+    text_align = 'left' if align == 'start' else 'right'
 
-    for team_pos, color, name in [('home', HOME_COLOR, home_team),
-                                   ('away', AWAY_COLOR, away_team)]:
-        team_shots = shot_df[shot_df['team_position'] == team_pos]
-        if team_shots.empty:
-            continue
-        for evt_type, symbol, size in [('Goal', 'star', 18),
-                                        ('Saved Shot', 'circle', 10),
-                                        ('Miss', 'x', 10)]:
-            subset = team_shots[team_shots['event_type'] == evt_type]
-            if subset.empty:
-                continue
-            fig.add_trace(go.Scatter(
-                x=subset['x'], y=subset['y'],
-                mode='markers', name=f"{name} - {evt_type}",
-                marker=dict(color=color, size=size, symbol=symbol,
-                            line=dict(width=1, color='white')),
-                text=[f"{r.get('player_name', '')} {r.get('time_min', '')}'"
-                      for _, r in subset.iterrows()],
-                hovertemplate='%{text}<extra></extra>'
-            ))
+    player_rows = []
+    for p in players[:11]:
+        pos = p.get('position', '')
+        jersey = p.get('jersey', '')
+        name = p.get('name', '')
+        pos_color = _POS_LABEL_COLOR.get(pos, COLORS['text_secondary'])
 
-    fig.update_layout(
-        **CHART_LAYOUT_DEFAULTS, height=400, showlegend=True,
-        **PITCH_AXIS_HALF,
-    )
-    return fig
+        pos_badge = html.Span(pos or '—', style={
+            'display': 'inline-block', 'width': '36px', 'textAlign': 'center',
+            'fontSize': '0.7rem', 'fontWeight': '700', 'color': '#0A0E27',
+            'backgroundColor': pos_color, 'borderRadius': '3px', 'padding': '1px 0',
+            'marginRight': '8px' if align == 'start' else '0',
+            'marginLeft': '8px' if align == 'end' else '0', 'flexShrink': '0',
+        })
+        jersey_el = html.Span(jersey, style={
+            'fontWeight': '700', 'color': color, 'fontSize': '0.9rem',
+            'width': '28px', 'textAlign': 'center', 'flexShrink': '0',
+        })
+        name_el = html.Span(name, style={
+            'color': COLORS['text_primary'], 'fontSize': '0.85rem', 'flex': '1',
+            'overflow': 'hidden', 'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap',
+        })
+        row_children = [pos_badge, jersey_el, name_el] if align == 'start' else [name_el, jersey_el, pos_badge]
+        player_rows.append(html.Div(row_children, style={
+            'display': 'flex', 'alignItems': 'center', 'padding': '3px 0',
+            'direction': 'ltr' if align == 'start' else 'rtl',
+        }))
+
+    formation_display = _format_formation(formation)
+    return html.Div([
+        html.Div(formation_display, style={
+            'textAlign': text_align, 'color': GOLD, 'fontSize': '0.95rem',
+            'fontWeight': '700', 'marginBottom': '8px', 'letterSpacing': '0.05em',
+        }) if formation_display else html.Div(),
+        *player_rows,
+    ], style={
+        'padding': '12px 16px', 'backgroundColor': COLORS['dark_secondary'],
+        'borderRadius': '8px', 'border': f"1px solid {COLORS['dark_border']}",
+    })
+
+
+def _build_sub_row(sub, color):
+    """Build a single substitution row (fallback)."""
+    minute  = sub.get('minute', 0)
+    p_off   = sub.get('player_off', '')
+    p_on    = sub.get('player_on', '')
+    j_off   = sub.get('jersey_off', '')
+    j_on    = sub.get('jersey_on', '')
+    reason  = sub.get('reason', '')
+
+    reason_icon = html.I(
+        className="fas fa-band-aid",
+        style={'color': '#ff6b6b', 'fontSize': '0.65rem', 'marginLeft': '4px'},
+    ) if reason == 'Injury' else html.Span()
+
+    return html.Div([
+        html.Span(f"{minute}'", style={
+            'color': GOLD, 'fontWeight': '700', 'fontSize': '0.8rem',
+            'width': '32px', 'textAlign': 'right', 'flexShrink': '0',
+            'marginRight': '10px',
+        }),
+        html.I(className="fas fa-arrow-down",
+               style={'color': '#ff6b6b', 'fontSize': '0.65rem', 'marginRight': '4px'}),
+        html.Span(f"{j_off} ", style={
+            'color': COLORS['text_secondary'], 'fontSize': '0.75rem', 'fontWeight': '600',
+        }),
+        html.Span(p_off, style={'color': COLORS['text_secondary'], 'fontSize': '0.8rem'}),
+        reason_icon,
+        html.Span(" ", style={'width': '12px', 'flexShrink': '0'}),
+        html.I(className="fas fa-arrow-up",
+               style={'color': '#51cf66', 'fontSize': '0.65rem', 'marginRight': '4px'}),
+        html.Span(f"{j_on} ", style={
+            'color': COLORS['text_primary'], 'fontSize': '0.75rem', 'fontWeight': '600',
+        }),
+        html.Span(p_on, style={'color': COLORS['text_primary'], 'fontSize': '0.8rem',
+                               'fontWeight': '500'}),
+    ], style={'display': 'flex', 'alignItems': 'center', 'padding': '4px 0'})
+
+
+def _build_subs_section(team_name, subs_list, color):
+    """Build substitution section (fallback)."""
+    if not subs_list:
+        return html.Div()
+    return html.Div([
+        html.Div("Substitutions", style={
+            'color': color, 'fontSize': '0.8rem', 'fontWeight': '700',
+            'marginBottom': '6px', 'textTransform': 'uppercase',
+            'letterSpacing': '0.05em',
+        }),
+        *[_build_sub_row(s, color) for s in subs_list],
+    ], style={
+        'padding': '12px 16px', 'backgroundColor': COLORS['dark_secondary'],
+        'borderRadius': '8px', 'border': f"1px solid {COLORS['dark_border']}",
+        'marginTop': '8px',
+    })
 
 
 # =============================================================================
@@ -175,44 +666,84 @@ def _build_shot_map(events, home_team, away_team):
 # =============================================================================
 
 def build_overview_tab(events):
-    """Render the Match Overview tab with TV-style stat bars."""
-    meta = get_match_metadata(events)
-    home_kpis = compute_team_kpis(events, 'home')
-    away_kpis = compute_team_kpis(events, 'away')
-    home_shots = compute_shot_quality_summary(events, 'home')
-    away_shots = compute_shot_quality_summary(events, 'away')
-    territory = compute_territory_metrics(events)
-    momentum = compute_momentum_timeline(events)
+    """Render the Match Overview tab."""
+    meta       = get_match_metadata(events)
+    home_kpis  = compute_team_kpis(events, 'home')
+    away_kpis  = compute_team_kpis(events, 'away')
 
-    home_team = meta.get('home_team', 'Home')
-    away_team = meta.get('away_team', 'Away')
+    home_team  = meta.get('home_team', 'Home')
+    away_team  = meta.get('away_team', 'Away')
+    competition = meta.get('competition', '')
+    match_id   = str(meta.get('match_id', ''))
 
-    # --- Scoreline header ---
+    # Format kick-off time (HH:MM:SS → HH:MM) and date
+    raw_time = str(meta.get('time', '') or '')
+    kickoff_str = raw_time[:5] if len(raw_time) >= 5 else raw_time
+    raw_date = str(meta.get('date', '') or '')
+    venue = str(meta.get('venue', '') or '')
+
+    # ── Scoreline header ──────────────────────────────────────────────────────
     match_header = dbc.Card([
         dbc.CardBody([
+            html.Div([
+                html.Div([
+                    tournament_logo_img(competition, '80px'),
+                ], style={
+                    'width': '110px', 'height': '110px', 'borderRadius': '50%',
+                    'background': GOLD, 'padding': '15px',
+                    'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center',
+                }),
+                html.Div(competition, style={
+                    'color': COLORS['text_primary'], 'fontSize': '1rem',
+                    'fontWeight': '500', 'marginTop': '6px',
+                }),
+            ], style={
+                'display': 'flex', 'flexDirection': 'column',
+                'alignItems': 'center', 'marginBottom': '16px',
+            }),
+
             dbc.Row([
                 dbc.Col([
+                    html.Div([team_logo_img(home_team, '88px')],
+                             style={'textAlign': 'right', 'marginBottom': '6px'}),
                     html.H3(home_team, className="text-end mb-0",
-                             style={'fontWeight': '600'}),
+                            style={'fontWeight': '600'}),
                     html.Small("Home", className="text-end d-block",
                                style={'color': COLORS['text_secondary']}),
                 ], width=4),
+
                 dbc.Col([
                     html.H1(
                         f"{home_kpis['goals']}  -  {away_kpis['goals']}",
-                        className="text-center mb-0",
+                        className="text-center mb-1",
                         style={'color': GOLD, 'fontWeight': '900',
                                'fontSize': '3.5rem', 'letterSpacing': '0.15em'},
                     ),
-                    html.Small(
-                        meta.get('competition', ''),
-                        className="text-center d-block",
-                        style={'color': COLORS['text_secondary']},
-                    ),
+                    # Kick-off time
+                    html.Div([
+                        html.I(className="fas fa-clock",
+                               style={'marginRight': '5px', 'fontSize': '0.75rem'}),
+                        html.Span(f"KO {kickoff_str}" if kickoff_str else ''),
+                    ], style={
+                        'textAlign': 'center', 'color': COLORS['text_secondary'],
+                        'fontSize': '0.82rem', 'marginBottom': '3px',
+                    }),
+                    # Venue
+                    html.Div([
+                        html.I(className="fas fa-map-marker-alt",
+                               style={'marginRight': '5px', 'fontSize': '0.75rem'}),
+                        html.Span(venue or '—'),
+                    ], style={
+                        'textAlign': 'center', 'color': COLORS['text_secondary'],
+                        'fontSize': '0.82rem',
+                    }),
                 ], width=4),
+
                 dbc.Col([
+                    html.Div([team_logo_img(away_team, '88px')],
+                             style={'textAlign': 'left', 'marginBottom': '6px'}),
                     html.H3(away_team, className="text-start mb-0",
-                             style={'fontWeight': '600'}),
+                            style={'fontWeight': '600'}),
                     html.Small("Away", className="text-start d-block",
                                style={'color': COLORS['text_secondary']}),
                 ], width=4),
@@ -220,131 +751,127 @@ def build_overview_tab(events):
         ])
     ], className="mb-4")
 
-    # --- TV-style stat bars ---
-    stat_bars = html.Div([
-        # Team name headers above the bars
-        html.Div([
-            html.Div(home_team, style={
-                'width': '65px', 'textAlign': 'right', 'fontWeight': 'bold',
-                'color': HOME_COLOR, 'fontSize': '0.9rem', 'paddingRight': '10px',
-            }),
-            html.Div(style={'flex': '1'}),
-            html.Div(away_team, style={
-                'width': '65px', 'textAlign': 'left', 'fontWeight': 'bold',
-                'color': AWAY_COLOR, 'fontSize': '0.9rem', 'paddingLeft': '10px',
-            }),
-        ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '16px'}),
+    # ── Lineup section ────────────────────────────────────────────────────────
+    lineup_df = get_match_lineup(match_id) if match_id else pd.DataFrame()
+    subs      = get_substitutions(events)
+    pitch_img = None
 
-        _tv_stat_bar('Possession', home_kpis.get('possession', 50),
-                     away_kpis.get('possession', 50), '%', is_percentage=True),
-        _tv_stat_bar('Shots', home_kpis.get('shots', 0),
-                     away_kpis.get('shots', 0)),
-        _tv_stat_bar('Shots on Target', home_kpis.get('shots_on_target', 0),
-                     away_kpis.get('shots_on_target', 0)),
-        _tv_stat_bar('Passes', home_kpis.get('passes', 0),
-                     away_kpis.get('passes', 0)),
-        _tv_stat_bar('Pass Accuracy', home_kpis.get('pass_accuracy', 0),
-                     away_kpis.get('pass_accuracy', 0), '%', is_percentage=True),
-        _tv_stat_bar('Fouls', home_kpis.get('fouls', 0),
-                     away_kpis.get('fouls', 0)),
-        _tv_stat_bar('Corners', home_kpis.get('corners', 0),
-                     away_kpis.get('corners', 0)),
-        _tv_stat_bar('Yellow Cards', home_kpis.get('yellow_cards', 0),
-                     away_kpis.get('yellow_cards', 0)),
-        _tv_stat_bar('Red Cards', home_kpis.get('red_cards', 0),
-                     away_kpis.get('red_cards', 0)),
+    if not lineup_df.empty:
+        try:
+            pitch_img = _generate_lineup_pitch_image(
+                lineup_df, home_team, away_team, HOME_COLOR, AWAY_COLOR
+            )
+        except Exception:
+            pitch_img = None
+
+    if pitch_img:
+        home_panel = _build_lineup_html_panel(
+            subs.get('home', []), HOME_COLOR, align='left'
+        )
+        away_panel = _build_lineup_html_panel(
+            subs.get('away', []), AWAY_COLOR, align='right'
+        )
+
+        lineup_section = html.Div([
+            html.H5("Line-Ups", style={
+                'color': GOLD, 'fontWeight': '700',
+                'marginBottom': '12px', 'letterSpacing': '0.04em',
+            }),
+            dbc.Row([
+                dbc.Col(home_panel, lg=3, md=6, xs=12, className='mb-3'),
+                dbc.Col(
+                    dbc.Card([
+                        dbc.CardBody([
+                            html.Img(
+                                src=f'data:image/png;base64,{pitch_img}',
+                                style={
+                                    'width': '100%', 'display': 'block',
+                                    'borderRadius': '6px',
+                                },
+                            )
+                        ], style={'padding': '8px'})
+                    ], style={
+                        'backgroundColor': COLORS['dark_secondary'],
+                        'border': f"1px solid {COLORS['dark_border']}",
+                    }),
+                    lg=6, md=12, xs=12, className='mb-3',
+                ),
+                dbc.Col(away_panel, lg=3, md=6, xs=12, className='mb-3'),
+            ], align='start'),
+        ], className='mb-4')
+
+    else:
+        # Fallback: text-based lineups side by side
+        lineups = get_starting_lineups(events)
+        lineup_section = html.Div([
+            html.H5("Line-Ups", style={
+                'color': GOLD, 'fontWeight': '700',
+                'marginBottom': '12px', 'letterSpacing': '0.04em',
+            }),
+            dbc.Row([
+                dbc.Col([
+                    html.H6("Starting XI", style={
+                        'color': HOME_COLOR, 'fontWeight': '700', 'marginBottom': '8px',
+                        'textTransform': 'uppercase', 'letterSpacing': '0.05em',
+                        'fontSize': '0.8rem',
+                    }),
+                    _build_lineup_card(home_team, lineups.get('home', {}),
+                                       HOME_COLOR, align='start'),
+                    _build_subs_section(home_team, subs.get('home', []), HOME_COLOR),
+                ], lg=6, md=12, className='mb-3'),
+                dbc.Col([
+                    html.H6("Starting XI", style={
+                        'color': AWAY_COLOR, 'fontWeight': '700', 'marginBottom': '8px',
+                        'textAlign': 'right', 'textTransform': 'uppercase',
+                        'letterSpacing': '0.05em', 'fontSize': '0.8rem',
+                    }),
+                    _build_lineup_card(away_team, lineups.get('away', {}),
+                                       AWAY_COLOR, align='end'),
+                    _build_subs_section(away_team, subs.get('away', []), AWAY_COLOR),
+                ], lg=6, md=12, className='mb-3'),
+            ], className='mb-3'),
+        ], className='mb-4')
+
+    # ── TV-style stat bars ────────────────────────────────────────────────────
+    stat_bars = html.Div([
+        _tv_stat_bar('Possession',
+                     home_kpis.get('possession', 50), away_kpis.get('possession', 50),
+                     '%', is_percentage=True),
+        _tv_stat_bar('Shots',
+                     home_kpis.get('shots', 0), away_kpis.get('shots', 0)),
+        _tv_stat_bar('Shots on Target',
+                     home_kpis.get('shots_on_target', 0), away_kpis.get('shots_on_target', 0)),
+        _tv_stat_bar('Blocked Shots',
+                     home_kpis.get('blocked_shots', 0), away_kpis.get('blocked_shots', 0)),
+        _tv_stat_bar('Passes',
+                     home_kpis.get('passes', 0), away_kpis.get('passes', 0)),
+        _tv_stat_bar('Pass Accuracy',
+                     home_kpis.get('pass_accuracy', 0), away_kpis.get('pass_accuracy', 0),
+                     '%', is_percentage=True),
+        _tv_stat_bar('Fouls Committed',
+                     home_kpis.get('fouls', 0), away_kpis.get('fouls', 0)),
+        _tv_stat_bar('Corners',
+                     home_kpis.get('corners', 0), away_kpis.get('corners', 0)),
+        _tv_stat_bar('Offsides',
+                     home_kpis.get('offsides', 0), away_kpis.get('offsides', 0)),
+        _tv_stat_bar('Interceptions',
+                     home_kpis.get('interceptions', 0), away_kpis.get('interceptions', 0)),
+        _tv_stat_bar('Yellow Cards',
+                     home_kpis.get('yellow_cards', 0), away_kpis.get('yellow_cards', 0)),
+        _tv_stat_bar('Red Cards',
+                     home_kpis.get('red_cards', 0), away_kpis.get('red_cards', 0)),
     ], style={
         'padding': '24px',
         'backgroundColor': COLORS['dark_secondary'],
         'borderRadius': '8px',
         'border': f"1px solid {COLORS['dark_border']}",
+        'maxWidth': '640px',
+        'margin': '0 auto',
     })
 
-    # --- Territory chart ---
-    territory_fig = go.Figure()
-    zones = ['Def Third', 'Mid Third', 'Att Third']
-    home_terr = territory.get('home', {})
-    away_terr = territory.get('away', {})
-    territory_fig.add_trace(go.Bar(
-        x=zones,
-        y=[home_terr.get('def_third', 0), home_terr.get('mid_third', 0),
-           home_terr.get('att_third', 0)],
-        name=home_team, marker_color=HOME_COLOR,
-    ))
-    territory_fig.add_trace(go.Bar(
-        x=zones,
-        y=[away_terr.get('def_third', 0), away_terr.get('mid_third', 0),
-           away_terr.get('att_third', 0)],
-        name=away_team, marker_color=AWAY_COLOR,
-    ))
-    territory_fig.update_layout(**CHART_LAYOUT_DEFAULTS, barmode='group',
-                                 height=300, yaxis_title='% of Actions')
-
-    # --- Shot quality comparison ---
-    shot_fig = go.Figure()
-    shot_cats = ['Total Shots', 'Inside Box', 'Outside Box', 'Big Chances']
-    shot_fig.add_trace(go.Bar(
-        x=shot_cats,
-        y=[home_shots['total_shots'], home_shots['inside_box'],
-           home_shots['outside_box'], home_shots['big_chances']],
-        name=home_team, marker_color=HOME_COLOR,
-    ))
-    shot_fig.add_trace(go.Bar(
-        x=shot_cats,
-        y=[away_shots['total_shots'], away_shots['inside_box'],
-           away_shots['outside_box'], away_shots['big_chances']],
-        name=away_team, marker_color=AWAY_COLOR,
-    ))
-    shot_fig.update_layout(**CHART_LAYOUT_DEFAULTS, barmode='group',
-                            height=300, yaxis_title='Count')
-
-    # --- Momentum timeline ---
-    if not momentum.empty:
-        momentum_fig = go.Figure()
-        momentum_fig.add_trace(go.Scatter(
-            x=momentum['minute_bucket'], y=momentum['home_momentum'],
-            mode='lines+markers', name=home_team,
-            line=dict(color=HOME_COLOR, width=2), marker=dict(size=6),
-        ))
-        momentum_fig.add_trace(go.Scatter(
-            x=momentum['minute_bucket'], y=momentum['away_momentum'],
-            mode='lines+markers', name=away_team,
-            line=dict(color=AWAY_COLOR, width=2), marker=dict(size=6),
-        ))
-        momentum_fig.update_layout(**CHART_LAYOUT_DEFAULTS, height=300,
-                                    xaxis_title='Minute',
-                                    yaxis_title='Successful Actions')
-    else:
-        momentum_fig = empty_fig("No momentum data available")
-
-    # --- Shot map ---
-    shot_map = _build_shot_map(events, home_team, away_team)
-
-    # --- Assemble layout ---
+    # ── Assemble ──────────────────────────────────────────────────────────────
     return html.Div([
         match_header,
-
-        dbc.Row([
-            dbc.Col(stat_bars, width=5),
-            dbc.Col([
-                section_card("Territory", [
-                    dcc.Graph(figure=territory_fig, config=CHART_CONFIG),
-                ]),
-            ], width=7),
-        ], className="mb-3"),
-
-        dbc.Row([
-            dbc.Col(section_card("Shot Quality", [
-                dcc.Graph(figure=shot_fig, config=CHART_CONFIG),
-            ]), width=6),
-            dbc.Col(section_card("Shot Map", [
-                dcc.Graph(figure=shot_map, config=CHART_CONFIG),
-            ]), width=6),
-        ], className="mb-3"),
-
-        dbc.Row([
-            dbc.Col(section_card("Match Momentum", [
-                dcc.Graph(figure=momentum_fig, config=CHART_CONFIG),
-            ]), width=12),
-        ]),
+        lineup_section,
+        stat_bars,
     ])

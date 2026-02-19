@@ -4,15 +4,17 @@ Each tab of the match analysis page lives in its own module.
 """
 
 from .overview import build_overview_tab
-from .possession import build_possession_tab
-from .transitions import build_transitions_tab
+from .attack import build_attack_tab
+from .attacking_transition import build_attacking_transition_tab
+from .defence import build_defence_tab
+from .defensive_transition import build_defensive_transition_tab
 from .set_pieces import build_setpieces_tab
-from .contested import build_contested_tab
 
 __all__ = [
     'build_overview_tab',
-    'build_possession_tab',
-    'build_transitions_tab',
+    'build_attack_tab',
+    'build_attacking_transition_tab',
+    'build_defence_tab',
+    'build_defensive_transition_tab',
     'build_setpieces_tab',
-    'build_contested_tab',
 ]

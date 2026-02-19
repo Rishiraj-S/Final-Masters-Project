@@ -1,0 +1,444 @@
+{
+  "matchInfo": {
+    "id": "1dk2hnl09qux7z4fqn1qxq238",
+    "coverageLevel": "13",
+    "date": "2025-11-29Z",
+    "time": "15:15:00Z",
+    "localDate": "2025-11-29",
+    "localTime": "16:15:00",
+    "week": "14",
+    "numberOfPeriods": 2,
+    "periodLength": 45,
+    "var": "1",
+    "lastUpdated": "2026-02-16T12:15:42Z",
+    "description": "Barcelona vs Alavés",
+    "sport": {
+      "id": "289u5typ3vp4ifwh5thalohmq",
+      "name": "Soccer"
+    },
+    "ruleset": {
+      "id": "79plas4983031idr6vw83nuel",
+      "name": "Men"
+    },
+    "competition": {
+      "id": "34pl8szyvrbwcmfkuocjm3r6t",
+      "name": "Primera División",
+      "knownName": "Spanish La Liga",
+      "sponsorName": "LALIGA EA SPORTS",
+      "competitionCode": "PRD",
+      "competitionFormat": "Domestic league",
+      "country": {
+        "id": "49ih1pwv3ahshdf8uzrimi54c",
+        "name": "Spain"
+      }
+    },
+    "tournamentCalendar": {
+      "id": "80zg2v1cuqcfhphn56u4qpyqc",
+      "startDate": "2025-08-15Z",
+      "endDate": "2026-05-24Z",
+      "name": "2025/2026"
+    },
+    "stage": {
+      "id": "81qyu4gx74q5nzfd3gi2gy51w",
+      "formatId": "e2q01r9o9jwiq1fls93d1sslx",
+      "startDate": "2025-08-15Z",
+      "endDate": "2026-05-24Z",
+      "name": "Regular Season"
+    },
+    "contestant": [
+      {
+        "id": "agh9ifb2mw3ivjusgedj7c3fe",
+        "name": "Barcelona",
+        "shortName": "Barcelona",
+        "officialName": "FC Barcelona",
+        "code": "BAR",
+        "position": "home",
+        "country": {
+          "id": "49ih1pwv3ahshdf8uzrimi54c",
+          "name": "Spain"
+        }
+      },
+      {
+        "id": "4dtdjgnpdq9uw4sdutti0vaar",
+        "name": "Alavés",
+        "shortName": "Alavés",
+        "officialName": "Deportivo Alavés",
+        "code": "ALA",
+        "position": "away",
+        "country": {
+          "id": "49ih1pwv3ahshdf8uzrimi54c",
+          "name": "Spain"
+        }
+      }
+    ],
+    "venue": {
+      "id": "8jpaixac05v4tl6wyhwk2drdy",
+      "neutral": "no",
+      "longName": "Spotify Camp Nou",
+      "shortName": "Spotify Camp Nou",
+      "latitude": "41.380890137",
+      "longitude": "2.122812867"
+    }
+  },
+  "liveData": {
+    "matchDetails": {
+      "periodId": 14,
+      "matchStatus": "Played",
+      "winner": "home",
+      "matchLengthMin": 99,
+      "matchLengthSec": 0,
+      "period": [
+        {
+          "id": 1,
+          "start": "2025-11-29T15:16:44Z",
+          "end": "2025-11-29T16:05:41Z",
+          "lengthMin": 48,
+          "lengthSec": 57,
+          "announcedInjuryTime": 240
+        },
+        {
+          "id": 2,
+          "start": "2025-11-29T16:23:24Z",
+          "end": "2025-11-29T17:13:27Z",
+          "lengthMin": 50,
+          "lengthSec": 3,
+          "announcedInjuryTime": 300
+        }
+      ],
+      "scores": {
+        "ht": {
+          "home": 2,
+          "away": 1
+        },
+        "ft": {
+          "home": 3,
+          "away": 1
+        },
+        "total": {
+          "home": 3,
+          "away": 1
+        }
+      }
+    },
+    "goal": [
+      {
+        "contestantId": "4dtdjgnpdq9uw4sdutti0vaar",
+        "periodId": 1,
+        "timeMin": 1,
+        "timeMinSec": "0:43",
+        "lastUpdated": "2025-11-29T15:18:42Z",
+        "timestamp": "2025-11-29T15:17:27Z",
+        "type": "G",
+        "scorerId": "eqw6fu3no9qxejk17tqgeey5m",
+        "scorerName": "Pablo Ibáñez",
+        "assistPlayerId": "6azcxbumsgd8es7mcd9b3t94a",
+        "assistPlayerName": "Víctor Parada",
+        "optaEventId": "2877784755",
+        "homeScore": 0,
+        "awayScore": 1
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 1,
+        "timeMin": 8,
+        "timeMinSec": "7:55",
+        "lastUpdated": "2025-11-29T15:25:42Z",
+        "timestamp": "2025-11-29T15:24:39Z",
+        "type": "G",
+        "scorerId": "abr79wsl0folgkyvl821ggs2c",
+        "scorerName": "Lamine Yamal",
+        "assistPlayerId": "afxjicw89683nlpms9yy5x51x",
+        "assistPlayerName": "R. Lewandowski",
+        "secondAssistPlayerId": "2wl6h1rlrfnn2mr65vuo3t815",
+        "secondAssistPlayerName": "Raphinha",
+        "optaEventId": "2877798813",
+        "homeScore": 1,
+        "awayScore": 1
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 1,
+        "timeMin": 26,
+        "timeMinSec": "25:13",
+        "lastUpdated": "2025-11-29T15:42:56Z",
+        "timestamp": "2025-11-29T15:41:57Z",
+        "type": "G",
+        "scorerId": "4gq1u1mqg0qzekh1u5djleeax",
+        "scorerName": "Dani Olmo",
+        "assistPlayerId": "2wl6h1rlrfnn2mr65vuo3t815",
+        "assistPlayerName": "Raphinha",
+        "optaEventId": "2877834377",
+        "homeScore": 2,
+        "awayScore": 1
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 93,
+        "timeMinSec": "92:28",
+        "lastUpdated": "2025-11-29T17:11:51Z",
+        "timestamp": "2025-11-29T17:10:53Z",
+        "type": "G",
+        "scorerId": "4gq1u1mqg0qzekh1u5djleeax",
+        "scorerName": "Dani Olmo",
+        "assistPlayerId": "abr79wsl0folgkyvl821ggs2c",
+        "assistPlayerName": "Lamine Yamal",
+        "optaEventId": "2877990779",
+        "homeScore": 3,
+        "awayScore": 1
+      }
+    ],
+    "card": [
+      {
+        "contestantId": "4dtdjgnpdq9uw4sdutti0vaar",
+        "periodId": 1,
+        "timeMin": 32,
+        "timeMinSec": "31:56",
+        "lastUpdated": "2025-11-29T15:48:45Z",
+        "timestamp": "2025-11-29T15:48:41Z",
+        "type": "YC",
+        "playerId": "1ttc96b92xjfx1ta3vdwya0dm",
+        "playerName": "A. Rebbach",
+        "optaEventId": "2877849633",
+        "cardReason": "Foul"
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 1,
+        "timeMin": 36,
+        "timeMinSec": "35:49",
+        "lastUpdated": "2025-11-29T15:53:02Z",
+        "timestamp": "2025-11-29T15:52:34Z",
+        "type": "YC",
+        "playerId": "4et6r42e7q2ojgaumwnua2kgk",
+        "playerName": "Marc Bernal",
+        "optaEventId": "2877855577",
+        "cardReason": "Foul"
+      },
+      {
+        "contestantId": "4dtdjgnpdq9uw4sdutti0vaar",
+        "periodId": 2,
+        "timeMin": 53,
+        "timeMinSec": "52:29",
+        "lastUpdated": "2025-11-29T16:31:02Z",
+        "timestamp": "2025-11-29T16:30:54Z",
+        "type": "YC",
+        "playerId": "evyeubmelkx90xby5p9i38woa",
+        "playerName": "Calebe",
+        "optaEventId": "2877925953",
+        "cardReason": "Foul"
+      },
+      {
+        "contestantId": "4dtdjgnpdq9uw4sdutti0vaar",
+        "periodId": 2,
+        "timeMin": 81,
+        "timeMinSec": "80:33",
+        "lastUpdated": "2025-11-29T16:59:19Z",
+        "timestamp": "2025-11-29T16:58:58Z",
+        "type": "YC",
+        "playerId": "4zve4017u2i3zvxlnjruv25t5",
+        "playerName": "Antonio Blanco",
+        "optaEventId": "2877977531",
+        "cardReason": "Foul"
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 92,
+        "timeMinSec": "91:34",
+        "lastUpdated": "2025-11-29T17:10:28Z",
+        "timestamp": "2025-11-29T17:09:59Z",
+        "type": "YC",
+        "playerId": "5f8kjgsaabn2li5r7bvpebbsa",
+        "playerName": "Joan García",
+        "optaEventId": "2877990049",
+        "cardReason": "Time wasting"
+      }
+    ],
+    "substitute": [
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 46,
+        "timeMinSec": "45:00",
+        "lastUpdated": "2025-11-29T16:23:04Z",
+        "timestamp": "2025-11-29T16:22:58Z",
+        "playerOnId": "604osk9a3lxpfpkavuziqmn6x",
+        "playerOnName": "M. Rashford",
+        "playerOffId": "4et6r42e7q2ojgaumwnua2kgk",
+        "playerOffName": "Marc Bernal",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 46,
+        "timeMinSec": "45:00",
+        "lastUpdated": "2025-11-29T16:23:22Z",
+        "timestamp": "2025-11-29T16:22:58Z",
+        "playerOnId": "cscn06kwqfzo09h0dc5ybt1pl",
+        "playerOnName": "J. Koundé",
+        "playerOffId": "4ggz7e009bq3yltc9o6mifbah",
+        "playerOffName": "Eric García",
+        "subReason": "Injury"
+      },
+      {
+        "contestantId": "4dtdjgnpdq9uw4sdutti0vaar",
+        "periodId": 2,
+        "timeMin": 58,
+        "timeMinSec": "57:54",
+        "lastUpdated": "2025-11-29T16:36:27Z",
+        "timestamp": "2025-11-29T16:36:19Z",
+        "playerOnId": "eiqt71z69beq7akuhot0foset",
+        "playerOnName": "Carles Aleñá",
+        "playerOffId": "1ttc96b92xjfx1ta3vdwya0dm",
+        "playerOffName": "A. Rebbach",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "4dtdjgnpdq9uw4sdutti0vaar",
+        "periodId": 2,
+        "timeMin": 59,
+        "timeMinSec": "58:07",
+        "lastUpdated": "2025-11-29T16:36:39Z",
+        "timestamp": "2025-11-29T16:36:32Z",
+        "playerOnId": "bb2v7p23g1w8kb3nhuuwnil4a",
+        "playerOnName": "Carlos Vicente",
+        "playerOffId": "evyeubmelkx90xby5p9i38woa",
+        "playerOffName": "Calebe",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 60,
+        "timeMinSec": "59:41",
+        "lastUpdated": "2025-11-29T16:38:17Z",
+        "timestamp": "2025-11-29T16:38:06Z",
+        "playerOnId": "2szgrzcosfeifh664tgt3mfvt",
+        "playerOnName": "Ferran Torres",
+        "playerOffId": "afxjicw89683nlpms9yy5x51x",
+        "playerOffName": "R. Lewandowski",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 60,
+        "timeMinSec": "60:00",
+        "lastUpdated": "2025-11-29T16:38:30Z",
+        "timestamp": "2025-11-29T16:38:25Z",
+        "playerOnId": "4ftlhtels58lyzfluwofzwxuy",
+        "playerOnName": "Pedri",
+        "playerOffId": "2wl6h1rlrfnn2mr65vuo3t815",
+        "playerOffName": "Raphinha",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "4dtdjgnpdq9uw4sdutti0vaar",
+        "periodId": 2,
+        "timeMin": 68,
+        "timeMinSec": "67:20",
+        "lastUpdated": "2025-11-29T16:45:53Z",
+        "timestamp": "2025-11-29T16:45:45Z",
+        "playerOnId": "bccp1nvtoc3n1q4g4sw1p7ro5",
+        "playerOnName": "Jon Guridi",
+        "playerOffId": "eqw6fu3no9qxejk17tqgeey5m",
+        "playerOffName": "Pablo Ibáñez",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "4dtdjgnpdq9uw4sdutti0vaar",
+        "periodId": 2,
+        "timeMin": 68,
+        "timeMinSec": "67:34",
+        "lastUpdated": "2025-11-29T16:46:04Z",
+        "timestamp": "2025-11-29T16:45:59Z",
+        "playerOnId": "cme92rbmqszu51sjm99ho8a21",
+        "playerOnName": "Ander Guevara",
+        "playerOffId": "28psc296gj3umo59qqha8jil1",
+        "playerOffName": "Denis Suárez",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "4dtdjgnpdq9uw4sdutti0vaar",
+        "periodId": 2,
+        "timeMin": 80,
+        "timeMinSec": "79:19",
+        "lastUpdated": "2025-11-29T16:57:53Z",
+        "timestamp": "2025-11-29T16:57:44Z",
+        "playerOnId": "1nd8l0ofw9x779c0ufwbbo4ph",
+        "playerOnName": "Toni Martínez",
+        "playerOffId": "6azcxbumsgd8es7mcd9b3t94a",
+        "playerOffName": "Víctor Parada",
+        "subReason": "Injury"
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 84,
+        "timeMinSec": "83:18",
+        "lastUpdated": "2025-11-29T17:01:49Z",
+        "timestamp": "2025-11-29T17:01:43Z",
+        "playerOnId": "1av9mmv19jwvc4xdr0p9owyxh",
+        "playerOnName": "A. Christensen",
+        "playerOffId": "bkwxem45cf48k14euwqe7rs44",
+        "playerOffName": "Pau Cubarsí",
+        "subReason": "Tactical"
+      }
+    ],
+    "matchDetailsExtra": {
+      "attendance": "44834",
+      "matchOfficial": [
+        {
+          "id": "3w6pwiz3qwnkszonltbzjvq39",
+          "type": "Main",
+          "firstName": "Miguel Ángel",
+          "lastName": "Ortiz Arias",
+          "shortFirstName": "Miguel Ángel",
+          "shortLastName": "Ortiz Arias"
+        },
+        {
+          "id": "c5oxi4r25yvolls1sxzvzubit",
+          "type": "Assistant referee 1",
+          "firstName": "José Antonio",
+          "lastName": "Garrido Romero",
+          "shortFirstName": "José Antonio",
+          "shortLastName": "Garrido Romero"
+        },
+        {
+          "id": "dz0gdktwl3oo2r0cg6fmle9jp",
+          "type": "Assistant referee 2",
+          "firstName": "Guillermo",
+          "lastName": "Santiago Sacristán",
+          "shortFirstName": "Guillermo",
+          "shortLastName": "Santiago Sacristán"
+        },
+        {
+          "id": "2y3dwq0976p3ypb27b0bcwsmh",
+          "type": "Fourth official",
+          "firstName": "Álvaro",
+          "lastName": "Cánovas García-Villarrubia",
+          "shortFirstName": "Álvaro",
+          "shortLastName": "Cánovas García Villarrubia"
+        },
+        {
+          "id": "dpxyavpbfs8aoxsw2modolqdx",
+          "type": "Video Assistant Referee",
+          "firstName": "Jorge",
+          "lastName": "Figueroa Vázquez",
+          "shortFirstName": "Jorge",
+          "shortLastName": "Figueroa Vázquez"
+        },
+        {
+          "id": "amx68tij8p9hfaao3wuihped",
+          "type": "Assistant VAR Official",
+          "firstName": "Juan Luis",
+          "lastName": "Pulido Santana",
+          "shortFirstName": "Juan Luis",
+          "shortLastName": "Pulido Santana"
+        }
+      ]
+    }
+  }
+}

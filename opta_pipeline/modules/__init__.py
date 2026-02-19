@@ -6,12 +6,11 @@ from .downloader import MatchDownloader
 from .transformers import (
     MatchTransformer,
     MatchEventTransformer,
+    LineupTransformer,
 )
 from .utils import (
     setup_logging,
     ensure_directories,
-    load_processed_matches,
-    save_processed_match
 )
 
 __all__ = [
@@ -19,8 +18,7 @@ __all__ = [
     'MatchDownloader',
     'MatchTransformer',
     'MatchEventTransformer',
+    'LineupTransformer',
     'setup_logging',
     'ensure_directories',
-    'load_processed_matches',
-    'save_processed_match'
 ]

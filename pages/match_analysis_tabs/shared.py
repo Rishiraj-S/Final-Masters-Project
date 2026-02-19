@@ -62,6 +62,23 @@ def empty_fig(message: str = "No data available") -> go.Figure:
 # Reusable UI components
 # =============================================================================
 
+BARCA_LOGO = '/assets/logos/team/FC-Barcelona-v2002.svg'
+
+
+def page_header(title: str) -> dbc.Row:
+    """Render a page heading with the Barça crest on the left."""
+    return dbc.Row([
+        dbc.Col(
+            html.Img(src=BARCA_LOGO, style={'height': '48px', 'objectFit': 'contain'}),
+            width='auto',
+        ),
+        dbc.Col(
+            html.H2(title, style={'color': GOLD, 'marginBottom': 0, 'alignSelf': 'center'}),
+            width='auto',
+        ),
+    ], align='center', className='mb-2')
+
+
 def stat_card(value, label, color=None):
     """Create a compact stat card."""
     if color is None:
@@ -76,6 +93,9 @@ def stat_card(value, label, color=None):
 
 def section_card(title, children, footer=None):
     """Create a themed section card with a gold-accented header."""
+    # Auto-wrap bare go.Figure objects so callers don't have to
+    if isinstance(children, go.Figure):
+        children = dcc.Graph(figure=children, config=CHART_CONFIG)
     card_children = [
         dbc.CardHeader(html.H5(title, className="mb-0", style={'color': GOLD})),
         dbc.CardBody(children),
@@ -101,7 +121,7 @@ def kpi_row(kpis: dict, columns: list, colors: dict = None):
 # mplsoccer grass pitch background (cached)
 # =============================================================================
 
-_PITCH_CACHE: dict[str, str] = {}
+_PITCH_CACHE = {}  # type: dict[str, str]
 
 
 def _generate_pitch_image(half: bool = False) -> str:
@@ -178,3 +198,51 @@ PITCH_AXIS_HALF = dict(
     yaxis=dict(range=[-2, 102], showgrid=False, zeroline=False,
                showticklabels=False, scaleanchor='x', fixedrange=True),
 )
+
+
+# =============================================================================
+# Heatmap image utility (shared across Player, Team, Opposition Analysis)
+# =============================================================================
+
+def render_heatmap_img(x_vals, y_vals, cmap: str = 'YlOrRd',
+                       fallback_color: str = None, half: bool = False) -> str:
+    """
+    Render a KDE touch heatmap on a grass pitch via mplsoccer.
+
+    Returns a base64 PNG data-URI string suitable for use in html.Img(src=...).
+
+    Args:
+        x_vals: iterable of x coordinates (Opta 0-100 scale)
+        y_vals: iterable of y coordinates (Opta 0-100 scale)
+        cmap: matplotlib colormap name for KDE plot (default 'YlOrRd')
+        fallback_color: dot colour when fewer than 5 points (default: GOLD)
+        half: if True, draw attacking half only
+    """
+    if fallback_color is None:
+        fallback_color = GOLD
+
+    pitch_kwargs = dict(
+        pitch_type='opta', pitch_color='grass',
+        line_color='white', stripe=True,
+        goal_type='box', goal_alpha=0.8,
+    )
+    if half:
+        pitch_kwargs['half'] = True
+
+    pitch = Pitch(**pitch_kwargs)
+    fig_mpl, ax = pitch.draw(figsize=(10, 7))
+
+    if len(x_vals) >= 5:
+        pitch.kdeplot(x_vals, y_vals, ax=ax, cmap=cmap,
+                      fill=True, alpha=0.7, levels=100)
+    else:
+        pitch.scatter(x_vals, y_vals, ax=ax,
+                      color=fallback_color, s=80,
+                      edgecolors='white', linewidth=0.5)
+
+    buf = io.BytesIO()
+    fig_mpl.savefig(buf, format='png', dpi=80, bbox_inches='tight', pad_inches=0)
+    buf.seek(0)
+    img_str = base64.b64encode(buf.read()).decode()
+    plt.close(fig_mpl)
+    return f'data:image/png;base64,{img_str}'

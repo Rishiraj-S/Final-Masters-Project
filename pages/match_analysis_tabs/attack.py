@@ -91,7 +91,7 @@ def _build_finishing_map(tagged_events):
     return fig
 
 
-def build_possession_tab(events):
+def build_attack_tab(events):
     """Render the Organised Possession tab."""
     tagged = tag_possession_phases(events)
     bu_stats = get_build_up_stats(tagged)

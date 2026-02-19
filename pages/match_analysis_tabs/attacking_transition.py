@@ -66,7 +66,7 @@ def _build_transition_map(sequences, title):
     return fig
 
 
-def build_transitions_tab(events):
+def build_attacking_transition_tab(events):
     """Render the Transitions tab."""
     summary = get_transition_summary(events)
     ca_sequences = get_counterattack_sequences(events)

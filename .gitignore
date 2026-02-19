@@ -37,6 +37,9 @@ Thumbs.db
 # Dash
 .dash_cache/
 
+# Pipeline logs
+opta_pipeline/logs/
+
 # Environment
 .env
 .env.local

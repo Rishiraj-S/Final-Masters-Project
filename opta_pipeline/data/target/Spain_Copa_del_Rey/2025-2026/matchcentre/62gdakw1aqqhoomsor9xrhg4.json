@@ -1,0 +1,409 @@
+{
+  "matchInfo": {
+    "id": "62gdakw1aqqhoomsor9xrhg4",
+    "coverageLevel": "13",
+    "date": "2026-01-15Z",
+    "time": "20:15:00Z",
+    "localDate": "2026-01-15",
+    "localTime": "21:15:00",
+    "numberOfPeriods": 2,
+    "periodLength": 45,
+    "overtimeLength": 15,
+    "var": "1",
+    "lastUpdated": "2026-02-07T03:05:54Z",
+    "description": "Racing de Santander vs Barcelona",
+    "sport": {
+      "id": "289u5typ3vp4ifwh5thalohmq",
+      "name": "Soccer"
+    },
+    "ruleset": {
+      "id": "79plas4983031idr6vw83nuel",
+      "name": "Men"
+    },
+    "competition": {
+      "id": "apdwh753fupxheygs8seahh7x",
+      "name": "Copa del Rey",
+      "knownName": "Spanish Copa Del Rey",
+      "competitionCode": "CDR",
+      "competitionFormat": "Domestic cup",
+      "country": {
+        "id": "49ih1pwv3ahshdf8uzrimi54c",
+        "name": "Spain"
+      }
+    },
+    "tournamentCalendar": {
+      "id": "3lmujqli8r9m12i28wgjxnnys",
+      "startDate": "2025-09-27Z",
+      "endDate": "2026-04-18Z",
+      "name": "2025/2026"
+    },
+    "stage": {
+      "id": "3n00hhi1kb54glflloezg1zis",
+      "formatId": "614sqb9421oaflw5mpvvm9uj9",
+      "startDate": "2026-01-13Z",
+      "endDate": "2026-01-15Z",
+      "name": "8th Finals"
+    },
+    "contestant": [
+      {
+        "id": "bzkwzatvwahmbzok1ymm5vqa1",
+        "name": "Racing de Santander",
+        "shortName": "Santander",
+        "officialName": "Real Racing Club",
+        "code": "RAC",
+        "position": "home",
+        "country": {
+          "id": "49ih1pwv3ahshdf8uzrimi54c",
+          "name": "Spain"
+        }
+      },
+      {
+        "id": "agh9ifb2mw3ivjusgedj7c3fe",
+        "name": "Barcelona",
+        "shortName": "Barcelona",
+        "officialName": "FC Barcelona",
+        "code": "BAR",
+        "position": "away",
+        "country": {
+          "id": "49ih1pwv3ahshdf8uzrimi54c",
+          "name": "Spain"
+        }
+      }
+    ],
+    "venue": {
+      "id": "ajntng3bgkrny5s8tc69kuvhe",
+      "neutral": "no",
+      "longName": "Campos de Sport de El Sardinero",
+      "shortName": "Campos de Sport de El Sardinero",
+      "latitude": "43.476299310",
+      "longitude": "-3.793281913"
+    }
+  },
+  "liveData": {
+    "matchDetails": {
+      "periodId": 14,
+      "matchStatus": "Played",
+      "winner": "away",
+      "matchLengthMin": 96,
+      "matchLengthSec": 11,
+      "period": [
+        {
+          "id": 1,
+          "start": "2026-01-15T20:15:55Z",
+          "end": "2026-01-15T21:01:55Z",
+          "lengthMin": 46,
+          "lengthSec": 0,
+          "announcedInjuryTime": 60
+        },
+        {
+          "id": 2,
+          "start": "2026-01-15T21:18:07Z",
+          "end": "2026-01-15T22:08:18Z",
+          "lengthMin": 50,
+          "lengthSec": 11,
+          "announcedInjuryTime": 300
+        }
+      ],
+      "scores": {
+        "ht": {
+          "home": 0,
+          "away": 0
+        },
+        "ft": {
+          "home": 0,
+          "away": 2
+        },
+        "total": {
+          "home": 0,
+          "away": 2
+        }
+      }
+    },
+    "goal": [
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 66,
+        "timeMinSec": "65:32",
+        "lastUpdated": "2026-01-15T21:39:33Z",
+        "timestamp": "2026-01-15T21:38:40Z",
+        "type": "G",
+        "scorerId": "2szgrzcosfeifh664tgt3mfvt",
+        "scorerName": "Ferran Torres",
+        "assistPlayerId": "cjll1xrw3xulnl23c9tlf6rys",
+        "assistPlayerName": "Fermín López",
+        "optaEventId": "2889690021",
+        "homeScore": 0,
+        "awayScore": 1
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 95,
+        "timeMinSec": "94:59",
+        "lastUpdated": "2026-01-15T22:08:47Z",
+        "timestamp": "2026-01-15T22:08:07Z",
+        "type": "G",
+        "scorerId": "abr79wsl0folgkyvl821ggs2c",
+        "scorerName": "Lamine Yamal",
+        "assistPlayerId": "2wl6h1rlrfnn2mr65vuo3t815",
+        "assistPlayerName": "Raphinha",
+        "optaEventId": "2889694345",
+        "homeScore": 0,
+        "awayScore": 2
+      }
+    ],
+    "card": [
+      {
+        "contestantId": "bzkwzatvwahmbzok1ymm5vqa1",
+        "periodId": 1,
+        "timeMin": 29,
+        "timeMinSec": "28:11",
+        "lastUpdated": "2026-01-15T20:44:12Z",
+        "timestamp": "2026-01-15T20:44:06Z",
+        "type": "YC",
+        "playerId": "3suljwa7of23cmzq56plxdclw",
+        "playerName": "Mario García",
+        "optaEventId": "2889679807",
+        "cardReason": "Foul"
+      },
+      {
+        "contestantId": "bzkwzatvwahmbzok1ymm5vqa1",
+        "periodId": 2,
+        "timeMin": 71,
+        "timeMinSec": "70:42",
+        "lastUpdated": "2026-01-15T21:43:55Z",
+        "timestamp": "2026-01-15T21:43:49Z",
+        "type": "YC",
+        "playerId": "81fw03v34t2u3xnwq5gpdbpck",
+        "playerName": "Damián Rodríguez",
+        "optaEventId": "2889690895",
+        "cardReason": "Foul"
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 73,
+        "timeMinSec": "72:40",
+        "lastUpdated": "2026-01-15T21:45:53Z",
+        "timestamp": "2026-01-15T21:45:47Z",
+        "type": "YC",
+        "playerId": "cjll1xrw3xulnl23c9tlf6rys",
+        "playerName": "Fermín López",
+        "optaEventId": "2889691175",
+        "cardReason": "Foul"
+      },
+      {
+        "contestantId": "bzkwzatvwahmbzok1ymm5vqa1",
+        "periodId": 2,
+        "timeMin": 83,
+        "timeMinSec": "82:22",
+        "lastUpdated": "2026-01-15T21:57:56Z",
+        "timestamp": "2026-01-15T21:55:30Z",
+        "type": "YC",
+        "playerId": "1040ruybncve2enk3dgjb6ead",
+        "playerName": "Iñigo Vicente",
+        "optaEventId": "2889692787",
+        "cardReason": "Dissent"
+      },
+      {
+        "contestantId": "bzkwzatvwahmbzok1ymm5vqa1",
+        "periodId": 2,
+        "timeMin": 89,
+        "timeMinSec": "88:09",
+        "lastUpdated": "2026-01-15T22:01:33Z",
+        "timestamp": "2026-01-15T22:01:16Z",
+        "type": "YC",
+        "playerId": "czm0ju08ylp2sa3brf58qk5w5",
+        "playerName": "Marco Sangalli",
+        "optaEventId": "2889693273",
+        "cardReason": "Dissent"
+      }
+    ],
+    "substitute": [
+      {
+        "contestantId": "bzkwzatvwahmbzok1ymm5vqa1",
+        "periodId": 2,
+        "timeMin": 46,
+        "timeMinSec": "45:00",
+        "lastUpdated": "2026-01-15T21:17:42Z",
+        "timestamp": "2026-01-15T21:17:36Z",
+        "playerOnId": "685rh4s8e6y78s61wwf4epxxw",
+        "playerOnName": "Manex Lozano",
+        "playerOffId": "2x4hjas6370jgze21paqzpboq",
+        "playerOffName": "Juan Carlos Arana",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 58,
+        "timeMinSec": "57:20",
+        "lastUpdated": "2026-01-15T21:31:19Z",
+        "timestamp": "2026-01-15T21:30:27Z",
+        "playerOnId": "cjll1xrw3xulnl23c9tlf6rys",
+        "playerOnName": "Fermín López",
+        "playerOffId": "4et6r42e7q2ojgaumwnua2kgk",
+        "playerOffName": "Marc Bernal",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "bzkwzatvwahmbzok1ymm5vqa1",
+        "periodId": 2,
+        "timeMin": 60,
+        "timeMinSec": "59:17",
+        "lastUpdated": "2026-01-15T21:32:28Z",
+        "timestamp": "2026-01-15T21:32:24Z",
+        "playerOnId": "81fw03v34t2u3xnwq5gpdbpck",
+        "playerOnName": "Damián Rodríguez",
+        "playerOffId": "ahbrieaqvz14zfe4udfeimlwq",
+        "playerOffName": "Aritz Aldasoro",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "bzkwzatvwahmbzok1ymm5vqa1",
+        "periodId": 2,
+        "timeMin": 60,
+        "timeMinSec": "59:52",
+        "lastUpdated": "2026-01-15T21:33:05Z",
+        "timestamp": "2026-01-15T21:32:59Z",
+        "playerOnId": "czm0ju08ylp2sa3brf58qk5w5",
+        "playerOnName": "Marco Sangalli",
+        "playerOffId": "9z1o95wkit81ene5cu6yufoq1",
+        "playerOffName": "G. Guliashvili",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 67,
+        "timeMinSec": "66:57",
+        "lastUpdated": "2026-01-15T21:40:10Z",
+        "timestamp": "2026-01-15T21:40:04Z",
+        "playerOnId": "2wl6h1rlrfnn2mr65vuo3t815",
+        "playerOnName": "Raphinha",
+        "playerOffId": "604osk9a3lxpfpkavuziqmn6x",
+        "playerOffName": "M. Rashford",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 68,
+        "timeMinSec": "67:18",
+        "lastUpdated": "2026-01-15T21:41:31Z",
+        "timestamp": "2026-01-15T21:40:25Z",
+        "playerOnId": "afxjicw89683nlpms9yy5x51x",
+        "playerOnName": "R. Lewandowski",
+        "playerOffId": "2szgrzcosfeifh664tgt3mfvt",
+        "playerOffName": "Ferran Torres",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 68,
+        "timeMinSec": "67:25",
+        "lastUpdated": "2026-01-15T21:41:34Z",
+        "timestamp": "2026-01-15T21:40:33Z",
+        "playerOnId": "4ftlhtels58lyzfluwofzwxuy",
+        "playerOnName": "Pedri",
+        "playerOffId": "4gq1u1mqg0qzekh1u5djleeax",
+        "playerOffName": "Dani Olmo",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "bzkwzatvwahmbzok1ymm5vqa1",
+        "periodId": 2,
+        "timeMin": 72,
+        "timeMinSec": "71:17",
+        "lastUpdated": "2026-01-15T21:44:32Z",
+        "timestamp": "2026-01-15T21:44:25Z",
+        "playerOnId": "1040ruybncve2enk3dgjb6ead",
+        "playerOnName": "Iñigo Vicente",
+        "playerOffId": "3suljwa7of23cmzq56plxdclw",
+        "playerOffName": "Mario García",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "bzkwzatvwahmbzok1ymm5vqa1",
+        "periodId": 2,
+        "timeMin": 78,
+        "timeMinSec": "77:08",
+        "lastUpdated": "2026-01-15T21:50:21Z",
+        "timestamp": "2026-01-15T21:50:15Z",
+        "playerOnId": "4yzk41dkluqfxb8o3dbq06zqi",
+        "playerOnName": "Andrés Martín",
+        "playerOffId": "7465bqa5kdktlubfyj0smny3u",
+        "playerOffName": "Íñigo Sainz-Maza",
+        "subReason": "Tactical"
+      },
+      {
+        "contestantId": "agh9ifb2mw3ivjusgedj7c3fe",
+        "periodId": 2,
+        "timeMin": 85,
+        "timeMinSec": "84:02",
+        "lastUpdated": "2026-01-15T21:57:20Z",
+        "timestamp": "2026-01-15T21:57:10Z",
+        "playerOnId": "4ggz7e009bq3yltc9o6mifbah",
+        "playerOnName": "Eric García",
+        "playerOffId": "3hht0os2uzu234yq550i3fbe2",
+        "playerOffName": "Marc Casadó",
+        "subReason": "Tactical"
+      }
+    ],
+    "matchDetailsExtra": {
+      "attendance": "22481",
+      "matchOfficial": [
+        {
+          "id": "8lowl2b5bj0htpn93iwc8m0np",
+          "type": "Main",
+          "firstName": "José María",
+          "lastName": "Sánchez Martínez",
+          "shortFirstName": "José María",
+          "shortLastName": "Sánchez Martínez"
+        },
+        {
+          "id": "5t45tgukvmeef8sdlcxn4ubbp",
+          "type": "Assistant referee 1",
+          "firstName": "Raúl",
+          "lastName": "Cabañero Martínez",
+          "shortFirstName": "Raúl",
+          "shortLastName": "Cabañero Martínez"
+        },
+        {
+          "id": "2uq7l7qiar5t5ow26pb5fy5sl",
+          "type": "Assistant referee 2",
+          "firstName": "Juan José",
+          "lastName": "López Mir",
+          "shortFirstName": "Juan José",
+          "shortLastName": "López Mir"
+        },
+        {
+          "id": "6pkvrxwhvjszinocpz2don10p",
+          "type": "Fourth official",
+          "firstName": "Guillermo",
+          "lastName": "Cueto Amigo",
+          "shortFirstName": "Guillermo",
+          "shortLastName": "Cueto Amigo"
+        },
+        {
+          "id": "98p4xwb0g6qqk8lp2v5qdwph",
+          "type": "Video Assistant Referee",
+          "firstName": "David",
+          "lastName": "Gálvez Rascón",
+          "shortFirstName": "David",
+          "shortLastName": "Gálvez Rascón"
+        },
+        {
+          "id": "7l8au31ernaz23hpyu0zvu5zp",
+          "type": "Assistant VAR Official",
+          "firstName": "Oliver",
+          "lastName": "De La Fuente Ramos",
+          "shortFirstName": "Óliver",
+          "shortLastName": "De la Fuente Ramos"
+        }
+      ]
+    }
+  }
+}

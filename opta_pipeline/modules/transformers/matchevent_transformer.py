@@ -22,7 +22,7 @@ class MatchEventTransformer(BaseTransformer):
         self.qualifier_types = None
         self._load_mappings()
         
-        # Formation mappings
+        # Formation mappings (Opta formation ID -> formation string)
         self.formation_mapping = {
             "1": "", "2": "442", "3": "41212", "4": "433", "5": "451",
             "6": "4411", "7": "4141", "8": "4231", "9": "4321", "10": "532",
@@ -30,7 +30,7 @@ class MatchEventTransformer(BaseTransformer):
             "16": "3511", "17": "3421", "18": "3412", "19": "3142", "20": "",
             "21": "4132", "22": "", "23": "4312",
         }
-        
+
         self.formation_position_mapping = {
             "442": {"1": "GK", "2": "RB", "3": "LB", "4": "MC", "5": "CB", "6": "CB", "7": "RM", "8": "CM", "9": "CF", "10": "CF", "11": "LM"},
             "41212": {"1": "GK", "2": "RB", "3": "LB", "4": "CDM", "5": "CB", "6": "CB", "7": "MC", "8": "CAM", "9": "CF", "10": "CF", "11": "MC"},
@@ -49,6 +49,9 @@ class MatchEventTransformer(BaseTransformer):
             "3511": {"1": "GK", "2": "RWB", "3": "LWB", "4": "CB", "5": "CB", "6": "CB", "7": "MC", "8": "MC", "9": "CF", "10": "SS", "11": "CAM"},
             "3421": {"1": "GK", "2": "RWB", "3": "LWB", "4": "CB", "5": "CB", "6": "CB", "7": "MC", "8": "MC", "9": "CAM", "10": "CAM", "11": "CF"},
             "3412": {"1": "GK", "2": "RWB", "3": "LWB", "4": "CB", "5": "CB", "6": "CB", "7": "MC", "8": "MC", "9": "CAM", "10": "CF", "11": "CF"},
+            "3142": {"1": "GK", "2": "RWB", "3": "LWB", "4": "CB", "5": "CB", "6": "CB", "7": "CDM", "8": "MC", "9": "CF", "10": "CF", "11": "MC"},
+            "4132": {"1": "GK", "2": "RB", "3": "LB", "4": "CDM", "5": "CB", "6": "CB", "7": "MC", "8": "MC", "9": "CF", "10": "CF", "11": "MC"},
+            "4312": {"1": "GK", "2": "RB", "3": "LB", "4": "MC", "5": "CB", "6": "CB", "7": "MC", "8": "MC", "9": "CAM", "10": "CF", "11": "CF"},
         }
     
     def _load_mappings(self):

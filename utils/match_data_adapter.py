@@ -24,6 +24,8 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 
+from utils.data_utils import count_goals
+
 
 # ---------------------------------------------------------------------------
 # Column discovery helpers
@@ -107,6 +109,7 @@ def get_match_metadata(events: pd.DataFrame) -> Dict[str, Any]:
     return {
         'match_id': row.get('match_id', ''),
         'date': row.get('match_date', ''),
+        'time': row.get('match_time', ''),
         'description': row.get('match_description', ''),
         'home_team': home_team,
         'away_team': away_team,
@@ -141,31 +144,77 @@ def compute_team_kpis(events: pd.DataFrame, team_position: str) -> Dict[str, Any
     total_passes = len(passes)
     successful_passes = len(passes[passes['outcome'] == 1]) if _has_col(passes, 'outcome') and not passes.empty else 0
 
-    all_passes = len(events[events['event_type'] == 'Pass']) if not events.empty else 1
+    # Post (type_id=14) = ball hits frame, still counts as a shot attempt
+    shot_types = ['Miss', 'Post', 'Saved Shot', 'Goal']
 
-    shot_types = ['Miss', 'Saved Shot', 'Goal']
-    on_target_types = ['Saved Shot', 'Goal']
-
-    goals = len(team[team['event_type'] == 'Goal']) if not team.empty else 0
+    # Own-goal-aware goal counting
+    all_goals = events[events['event_type'] == 'Goal'] if not events.empty else events.iloc[0:0]
+    home_goal_count, away_goal_count = count_goals(all_goals)
+    goals = home_goal_count if team_position == 'home' else away_goal_count
     shots = len(team[team['event_type'].isin(shot_types)]) if not team.empty else 0
-    shots_on_target = len(team[team['event_type'].isin(on_target_types)]) if not team.empty else 0
-    fouls = len(team[team['event_type'] == 'Foul']) if not team.empty else 0
-    corners = len(team[team['event_type'] == 'Corner Awarded']) if not team.empty else 0
+
+    # Shots on target: GK saves (Saved Shot WITHOUT 'Blocked' qualifier) + goals.
+    # 'Saved Shot' with Blocked='Si' means blocked by outfield player, not on target.
+    saved_shots_df = team[team['event_type'] == 'Saved Shot'] if not team.empty else team.iloc[0:0]
+    if not saved_shots_df.empty:
+        blocked_mask = _flag_is_set(saved_shots_df, 'Blocked')
+        gk_saves = int((~blocked_mask).sum())
+        blocked_shots = int(blocked_mask.sum())
+    else:
+        gk_saves = 0
+        blocked_shots = 0
+    shots_on_target = gk_saves + goals
+
+    # Fouls: each foul produces two paired rows (committer outcome=1, receiver outcome=0).
+    # Count only outcome=1 to get fouls committed by this team.
+    if not team.empty and _has_col(team, 'outcome'):
+        fouls = len(team[(team['event_type'] == 'Foul') & (team['outcome'] == 1)])
+    else:
+        fouls = len(team[team['event_type'] == 'Foul']) if not team.empty else 0
+
+    # Corners: same paired-row structure. outcome=1 = team that won the corner kick.
+    if not team.empty and _has_col(team, 'outcome'):
+        corners = len(team[(team['event_type'] == 'Corner Awarded') & (team['outcome'] == 1)])
+    else:
+        corners = len(team[team['event_type'] == 'Corner Awarded']) if not team.empty else 0
 
     cards = team[team['event_type'] == 'Card'] if not team.empty else team
     yellow = int(_flag_is_set(cards, 'Yellow Card').sum()) if not cards.empty else 0
     red = int(_flag_is_set(cards, 'Red Card').sum()) if not cards.empty else 0
 
-    # Possession estimate
-    possession = round(total_passes / all_passes * 100, 1) if all_passes > 0 else 50.0
+    # Possession: ratio of (successful passes + take-ons) between teams.
+    # This matches the standard broadcast method and avoids counting lost-ball passes.
+    def _poss_score(evts, pos):
+        t = evts[evts['team_position'] == pos] if _has_col(evts, 'team_position') else evts.iloc[0:0]
+        if t.empty:
+            return 0
+        succ = len(t[(t['event_type'] == 'Pass') & (t['outcome'] == 1)]) if _has_col(t, 'outcome') else 0
+        take_ons = len(t[t['event_type'] == 'Take On'])
+        return succ + take_ons
+
+    home_poss_score = _poss_score(events, 'home')
+    away_poss_score = _poss_score(events, 'away')
+    total_poss_score = home_poss_score + away_poss_score
+    if total_poss_score > 0:
+        this_poss_score = home_poss_score if team_position == 'home' else away_poss_score
+        possession = round(this_poss_score / total_poss_score * 100, 1)
+    else:
+        possession = 50.0
 
     # Pass accuracy
     pass_acc = round(successful_passes / total_passes * 100, 1) if total_passes > 0 else 0.0
+
+    # Offsides: 'Offside Pass' = team caught offside (not paired, no outcome filter needed)
+    offsides = len(team[team['event_type'] == 'Offside Pass']) if not team.empty else 0
+
+    # Interceptions: attributed to the intercepting team (not paired)
+    interceptions = len(team[team['event_type'] == 'Interception']) if not team.empty else 0
 
     return {
         'goals': goals,
         'shots': shots,
         'shots_on_target': shots_on_target,
+        'blocked_shots': blocked_shots,
         'passes': total_passes,
         'pass_accuracy': pass_acc,
         'possession': possession,
@@ -173,6 +222,8 @@ def compute_team_kpis(events: pd.DataFrame, team_position: str) -> Dict[str, Any
         'corners': corners,
         'yellow_cards': yellow,
         'red_cards': red,
+        'offsides': offsides,
+        'interceptions': interceptions,
     }
 
 
@@ -913,3 +964,191 @@ def get_pass_network_data(events: pd.DataFrame, team_code: str = 'BAR') -> Tuple
         edges = pd.DataFrame(columns=['passer', 'receiver', 'count'])
 
     return nodes, edges
+
+
+# ---------------------------------------------------------------------------
+# Lineups & Substitutions
+# ---------------------------------------------------------------------------
+
+# Position sort order: GK first, then defenders, midfielders, attackers
+_POSITION_ORDER = {
+    'GK': 0,
+    'RB': 1, 'CB': 2, 'LB': 3,
+    'CDM': 4, 'CM': 5, 'MC': 5, 'CAM': 6,
+    'RM': 7, 'RW': 7, 'LM': 8, 'LW': 8,
+    'CF': 9,
+}
+
+
+def get_starting_lineups(events: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Extract starting lineups and formation for both teams.
+
+    Football Logic:
+        Starters are identified as players with on-ball events in period 1
+        who are NOT listed as 'Player on' substitutes.  Formation comes from
+        the 'Team setp up' event (note Opta typo).
+
+    Returns dict with 'home' and 'away' keys, each containing:
+        - formation: str (e.g. '433')
+        - players: list of dicts with name, jersey, position
+    """
+    result = {}
+
+    for pos_label in ['home', 'away']:
+        # Get formation from Team setp up event
+        setup = events[
+            (events['event_type'] == 'Team setp up') &
+            (events['team_position'] == pos_label)
+        ]
+        formation = ''
+        if not setup.empty:
+            formation = str(setup.iloc[0].get('formation', ''))
+            if formation == 'N/A' or formation == 'nan':
+                formation = ''
+
+        # Get players who were subbed on (not starters)
+        subs_on = set()
+        player_on_events = events[
+            (events['event_type'] == 'Player on') &
+            (events['team_position'] == pos_label)
+        ]
+        if not player_on_events.empty:
+            subs_on = set(player_on_events['player_name'].dropna().tolist())
+
+        # Get starters: players with events in period 1 (excluding sub events
+        # and setup events), minus anyone who came on as a sub
+        p1 = events[
+            (events['period_id'] == 1) &
+            (events['team_position'] == pos_label) &
+            (events['player_name'].notna()) &
+            (~events['event_type'].isin([
+                'Player on', 'Player Off', 'Team setp up',
+                'Start', 'End', 'Collection End',
+            ]))
+        ]
+
+        players = []
+        seen = set()
+        for _, row in p1.iterrows():
+            name = row['player_name']
+            if name in seen or name in subs_on:
+                continue
+            seen.add(name)
+            jersey = str(row.get('Jersey Number', '')).replace('N/A', '').strip()
+            position = str(row.get('position', '')).replace('N/A', '').strip()
+            players.append({
+                'name': name,
+                'jersey': jersey,
+                'position': position,
+            })
+
+        # Sort by position order (GK → DEF → MID → FWD)
+        players.sort(key=lambda p: _POSITION_ORDER.get(p['position'], 99))
+
+        result[pos_label] = {
+            'formation': formation,
+            'players': players,
+        }
+
+    return result
+
+
+def get_substitutions(events: pd.DataFrame) -> Dict[str, list]:
+    """
+    Extract substitutions for both teams.
+
+    Returns dict with 'home' and 'away' keys, each a list of dicts:
+        - minute: int
+        - player_off: str
+        - player_on: str
+        - jersey_off: str
+        - jersey_on: str
+        - reason: str ('Tactical' or 'Injury')
+
+    Matching strategy (in order):
+      1. off['Related event ID'] == on['event_id']  (primary Opta linkage)
+      2. on['Related event ID'] == off['event_id']  (reverse linkage)
+      3. Sequential same-minute pairing (handles multiple subs at same minute)
+    """
+    result = {'home': [], 'away': []}
+
+    def _clean_str(val) -> str:
+        s = str(val).strip()
+        return '' if s in ('N/A', 'nan', 'None', '') else s
+
+    def _clean_name(val) -> str:
+        return str(val).strip() if val and str(val).strip() not in ('N/A', 'nan', 'None') else ''
+
+    for pos_label in ['home', 'away']:
+        off_events = events[
+            (events['event_type'] == 'Player Off') &
+            (events['team_position'] == pos_label)
+        ].sort_values('time_min').copy()
+
+        on_events = events[
+            (events['event_type'] == 'Player on') &
+            (events['team_position'] == pos_label)
+        ].copy()
+
+        # Pre-build lookup dicts for O(1) access
+        on_by_event_id   = {}   # event_id   → row index
+        on_by_related_id = {}   # Related event ID → row index
+        for idx, row in on_events.iterrows():
+            eid = _clean_str(row.get('event_id', ''))
+            rid = _clean_str(row.get('Related event ID', ''))
+            if eid:
+                on_by_event_id[eid] = idx
+            if rid:
+                on_by_related_id[rid] = idx
+
+        matched_on_indices = set()
+
+        for _, off_row in off_events.iterrows():
+            minute     = int(off_row['time_min']) if pd.notna(off_row['time_min']) else 0
+            player_off = _clean_name(off_row.get('player_name', ''))
+            jersey_off = _clean_str(off_row.get('Jersey Number', ''))
+            player_on  = ''
+            jersey_on  = ''
+            on_idx     = None
+
+            # Strategy 1: off's Related event ID → on's event_id
+            related = _clean_str(off_row.get('Related event ID', ''))
+            if related and related in on_by_event_id:
+                on_idx = on_by_event_id[related]
+
+            # Strategy 2: on's Related event ID → off's event_id
+            if on_idx is None:
+                off_eid = _clean_str(off_row.get('event_id', ''))
+                if off_eid and off_eid in on_by_related_id:
+                    on_idx = on_by_related_id[off_eid]
+
+            # Strategy 3: sequential same-minute pairing
+            if on_idx is None:
+                same_min = on_events[
+                    (on_events['time_min'] == off_row['time_min']) &
+                    (~on_events.index.isin(matched_on_indices))
+                ]
+                if not same_min.empty:
+                    on_idx = same_min.index[0]
+
+            if on_idx is not None and on_idx not in matched_on_indices:
+                matched_on_indices.add(on_idx)
+                on_row    = on_events.loc[on_idx]
+                player_on = _clean_name(on_row.get('player_name', ''))
+                jersey_on = _clean_str(on_row.get('Jersey Number', ''))
+
+            reason = 'Injury' if _flag_is_set(
+                off_row.to_frame().T, 'Injury'
+            ).any() else 'Tactical'
+
+            result[pos_label].append({
+                'minute':     minute,
+                'player_off': player_off,
+                'player_on':  player_on,
+                'jersey_off': jersey_off,
+                'jersey_on':  jersey_on,
+                'reason':     reason,
+            })
+
+    return result

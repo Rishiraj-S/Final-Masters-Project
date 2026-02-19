@@ -5,7 +5,7 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Set
+from typing import Optional
 from urllib.parse import urlparse
 
 
@@ -42,22 +42,6 @@ def ensure_directories(paths: dict) -> None:
             Path(dir_path).mkdir(parents=True, exist_ok=True)
 
 
-def load_processed_matches(file_path: str) -> Set[str]:
-    """Load set of already processed match IDs"""
-    processed = set()
-    
-    if os.path.exists(file_path):
-        with open(file_path, 'r') as f:
-            processed = set(line.strip() for line in f if line.strip())
-    
-    return processed
-
-
-def save_processed_match(file_path: str, match_id: str) -> None:
-    """Add a match ID to the processed list"""
-    with open(file_path, 'a') as f:
-        f.write(f"{match_id}\n")
-
 
 def normalize_url(url: str, base: str = "https://www.scoresway.com") -> str:
     """Normalize Scoresway URLs"""
@@ -76,13 +60,30 @@ def to_player_stats_url(match_url: str) -> str:
     match_url = normalize_url(match_url)
     if not match_url:
         return ""
-    
+
     match_url = match_url.split("#")[0].split("?")[0]
-    
+
     if match_url.rstrip("/").endswith("/player-stats"):
         return match_url
-    
+
     return match_url.rstrip("/") + "/player-stats"
+
+
+def to_formations_url(match_url: str) -> str:
+    """Convert match URL to formations URL"""
+    match_url = normalize_url(match_url)
+    if not match_url:
+        return ""
+
+    match_url = match_url.split("#")[0].split("?")[0].rstrip("/")
+
+    # Strip any existing tab suffix so we can append /formations cleanly
+    for suffix in ("/player-stats", "/formations", "/timeline", "/match-centre", "/match-timeline"):
+        if match_url.endswith(suffix):
+            match_url = match_url[: -len(suffix)]
+            break
+
+    return match_url.rstrip("/") + "/formations"
 
 
 def extract_match_id_from_url(url: str) -> str:

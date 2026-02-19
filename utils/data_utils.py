@@ -27,6 +27,32 @@ COMPETITION_NAMES = {
 
 CURRENT_SEASON = '2025-2026'
 
+# Module-level event cache — keyed by season string.
+# Populated lazily on first call; cleared automatically when the app restarts
+# (e.g. after a pipeline run that triggers auto-reload via dcc.Location).
+_events_cache: dict = {}
+
+
+# ── Centralised own-goal helpers ─────────────────────────────────────────────
+# In Opta data, own goals are tagged with the ``own goal`` column == ``'Si'``.
+# They are attributed to the player/team that scored them, so an own goal by
+# the home team counts as a goal for the away team and vice-versa.
+
+def is_own_goal(row):
+    """Check if a single event row is an own goal."""
+    return str(row.get('own goal', '')).strip() == 'Si'
+
+
+def filter_own_goals(goals_df):
+    """Remove own goals from a goals DataFrame.
+
+    Useful when counting a player's "real" goals — own goals should not be
+    credited to the scoring player.
+    """
+    if goals_df.empty or 'own goal' not in goals_df.columns:
+        return goals_df
+    return goals_df[goals_df['own goal'] != 'Si']
+
 
 def get_all_matches(season=CURRENT_SEASON):
     """Load all match data for a given season across all competitions."""
@@ -46,9 +72,16 @@ def get_all_matches(season=CURRENT_SEASON):
 
 
 def get_all_events(season=CURRENT_SEASON):
-    """Load all match event data for a given season across all competitions."""
-    all_events = []
+    """Load all match event data for a given season across all competitions.
 
+    Results are cached in-process so repeated calls within the same request
+    (or across callbacks) hit memory instead of re-reading Parquet files.
+    The cache is keyed by season string and cleared on app restart.
+    """
+    if season in _events_cache:
+        return _events_cache[season]
+
+    all_events = []
     for comp_key, comp_folder in COMPETITIONS.items():
         event_path = DATA_PATH / comp_folder / season / "match_event"
         if event_path.exists():
@@ -57,9 +90,9 @@ def get_all_events(season=CURRENT_SEASON):
                 df['competition'] = COMPETITION_NAMES.get(comp_folder, comp_folder)
                 all_events.append(df)
 
-    if all_events:
-        return pd.concat(all_events, ignore_index=True)
-    return pd.DataFrame()
+    result = pd.concat(all_events, ignore_index=True) if all_events else pd.DataFrame()
+    _events_cache[season] = result
+    return result
 
 
 def get_match_events(match_id, season=CURRENT_SEASON):
@@ -69,7 +102,7 @@ def get_match_events(match_id, season=CURRENT_SEASON):
         if event_path.exists():
             for file in event_path.glob("*.parquet"):
                 df = pd.read_parquet(file)
-                if df['match_id'].iloc[0] == match_id:
+                if not df.empty and df['match_id'].iloc[0] == match_id:
                     df['competition'] = COMPETITION_NAMES.get(comp_folder, comp_folder)
                     return df
     return pd.DataFrame()
@@ -89,19 +122,14 @@ def get_recent_matches(n=5):
 def count_goals(goals_df):
     """Count home and away goals, accounting for own goals.
 
-    In Opta data, own goals are tagged with ``own goal`` == ``'Si'`` and
-    attributed to the player/team that scored them.  An own goal by the
-    home team counts as an away goal and vice-versa.
+    Uses the centralised ``is_own_goal`` helper.  An own goal by the home
+    team counts as an away goal and vice-versa.
     """
-    has_og_col = 'own goal' in goals_df.columns
-
     home_goals = 0
     away_goals = 0
 
     for _, row in goals_df.iterrows():
-        is_own_goal = has_og_col and str(row.get('own goal', '')).strip() == 'Si'
-        if is_own_goal:
-            # Own goal: credit the opposing side
+        if is_own_goal(row):
             if row['team_position'] == 'home':
                 away_goals += 1
             else:
@@ -117,6 +145,9 @@ def count_goals(goals_df):
 
 def calculate_match_result(events_df):
     """Calculate match result from event data (goals)."""
+    if events_df.empty:
+        return {'home_team': '', 'away_team': '', 'home_goals': 0, 'away_goals': 0}
+
     goals = events_df[events_df['event_type'] == 'Goal']
 
     home_team = events_df['home_team'].iloc[0]
@@ -196,15 +227,8 @@ def get_player_stats(season=CURRENT_SEASON):
     barca_events = events[events['team_code'] == 'BAR']
 
     # Get goals (exclude own goals — they shouldn't count as the player's goals)
-    barca_goals = barca_events[barca_events['event_type'] == 'Goal']
-    if 'own goal' in barca_goals.columns:
-        barca_goals = barca_goals[barca_goals['own goal'] != 'Si']
+    barca_goals = filter_own_goals(barca_events[barca_events['event_type'] == 'Goal'])
     goals = barca_goals.groupby('player_name').size()
-
-    # Get assists (where Assisted == 'Si')
-    goals_with_assists = events[(events['event_type'] == 'Goal') & (events['Assisted'] == 'Si')]
-    # We need to look at the pass before the goal for the assister - simplified approach
-    # Just count participation for now
 
     # Get appearances (unique matches)
     appearances = barca_events.groupby('player_name')['match_id'].nunique()
@@ -243,7 +267,7 @@ def get_player_stats(season=CURRENT_SEASON):
 def get_match_stats(match_id):
     """Get detailed statistics for a specific match."""
     events = get_match_events(match_id)
-    if events.empty:
+    if events.empty or 'home_team' not in events.columns:
         return {}
 
     home_team = events['home_team'].iloc[0]
@@ -306,14 +330,10 @@ def get_match_events_timeline(match_id):
 
     timeline = []
     for _, row in key_events.iterrows():
-        is_own_goal = (
-            row['event_type'] == 'Goal'
-            and 'own goal' in key_events.columns
-            and str(row.get('own goal', '')).strip() == 'Si'
-        )
+        og = row['event_type'] == 'Goal' and is_own_goal(row)
         event = {
             'minute': int(row['time_min']) if pd.notna(row['time_min']) else 0,
-            'type': 'Own Goal' if is_own_goal else row['event_type'],
+            'type': 'Own Goal' if og else row['event_type'],
             'player': row['player_name'] if pd.notna(row['player_name']) else '',
             'team': row['team_code'] if pd.notna(row['team_code']) else '',
             'team_position': row['team_position'] if pd.notna(row['team_position']) else ''
@@ -370,14 +390,20 @@ def get_player_match_stats(player_name, season=CURRENT_SEASON):
     match_stats = []
     for match_id in player_events['match_id'].unique():
         match_events = events[events['match_id'] == match_id]
+        if match_events.empty:
+            continue
         player_match_events = player_events[player_events['match_id'] == match_id]
+
+        player_goals = filter_own_goals(
+            player_match_events[player_match_events['event_type'] == 'Goal']
+        )
 
         stats = {
             'match_id': match_id,
             'date': match_events['match_date'].iloc[0],
             'description': match_events['match_description'].iloc[0],
             'competition': match_events['competition'].iloc[0],
-            'goals': len(player_match_events[(player_match_events['event_type'] == 'Goal') & (player_match_events['own goal'] != 'Si')]) if 'own goal' in player_match_events.columns else len(player_match_events[player_match_events['event_type'] == 'Goal']),
+            'goals': len(player_goals),
             'passes': len(player_match_events[player_match_events['event_type'] == 'Pass']),
             'shots': len(player_match_events[player_match_events['event_type'].isin(['Miss', 'Saved Shot', 'Goal'])]),
             'tackles': len(player_match_events[player_match_events['event_type'] == 'Tackle']),
@@ -420,11 +446,9 @@ def get_tournament_summary(season=CURRENT_SEASON):
 
         # Top scorer in this competition (exclude own goals)
         comp_events = events[events['competition'] == comp_name]
-        barca_goals = comp_events[
+        barca_goals = filter_own_goals(comp_events[
             (comp_events['team_code'] == 'BAR') & (comp_events['event_type'] == 'Goal')
-        ]
-        if 'own goal' in barca_goals.columns:
-            barca_goals = barca_goals[barca_goals['own goal'] != 'Si']
+        ])
         top_scorer = ''
         top_scorer_goals = 0
         if not barca_goals.empty:
@@ -496,9 +520,7 @@ def get_player_stats_by_competition(competition, season=CURRENT_SEASON):
     if barca_events.empty:
         return pd.DataFrame()
 
-    comp_barca_goals = barca_events[barca_events['event_type'] == 'Goal']
-    if 'own goal' in comp_barca_goals.columns:
-        comp_barca_goals = comp_barca_goals[comp_barca_goals['own goal'] != 'Si']
+    comp_barca_goals = filter_own_goals(barca_events[barca_events['event_type'] == 'Goal'])
     goals = comp_barca_goals.groupby('player_name').size()
     appearances = barca_events.groupby('player_name')['match_id'].nunique()
     shots = barca_events[barca_events['event_type'].isin(['Miss', 'Saved Shot', 'Goal'])].groupby('player_name').size()
@@ -516,59 +538,224 @@ def get_player_stats_by_competition(competition, season=CURRENT_SEASON):
     return stats_df
 
 
-def get_season_highlights():
-    """Get notable season highlights: biggest win, toughest match, MVP, breakout star."""
-    results = get_match_results()
-    stats = get_player_stats()
-    if not results or stats.empty:
-        return {}
 
-    # Biggest win (largest positive goal difference)
-    biggest_win = max(
-        [r for r in results if r['result'] == 'W'],
-        key=lambda r: r['barca_goals'] - r['opponent_goals'],
-        default=None
-    )
+def get_available_seasons(competition=None):
+    """Return sorted list of season strings present on disk.
 
-    # Toughest match (closest loss or draw with most goals)
-    tough_candidates = [r for r in results if r['result'] in ('L', 'D')]
-    toughest_match = None
-    if tough_candidates:
-        toughest_match = min(
-            tough_candidates,
-            key=lambda r: abs(r['barca_goals'] - r['opponent_goals'])
+    Args:
+        competition: Optional folder name, e.g. 'Spain_Primera_Division'.
+                     If None, returns the union across all competitions.
+    Returns:
+        List[str] sorted ascending, e.g. ['2008-2009', ..., '2025-2026'].
+    """
+    if competition:
+        folder = DATA_PATH / competition
+        if not folder.exists():
+            return []
+        return sorted(
+            d.name for d in folder.iterdir()
+            if d.is_dir() and '-' in d.name
         )
 
-    # MVP (most goals)
-    mvp = None
-    if not stats.empty:
-        top = stats.iloc[0]
-        mvp = {'player': top['player'], 'goals': int(top['goals']), 'appearances': int(top['appearances'])}
+    seasons = set()
+    for comp_folder in COMPETITIONS.values():
+        folder = DATA_PATH / comp_folder
+        if folder.exists():
+            for d in folder.iterdir():
+                if d.is_dir() and '-' in d.name:
+                    seasons.add(d.name)
+    return sorted(seasons)
 
-    # Breakout star (best goals per appearance, min 3 apps)
-    breakout = None
-    eligible = stats[(stats['appearances'] >= 3) & (stats['goals'] > 0)].copy()
-    if not eligible.empty:
-        eligible['gpg'] = eligible['goals'] / eligible['appearances']
-        eligible = eligible.sort_values('gpg', ascending=False)
-        # Exclude the MVP to make it interesting
-        if mvp:
-            eligible = eligible[eligible['player'] != mvp['player']]
-        if not eligible.empty:
-            star = eligible.iloc[0]
-            breakout = {
-                'player': star['player'],
-                'goals': int(star['goals']),
-                'appearances': int(star['appearances']),
-                'gpg': round(float(star['gpg']), 2)
-            }
+
+def get_all_teams(season=None, competition=None):
+    """Return sorted list of all non-Barcelona team names in the match data.
+
+    Args:
+        season: Season string, e.g. '2025-2026'. If None, all seasons.
+        competition: Friendly competition name (value from COMPETITION_NAMES),
+                     e.g. 'La Liga'. If None, all competitions.
+    Returns:
+        List[str] of team names, excluding Barcelona.
+    """
+    teams = set()
+    for comp_folder in COMPETITIONS.values():
+        comp_display = COMPETITION_NAMES.get(comp_folder, comp_folder)
+        if competition and competition != 'all' and comp_display != competition:
+            continue
+
+        if season and season != 'all':
+            seasons_to_check = [season]
+        else:
+            season_path = DATA_PATH / comp_folder
+            if not season_path.exists():
+                continue
+            seasons_to_check = [d.name for d in season_path.iterdir() if d.is_dir()]
+
+        for s in seasons_to_check:
+            # Read team_name from match_event files so names are consistent
+            # with the team_name column used in get_team_events()
+            event_path = DATA_PATH / comp_folder / s / 'match_event'
+            if not event_path.exists():
+                continue
+            for f in event_path.glob('*.parquet'):
+                df = pd.read_parquet(f, columns=['team_name', 'team_code'])
+                for _, row in df[['team_name', 'team_code']].drop_duplicates().iterrows():
+                    if str(row['team_code']) != 'BAR' and pd.notna(row['team_name']):
+                        teams.add(row['team_name'])
+
+    return sorted(teams)
+
+
+def get_player_events(player_name, season=CURRENT_SEASON, competition=None):
+    """Return all events attributed to a specific player.
+
+    Args:
+        player_name: Exact player name as stored in data.
+        season: Season string. Defaults to CURRENT_SEASON.
+        competition: Friendly competition name. If None, all competitions.
+    Returns:
+        DataFrame with columns including x, y, event_type, outcome,
+        time_min, match_id, competition, match_date.
+    """
+    events = get_all_events(season)
+    if events.empty:
+        return pd.DataFrame()
+
+    result = events[events['player_name'] == player_name]
+
+    if competition and competition != 'all' and 'competition' in result.columns:
+        result = result[result['competition'] == competition]
+
+    return result.reset_index(drop=True)
+
+
+def get_team_events(team_name, season=CURRENT_SEASON, competition=None):
+    """Return all events for a specific team across their matches in the dataset.
+
+    Args:
+        team_name: Team name as stored in data (e.g. 'Real Madrid').
+        season: Season string. Defaults to CURRENT_SEASON.
+        competition: Friendly competition name. If None, all competitions.
+    Returns:
+        DataFrame of all event rows where team_name matches.
+    """
+    events = get_all_events(season)
+    if events.empty:
+        return pd.DataFrame()
+
+    result = events[events['team_name'] == team_name]
+
+    if competition and competition != 'all' and 'competition' in result.columns:
+        result = result[result['competition'] == competition]
+
+    return result.reset_index(drop=True)
+
+
+def get_team_season_stats(season=CURRENT_SEASON, competition=None):
+    """Return aggregate Barcelona team-level stats for a season.
+
+    Args:
+        season: Season string.
+        competition: Friendly competition name. If None, all competitions.
+    Returns:
+        dict with keys: shots, shots_on_target, goals_scored, goals_conceded,
+        passes, pass_accuracy, possession, corners, fouls, yellow_cards,
+        red_cards, tackles, interceptions, clean_sheets,
+        matches_played, wins, draws, losses.
+    """
+    events = get_all_events(season)
+    if events.empty:
+        return {}
+
+    if competition and competition != 'all' and 'competition' in events.columns:
+        events = events[events['competition'] == competition]
+
+    bar_events = events[events['team_code'] == 'BAR']
+
+    passes = bar_events[bar_events['event_type'] == 'Pass']
+    pass_acc = round(
+        len(passes[passes['outcome'] == 1]) / len(passes) * 100, 1
+    ) if len(passes) > 0 else 0.0
+
+    all_passes = len(events[events['event_type'] == 'Pass'])
+    possession = round(
+        len(passes) / all_passes * 100, 1
+    ) if all_passes > 0 else 50.0
+
+    shot_types = ['Miss', 'Saved Shot', 'Goal']
+    shots = bar_events[bar_events['event_type'].isin(shot_types)]
+    shots_on_target = bar_events[bar_events['event_type'].isin(['Saved Shot', 'Goal'])]
+
+    yellow_col = 'Yellow Card'
+    red_col = 'Red Card'
+    cards = bar_events[bar_events['event_type'] == 'Card']
+    yellow_cards = len(cards[cards[yellow_col] == 'Si']) if yellow_col in cards.columns else 0
+    red_cards = len(cards[cards[red_col] == 'Si']) if red_col in cards.columns else 0
+
+    # Match-level stats from results
+    results = get_match_results()
+    if competition and competition != 'all':
+        results = [r for r in results if r['competition'] == competition]
+    # Filter by season via date year range
+    season_start = int(season.split('-')[0])
+    results = [
+        r for r in results
+        if str(r['date'])[:4] in [str(season_start), str(season_start + 1)]
+    ]
+
+    wins = sum(1 for r in results if r['result'] == 'W')
+    draws = sum(1 for r in results if r['result'] == 'D')
+    losses = sum(1 for r in results if r['result'] == 'L')
+    clean_sheets = sum(1 for r in results if r['opponent_goals'] == 0)
+    goals_scored = sum(r['barca_goals'] for r in results)
+    goals_conceded = sum(r['opponent_goals'] for r in results)
 
     return {
-        'biggest_win': biggest_win,
-        'toughest_match': toughest_match,
-        'mvp': mvp,
-        'breakout_star': breakout
+        'shots': len(shots),
+        'shots_on_target': len(shots_on_target),
+        'goals_scored': goals_scored,
+        'goals_conceded': goals_conceded,
+        'passes': len(passes),
+        'pass_accuracy': pass_acc,
+        'possession': possession,
+        'corners': len(bar_events[bar_events['event_type'] == 'Corner Awarded']),
+        'fouls': len(bar_events[bar_events['event_type'] == 'Foul']),
+        'yellow_cards': yellow_cards,
+        'red_cards': red_cards,
+        'tackles': len(bar_events[bar_events['event_type'] == 'Tackle']),
+        'interceptions': len(bar_events[bar_events['event_type'] == 'Interception']),
+        'clean_sheets': clean_sheets,
+        'matches_played': len(results),
+        'wins': wins,
+        'draws': draws,
+        'losses': losses,
     }
+
+
+def get_match_lineup(match_id):
+    """Load lineup data for a specific match.
+
+    Scans all lineup/ subdirectories for a file whose stem contains match_id.
+    Returns an empty DataFrame if not found.
+    """
+    if not match_id:
+        return pd.DataFrame()
+
+    for comp_folder in COMPETITIONS.values():
+        comp_path = DATA_PATH / comp_folder
+        if not comp_path.exists():
+            continue
+        for season_dir in comp_path.iterdir():
+            if not season_dir.is_dir():
+                continue
+            lineup_path = season_dir / 'lineup'
+            if not lineup_path.exists():
+                continue
+            for f in lineup_path.glob('*.parquet'):
+                if match_id in f.stem:
+                    return pd.read_parquet(f)
+
+    return pd.DataFrame()
 
 
 def get_form_timeline():

@@ -86,7 +86,7 @@ def _build_contested_heatmap(events_df, title):
     return fig
 
 
-def build_contested_tab(events):
+def build_defence_tab(events):
     """Render the Contested Phases tab."""
     summary = get_contested_summary(events)
     contested = get_contested_phase_events(events)

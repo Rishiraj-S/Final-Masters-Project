@@ -44,6 +44,7 @@ NAV_LINKS = [
     {'label': 'Home', 'href': '/'},
     {'label': 'Match Analysis', 'href': '/match-analysis'},
     {'label': 'Player Analysis', 'href': '/player-analysis'},
+    {'label': 'Team Analysis', 'href': '/team-analysis'},
     {'label': 'Opposition Analysis', 'href': '/opposition-analysis'}
 ]
 
