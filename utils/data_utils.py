@@ -28,9 +28,20 @@ COMPETITION_NAMES = {
 CURRENT_SEASON = '2025-2026'
 
 # Module-level event cache — keyed by season string.
-# Populated lazily on first call; cleared automatically when the app restarts
-# (e.g. after a pipeline run that triggers auto-reload via dcc.Location).
+# Populated lazily on first call.
+# Must be explicitly cleared (via clear_events_cache()) after the pipeline
+# writes new parquet files — dcc.Location page reloads do NOT restart the
+# Python server process, so the cache would otherwise serve stale data.
 _events_cache: dict = {}
+
+
+def clear_events_cache() -> None:
+    """Clear the in-process events cache.
+
+    Call this after the data pipeline finishes so the next request reads
+    fresh parquet files from disk instead of returning cached data.
+    """
+    _events_cache.clear()
 
 
 # ── Centralised own-goal helpers ─────────────────────────────────────────────
@@ -91,7 +102,10 @@ def get_all_events(season=CURRENT_SEASON):
                 all_events.append(df)
 
     result = pd.concat(all_events, ignore_index=True) if all_events else pd.DataFrame()
-    _events_cache[season] = result
+    # Only cache non-empty results — an empty result could mean the pipeline
+    # hasn't run yet, and we don't want to permanently cache that state.
+    if not result.empty:
+        _events_cache[season] = result
     return result
 
 

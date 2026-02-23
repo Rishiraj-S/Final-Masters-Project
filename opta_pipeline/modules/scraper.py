@@ -510,8 +510,10 @@ class MatchScraper:
             DataFrame with match information
         """
         self.logger.info(f"🔍 Scraping matches from: {results_url}")
+        print(f"   🔍 Scraping: {results_url}")
         if team_name:
             self.logger.info(f"   Filtering for team: {team_name}")
+            print(f"   🏷️  Filtering for team: {team_name}")
 
         driver = self.create_driver(headless=True)
 
@@ -529,6 +531,7 @@ class MatchScraper:
 
             initial_count = self._get_match_count(driver)
             self.logger.info(f"📊 Initial matches visible: {initial_count}")
+            print(f"   📊 Initial matches visible: {initial_count}")
 
             # Try to load all pages via pagination
             # First attempt: "Load More" style (accumulative — all matches stay in DOM)
@@ -590,11 +593,13 @@ class MatchScraper:
             df = df.drop_duplicates(subset=["url_match"], keep="first")
 
             self.logger.info(f"✅ Scraped {len(df)} unique matches")
+            print(f"   ✅ Scraped {len(df)} unique match(es)")
 
             return df
 
         except Exception as e:
             self.logger.error(f"❌ Scraping failed: {e}", exc_info=True)
+            print(f"   ❌ Scraping failed: {e}")
             raise
 
         finally:

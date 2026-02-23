@@ -26,6 +26,7 @@ import os
 import sys
 
 from utils.config import COLORS, APP_CONFIG, NAV_LINKS
+from utils.data_utils import clear_events_cache
 from pages import (
     create_home_layout,
     register_home_callbacks,
@@ -551,10 +552,9 @@ def handle_logout(logout_clicks):
     Output('update-overlay-container', 'children'),
     Output('_refresh-url', 'pathname'),
     Input('update-status-store', 'data'),
-    Input('update-check-interval', 'n_intervals'),
     prevent_initial_call=True
 )
-def show_update_overlay(update_status, _n_intervals):
+def show_update_overlay(update_status):
     """Show/hide the database update overlay. Refresh page when update finishes."""
     if update_status and update_status.get('updating'):
         return create_update_overlay(), dash.no_update
@@ -589,19 +589,20 @@ def handle_database_update(n_clicks, n_intervals, current_status):
         def run_pipeline():
             script_dir = os.path.dirname(os.path.abspath(__file__))
             pipeline_path = os.path.join(script_dir, 'opta_pipeline', 'main.py')
+            # No capture_output — stdout/stderr flow directly to the terminal
+            # so all print() statements in main.py and modules are visible.
             result = subprocess.run(
                 [sys.executable, pipeline_path],
                 cwd=script_dir,
-                capture_output=True,
-                text=True
             )
             if result.returncode != 0:
-                # Log errors to pipeline log
+                # Log the failure; detailed output is already in the terminal
+                # and in opta_pipeline/logs/opta_pipeline.log
                 log_path = os.path.join(script_dir, 'opta_pipeline', 'logs', 'pipeline_error.log')
+                os.makedirs(os.path.dirname(log_path), exist_ok=True)
                 with open(log_path, 'w') as f:
-                    f.write(f"Exit code: {result.returncode}\n")
-                    f.write(f"STDERR:\n{result.stderr}\n")
-                    f.write(f"STDOUT (last 2000 chars):\n{result.stdout[-2000:]}\n")
+                    f.write(f"Pipeline exited with code: {result.returncode}\n")
+                    f.write("Check opta_pipeline/logs/opta_pipeline.log for details.\n")
 
         # Start update in background thread
         thread = threading.Thread(target=run_pipeline, daemon=True)
@@ -617,7 +618,10 @@ def handle_database_update(n_clicks, n_intervals, current_status):
         if hasattr(app, '_update_thread') and app._update_thread.is_alive():
             return {'updating': True}, False
         else:
-            # Update finished — mark done so clientside reload fires
+            # Pipeline subprocess finished — clear the in-process data cache
+            # so the subsequent page reload reads fresh parquet files from disk.
+            clear_events_cache()
+            # Mark done so show_update_overlay triggers the page reload.
             return {'updating': False, 'finished': True}, True
 
     return current_status, True

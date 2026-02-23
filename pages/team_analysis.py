@@ -253,6 +253,75 @@ def _build_overview(season, competition, match_ids=None):
     return html.Div([kpi, pts_card, trendline])
 
 
+_ZONE_COLS = {
+    'Small box-centre':  'Inside 6yd Box',
+    'Box-centre':        'Penalty Area',
+    'Out of box-centre': 'Outside Box',
+    '35+ centre':        '35+ Yards',
+}
+
+_SHOT_STYLE = {
+    'Goal':       ('star',   GOLD,       18),
+    'Saved Shot': ('circle', HOME_COLOR, 11),
+    'Miss':       ('x',      AWAY_COLOR, 10),
+}
+
+
+def _shot_zone_chart(shots):
+    """Overlapping horizontal bars — shots (blue) vs goals (gold) per zone."""
+    zones, shot_counts, goal_counts = [], [], []
+    for col, label in _ZONE_COLS.items():
+        if col not in shots.columns:
+            continue
+        mask  = shots[col] == 'Si'
+        total = int(mask.sum())
+        goals = int(shots.loc[mask & (shots['event_type'] == 'Goal')].shape[0])
+        if total:
+            zones.append(label)
+            shot_counts.append(total)
+            goal_counts.append(goals)
+
+    if not zones:
+        return empty_fig("No zone data")
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        y=zones, x=shot_counts, orientation='h',
+        name='Shots', marker_color=HOME_COLOR,
+        hovertemplate='%{y}: %{x} shots<extra></extra>',
+    ))
+    fig.add_trace(go.Bar(
+        y=zones, x=goal_counts, orientation='h',
+        name='Goals', marker_color=GOLD,
+        hovertemplate='%{y}: %{x} goals<extra></extra>',
+    ))
+    fig.update_layout(**CHART_LAYOUT_DEFAULTS, height=220, barmode='overlay', xaxis_title='Count')
+    fig.update_layout(legend=dict(orientation='h', y=1.18, x=0.5, xanchor='center'),
+                      margin=dict(l=10, r=10, t=10, b=30))
+    return fig
+
+
+def _body_part_chart(shots):
+    """Donut — Header vs Right Foot vs Left Foot."""
+    headed = int((shots['Head'] == 'Si').sum())         if 'Head'         in shots.columns else 0
+    right  = int((shots['Right footed'] == 'Si').sum()) if 'Right footed' in shots.columns else 0
+    left   = max(len(shots) - headed - right, 0)
+
+    data = [('Header', headed, HOME_COLOR), ('Right Foot', right, GOLD), ('Left Foot', left, AWAY_COLOR)]
+    data = [(l, v, c) for l, v, c in data if v > 0]
+    if not data:
+        return empty_fig("No body part data")
+
+    labels, values, colors = zip(*data)
+    fig = go.Figure(go.Pie(
+        labels=labels, values=values, marker_colors=colors,
+        hole=0.45, textinfo='label+value', textfont=dict(color='white', size=11),
+    ))
+    fig.update_layout(**CHART_LAYOUT_DEFAULTS, height=220, showlegend=False)
+    fig.update_layout(margin=dict(l=0, r=0, t=10, b=0))
+    return fig
+
+
 def _build_attacking(season, competition, match_ids=None):
     events = get_all_events(season)
     if events.empty:
@@ -265,33 +334,51 @@ def _build_attacking(season, competition, match_ids=None):
 
     bar = events[events['team_code'] == 'BAR']
 
-    # Shot map
-    shot_types = ['Miss', 'Saved Shot', 'Goal']
+    # ── Shot map with distinct symbols ★ goal · ● saved · ✕ miss ──────────
+    shot_types = ['Goal', 'Saved Shot', 'Miss']
     shots = bar[bar['event_type'].isin(shot_types)].dropna(subset=['x', 'y'])
-    color_map = {'Goal': GOLD, 'Saved Shot': HOME_COLOR, 'Miss': AWAY_COLOR}
 
     if not shots.empty:
         fig_shots = go.Figure()
         add_pitch_background(fig_shots, half=True)
-        for etype, color in color_map.items():
+        for etype, (symbol, color, size) in _SHOT_STYLE.items():
             subset = shots[shots['event_type'] == etype]
             if subset.empty:
                 continue
+            body = subset.apply(
+                lambda r: ('Header'     if r.get('Head') == 'Si'
+                           else 'Right Foot' if r.get('Right footed') == 'Si'
+                           else 'Left Foot'),
+                axis=1,
+            )
             fig_shots.add_trace(go.Scatter(
                 x=subset['x'], y=subset['y'],
-                mode='markers',
-                name=etype,
-                marker=dict(color=color, size=10, line=dict(color='white', width=1)),
-                text=subset.get('player_name', ''),
-                hovertemplate='%{text}<extra>' + etype + '</extra>',
+                mode='markers', name=etype,
+                marker=dict(color=color, size=size, symbol=symbol,
+                            line=dict(color='white', width=1.5)),
+                customdata=list(zip(
+                    subset.get('player_name', subset.index),
+                    body,
+                )),
+                hovertemplate=(
+                    '<b>%{customdata[0]}</b><br>%{customdata[1]}'
+                    '<extra>' + etype + '</extra>'
+                ),
             ))
-        fig_shots.update_layout(**CHART_LAYOUT_DEFAULTS, height=380, **PITCH_AXIS_HALF)
-        shot_map = section_card("Shot Map",
+        fig_shots.update_layout(**CHART_LAYOUT_DEFAULTS, height=400, **PITCH_AXIS_HALF)
+        fig_shots.update_layout(legend=dict(orientation='h', y=-0.05, x=0.5, xanchor='center'))
+        shot_map = section_card("Shot Map  ★ Goal  ● Saved  ✕ Miss",
                                 dcc.Graph(figure=fig_shots, config=CHART_CONFIG))
     else:
         shot_map = section_card("Shot Map", empty_fig("No shot data"))
 
-    # Top scorers – derive from filtered events when match filter is active
+    # ── Zone + body part breakdown ─────────────────────────────────────────
+    zone_card = section_card("Shot Zones",
+                             dcc.Graph(figure=_shot_zone_chart(shots), config=CHART_CONFIG))
+    body_card = section_card("Body Part",
+                             dcc.Graph(figure=_body_part_chart(shots), config=CHART_CONFIG))
+
+    # ── Top scorers ────────────────────────────────────────────────────────
     if match_ids:
         goal_ev = filter_own_goals(bar[bar['event_type'] == 'Goal'].copy())
         scorers_series = goal_ev.groupby('player_name').size().sort_values(ascending=False).head(10)
@@ -330,7 +417,7 @@ def _build_attacking(season, competition, match_ids=None):
         else:
             scorers_card = section_card("Top Scorers", empty_fig("No scorer data"))
 
-    # Goals by match
+    # ── Goals by match ─────────────────────────────────────────────────────
     results = _filter_results(get_match_results(), season, competition, match_ids)
     results_sorted = sorted(results, key=lambda x: x['date'])
     if results_sorted:
@@ -342,7 +429,7 @@ def _build_attacking(season, competition, match_ids=None):
             hovertemplate='%{x}<br>Goals: %{y}<extra></extra>',
         ))
         fig_goals.update_layout(**CHART_LAYOUT_DEFAULTS, height=300,
-                                 xaxis_tickangle=-45, yaxis_title='Goals Scored')
+                                xaxis_tickangle=-45, yaxis_title='Goals Scored')
         goals_card = section_card("Goals by Match",
                                   dcc.Graph(figure=fig_goals, config=CHART_CONFIG))
     else:
@@ -350,8 +437,12 @@ def _build_attacking(season, competition, match_ids=None):
 
     return html.Div([
         dbc.Row([
-            dbc.Col(shot_map, md=6),
+            dbc.Col(shot_map, md=7),
+            dbc.Col([zone_card, body_card], md=5),
+        ], className="mb-3"),
+        dbc.Row([
             dbc.Col(scorers_card, md=6),
+            dbc.Col(goals_card,   md=6),
         ]),
         goals_card,
     ])

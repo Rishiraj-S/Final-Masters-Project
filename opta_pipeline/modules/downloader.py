@@ -248,11 +248,13 @@ class MatchDownloader:
                                 f"   ⚠️  matchcentre JSON has no matchInfo/liveData "
                                 f"for {match_id}"
                             )
+                            print(f"   ⚠️  [lineup] JSON structure invalid for {match_id}")
                 else:
                     self.logger.warning(
                         f"   ⚠️  No match-centre feed captured for {match_id} "
                         f"(formations page)"
                     )
+                    print(f"   ⚠️  [lineup] No API response captured for {match_id}")
 
                 # Clear captured requests before navigating to the next page
                 del driver.requests
@@ -338,6 +340,7 @@ class MatchDownloader:
                     self.logger.warning(
                         f"   ⚠️  No matchevent data captured for {match_id}"
                     )
+                    print(f"   ⚠️  [matchevent] No API response captured for {match_id}")
 
         except Exception as e:
             self.logger.error(f"   ❌ Download failed for {match_id}: {e}")
@@ -391,12 +394,17 @@ class MatchDownloader:
 
         if matchevent_exists and lineup_exists:
             self.logger.info(f"   ⏭️  Already exists (matchevent + lineup): {match_id}")
+            print(f"   ⏭️  SKIP   {match_id}  (both files exist)")
             return True, str(matchdata_path)
 
         if matchevent_exists:
             self.logger.info(f"   ⏭️  matchevent exists, fetching lineup only: {match_id}")
-        if lineup_exists:
+            print(f"   📥  {match_id}  — lineup missing, will download")
+        elif lineup_exists:
             self.logger.info(f"   ⏭️  lineup exists, fetching matchevent only: {match_id}")
+            print(f"   📥  {match_id}  — matchevent missing, will download")
+        else:
+            print(f"   📥  {match_id}  — downloading matchevent + lineup")
 
         # Download with retries
         for attempt in range(1, max_retries + 1):
@@ -405,6 +413,7 @@ class MatchDownloader:
                 self.logger.info(
                     f"   🔄 Retry {attempt}/{max_retries} for {match_id} (waiting {wait}s)..."
                 )
+                print(f"   🔄 Retry {attempt}/{max_retries} for {match_id} (waiting {wait}s)...")
                 time.sleep(wait)
 
             result = self.download_match_data(
@@ -420,13 +429,18 @@ class MatchDownloader:
             # Update flags for retry decisions
             if new_matchevent:
                 matchevent_exists = True
+                print(f"   ✅ matchevent saved: {Path(new_matchevent).name}")
             if new_lineup:
                 lineup_exists = True
+                print(f"   ✅ lineup saved:     {Path(new_lineup).name}")
 
             if matchevent_exists:
                 # Core data present – success even if lineup capture failed
+                if not new_lineup and not lineup_exists:
+                    print(f"   ⚠️  lineup not captured for {match_id} (continuing)")
                 time.sleep(self.sleep_between)
                 return True, new_matchevent or str(matchdata_path)
 
         self.logger.error(f"   ❌ Failed after {max_retries} attempts: {match_id}")
+        print(f"   ❌ FAILED after {max_retries} attempts: {match_id}")
         return False, None

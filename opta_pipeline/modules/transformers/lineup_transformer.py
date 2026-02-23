@@ -342,6 +342,7 @@ class LineupTransformer(BaseTransformer):
             return 0
 
         self.logger.info(f"🔄 [lineup] Found {len(json_files)} matchdata file(s)")
+        print(f"   👥 Lineups: processing {len(json_files)} file(s)...")
         successful = 0
         failed = 0
 
@@ -357,4 +358,6 @@ class LineupTransformer(BaseTransformer):
             f"✅ Lineup: {successful}/{len(json_files)} transformed"
             + (f"  ⚠️  {failed} failed" if failed else "")
         )
+        status = f"⚠️  {failed} failed" if failed else "all OK"
+        print(f"   ✅ Lineups done: {successful}/{len(json_files)} ({status})")
         return successful

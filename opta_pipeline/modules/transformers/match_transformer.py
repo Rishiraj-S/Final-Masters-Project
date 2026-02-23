@@ -188,22 +188,25 @@ class MatchTransformer(BaseTransformer):
             return 0
         
         self.logger.info(f"🔄 Found {len(json_files)} matchdata files")
-        
+        print(f"   📋 Match info: processing {len(json_files)} file(s)...")
+
         successful = 0
         failed = 0
-        
+
         for json_file in sorted(json_files):
             match_id = json_file.stem
             self.logger.info(f"\n[{successful + failed + 1}/{len(json_files)}] Processing: {match_id}")
-            
+
             result = self.transform_match(match_id)
             if result:
                 successful += 1
             else:
                 failed += 1
-        
+
         self.logger.info(f"\n✅ Transformed {successful}/{len(json_files)} match files")
         if failed > 0:
             self.logger.warning(f"⚠️  Failed: {failed}")
-        
+        status = f"⚠️  {failed} failed" if failed else "all OK"
+        print(f"   ✅ Match info done: {successful}/{len(json_files)} ({status})")
+
         return successful
