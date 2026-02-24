@@ -33,6 +33,7 @@ class MatchDownloader:
         self.timeout = config.get('downloader', {}).get('timeout_per_match', 45)
         self.sleep_between = config.get('downloader', {}).get('sleep_between_matches', 1.5)
         self.base_target_dir = config.get('paths', {}).get('target_dir', 'data/target')
+        self.base_result_dir = config.get('paths', {}).get('result_dir', 'data/result')
 
         competition = config.get('competition', {})
         self.league_name = competition.get('league_name') or 'Unknown_League'
@@ -51,6 +52,23 @@ class MatchDownloader:
             r"https://api\.performfeeds\.com/soccerdata/match/(?!event)",
             re.IGNORECASE
         )
+
+    # ------------------------------------------------------------------
+    # Skip helpers
+    # ------------------------------------------------------------------
+
+    def _parquet_exists_for_match(self, match_id: str, subdirectory: str) -> bool:
+        """Return True if a parquet output file for match_id already exists in result dir."""
+        result_dir = Path(get_organized_path_reversed(
+            self.base_result_dir,
+            self.league_name,
+            self.season,
+            '',
+            subdirectory=subdirectory,
+        ))
+        if not result_dir.exists():
+            return False
+        return any(result_dir.glob(f"*{match_id}*"))
 
     # ------------------------------------------------------------------
     # Driver factory
@@ -389,8 +407,14 @@ class MatchDownloader:
             )
         )
 
-        matchevent_exists = matchdata_path.exists()
-        lineup_exists = matchcentre_path.exists()
+        matchevent_exists = (
+            matchdata_path.exists()
+            or self._parquet_exists_for_match(match_id, 'match_event')
+        )
+        lineup_exists = (
+            matchcentre_path.exists()
+            or self._parquet_exists_for_match(match_id, 'lineup')
+        )
 
         if matchevent_exists and lineup_exists:
             self.logger.info(f"   ⏭️  Already exists (matchevent + lineup): {match_id}")

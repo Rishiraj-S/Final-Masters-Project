@@ -34,12 +34,12 @@ from .match_analysis_tabs import (
     build_defence_tab,
     build_defensive_transition_tab,
     build_setpieces_tab,
+    register_overview_callbacks,
 )
 from .match_analysis_tabs.shared import page_header
 
 GOLD = COLORS['gold']
 RESULT_COLORS = {'W': '#28a745', 'D': '#ffc107', 'L': '#dc3545'}
-
 
 # =============================================================================
 # Calendar builder
@@ -263,7 +263,6 @@ def create_match_analysis_layout():
         dcc.Store(id='pma-match-data', data=match_data),
         dcc.Store(id='pma-calendar-month', data={'year': init_year, 'month': init_month}),
         dcc.Store(id='pma-selected-match', data=default_match_id),
-
         page_header("Match Analysis"),
         html.Hr(),
 
@@ -323,6 +322,7 @@ def create_match_analysis_layout():
 
 def register_match_analysis_callbacks(app):
     """Register all callbacks for the match analysis page."""
+    register_overview_callbacks(app)
 
     # --- Month navigation ---
     @app.callback(

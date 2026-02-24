@@ -13,11 +13,12 @@ import matplotlib.patheffects as mpe
 from mplsoccer import Pitch
 import pandas as pd
 
-from dash import html
+from dash import html, dcc, ctx
+from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
-from utils.data_utils import get_match_lineup
+from utils.data_utils import get_match_lineup, get_match_events
 from utils.match_data_adapter import (
     get_match_metadata,
     compute_team_kpis,
@@ -27,6 +28,53 @@ from utils.match_data_adapter import (
 from utils.logos import team_logo_img, tournament_logo_img
 
 from .shared import HOME_COLOR, AWAY_COLOR, GOLD
+
+
+# =============================================================================
+# Period filter helpers (stat bars only)
+# =============================================================================
+
+_OV_PERIOD_OPTIONS = [
+    ('Full Match', 'full'),
+    ('1st Half',   '1'),
+    ('2nd Half',   '2'),
+]
+
+
+def _ov_period_btn_style(active: bool) -> dict:
+    if active:
+        return {
+            'backgroundColor': GOLD, 'color': '#1A1D2E',
+            'border': f'1px solid {GOLD}',
+            'borderRadius': '6px', 'padding': '5px 14px',
+            'cursor': 'pointer', 'fontSize': '0.85rem', 'fontWeight': '600',
+        }
+    return {
+        'backgroundColor': COLORS['dark_secondary'], 'color': COLORS['text_primary'],
+        'border': f'1px solid {COLORS["dark_border"]}',
+        'borderRadius': '6px', 'padding': '5px 14px',
+        'cursor': 'pointer', 'fontSize': '0.85rem',
+    }
+
+
+def _build_period_filter() -> html.Div:
+    """Period toggle buttons placed between lineup and stat bars."""
+    return html.Div([
+        html.Span("Period:", style={
+            'color': COLORS['text_secondary'], 'fontSize': '0.85rem',
+            'marginRight': '10px', 'alignSelf': 'center',
+        }),
+        html.Div([
+            html.Button(label,
+                        id=f'pma-ov-period-btn-{val}',
+                        n_clicks=0,
+                        style=_ov_period_btn_style(active=(val == 'full')))
+            for label, val in _OV_PERIOD_OPTIONS
+        ], style={'display': 'flex', 'gap': '6px'}),
+    ], style={
+        'display': 'flex', 'alignItems': 'center',
+        'marginBottom': '16px',
+    })
 
 
 # =============================================================================
@@ -662,6 +710,49 @@ def _build_subs_section(team_name, subs_list, color):
 
 
 # =============================================================================
+# Stat bars builder (extracted so the period-filter callback can call it)
+# =============================================================================
+
+def _build_stat_bars(home_kpis: dict, away_kpis: dict) -> html.Div:
+    """Build the TV-style stat comparison bars for the given KPI dicts."""
+    return html.Div([
+        _tv_stat_bar('Possession',
+                     home_kpis.get('possession', 50), away_kpis.get('possession', 50),
+                     '%', is_percentage=True),
+        _tv_stat_bar('Shots',
+                     home_kpis.get('shots', 0), away_kpis.get('shots', 0)),
+        _tv_stat_bar('Shots on Target',
+                     home_kpis.get('shots_on_target', 0), away_kpis.get('shots_on_target', 0)),
+        _tv_stat_bar('Blocked Shots',
+                     home_kpis.get('blocked_shots', 0), away_kpis.get('blocked_shots', 0)),
+        _tv_stat_bar('Passes',
+                     home_kpis.get('passes', 0), away_kpis.get('passes', 0)),
+        _tv_stat_bar('Pass Accuracy',
+                     home_kpis.get('pass_accuracy', 0), away_kpis.get('pass_accuracy', 0),
+                     '%', is_percentage=True),
+        _tv_stat_bar('Fouls Committed',
+                     home_kpis.get('fouls', 0), away_kpis.get('fouls', 0)),
+        _tv_stat_bar('Corners',
+                     home_kpis.get('corners', 0), away_kpis.get('corners', 0)),
+        _tv_stat_bar('Offsides',
+                     home_kpis.get('offsides', 0), away_kpis.get('offsides', 0)),
+        _tv_stat_bar('Interceptions',
+                     home_kpis.get('interceptions', 0), away_kpis.get('interceptions', 0)),
+        _tv_stat_bar('Yellow Cards',
+                     home_kpis.get('yellow_cards', 0), away_kpis.get('yellow_cards', 0)),
+        _tv_stat_bar('Red Cards',
+                     home_kpis.get('red_cards', 0), away_kpis.get('red_cards', 0)),
+    ], style={
+        'padding': '24px',
+        'backgroundColor': COLORS['dark_secondary'],
+        'borderRadius': '8px',
+        'border': f"1px solid {COLORS['dark_border']}",
+        'maxWidth': '640px',
+        'margin': '0 auto',
+    })
+
+
+# =============================================================================
 # Public tab builder
 # =============================================================================
 
@@ -832,46 +923,60 @@ def build_overview_tab(events):
             ], className='mb-3'),
         ], className='mb-4')
 
-    # ── TV-style stat bars ────────────────────────────────────────────────────
-    stat_bars = html.Div([
-        _tv_stat_bar('Possession',
-                     home_kpis.get('possession', 50), away_kpis.get('possession', 50),
-                     '%', is_percentage=True),
-        _tv_stat_bar('Shots',
-                     home_kpis.get('shots', 0), away_kpis.get('shots', 0)),
-        _tv_stat_bar('Shots on Target',
-                     home_kpis.get('shots_on_target', 0), away_kpis.get('shots_on_target', 0)),
-        _tv_stat_bar('Blocked Shots',
-                     home_kpis.get('blocked_shots', 0), away_kpis.get('blocked_shots', 0)),
-        _tv_stat_bar('Passes',
-                     home_kpis.get('passes', 0), away_kpis.get('passes', 0)),
-        _tv_stat_bar('Pass Accuracy',
-                     home_kpis.get('pass_accuracy', 0), away_kpis.get('pass_accuracy', 0),
-                     '%', is_percentage=True),
-        _tv_stat_bar('Fouls Committed',
-                     home_kpis.get('fouls', 0), away_kpis.get('fouls', 0)),
-        _tv_stat_bar('Corners',
-                     home_kpis.get('corners', 0), away_kpis.get('corners', 0)),
-        _tv_stat_bar('Offsides',
-                     home_kpis.get('offsides', 0), away_kpis.get('offsides', 0)),
-        _tv_stat_bar('Interceptions',
-                     home_kpis.get('interceptions', 0), away_kpis.get('interceptions', 0)),
-        _tv_stat_bar('Yellow Cards',
-                     home_kpis.get('yellow_cards', 0), away_kpis.get('yellow_cards', 0)),
-        _tv_stat_bar('Red Cards',
-                     home_kpis.get('red_cards', 0), away_kpis.get('red_cards', 0)),
-    ], style={
-        'padding': '24px',
-        'backgroundColor': COLORS['dark_secondary'],
-        'borderRadius': '8px',
-        'border': f"1px solid {COLORS['dark_border']}",
-        'maxWidth': '640px',
-        'margin': '0 auto',
-    })
-
     # ── Assemble ──────────────────────────────────────────────────────────────
     return html.Div([
         match_header,
         lineup_section,
-        stat_bars,
+        _build_period_filter(),
+        html.Div(
+            id='pma-ov-stat-bars',
+            children=_build_stat_bars(home_kpis, away_kpis),
+        ),
     ])
+
+
+# =============================================================================
+# Callback registrar (called from match_analysis.register_match_analysis_callbacks)
+# =============================================================================
+
+def register_overview_callbacks(app):
+    """Register the period-filter callback for the Match Overview stat bars."""
+
+    @app.callback(
+        Output('pma-ov-stat-bars', 'children'),
+        Output('pma-ov-period-btn-full', 'style'),
+        Output('pma-ov-period-btn-1', 'style'),
+        Output('pma-ov-period-btn-2', 'style'),
+        Input('pma-ov-period-btn-full', 'n_clicks'),
+        Input('pma-ov-period-btn-1', 'n_clicks'),
+        Input('pma-ov-period-btn-2', 'n_clicks'),
+        State('pma-selected-match', 'data'),
+        prevent_initial_call=True,
+    )
+    def _update_stat_bars(_n_full, _n_1, _n_2, match_id):
+        triggered = ctx.triggered_id or 'pma-ov-period-btn-full'
+        period = {
+            'pma-ov-period-btn-full': 'full',
+            'pma-ov-period-btn-1':    '1',
+            'pma-ov-period-btn-2':    '2',
+        }.get(triggered, 'full')
+
+        button_styles = (
+            _ov_period_btn_style(active=(period == 'full')),
+            _ov_period_btn_style(active=(period == '1')),
+            _ov_period_btn_style(active=(period == '2')),
+        )
+
+        if not match_id:
+            return _build_stat_bars({}, {}), *button_styles
+
+        events = get_match_events(match_id)
+        if events.empty:
+            return _build_stat_bars({}, {}), *button_styles
+
+        if period != 'full' and 'period_id' in events.columns:
+            events = events[events['period_id'] == int(period)]
+
+        home_kpis = compute_team_kpis(events, 'home')
+        away_kpis = compute_team_kpis(events, 'away')
+        return _build_stat_bars(home_kpis, away_kpis), *button_styles

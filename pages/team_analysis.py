@@ -40,7 +40,6 @@ from pages.match_analysis_tabs.shared import (
 # ---------------------------------------------------------------------------
 
 _ALL_COMPETITIONS = [
-    {'label': 'All Competitions', 'value': 'all'},
     {'label': 'La Liga',          'value': 'La Liga'},
     {'label': 'Champions League', 'value': 'Champions League'},
     {'label': 'Copa del Rey',     'value': 'Copa del Rey'},
@@ -55,15 +54,24 @@ _COMP_SHORT = {
 }
 
 
-def _filter_results(results, season, competition, match_ids=None):
-    """Filter match results to season, competition and optionally specific match IDs."""
+def _normalize_competitions(competition):
+    """Return a list of selected competitions, or None meaning all."""
+    if not competition:
+        return None
+    if isinstance(competition, str):
+        return None if competition == 'all' else [competition]
+    return list(competition) or None
+
+
+def _filter_results(results, season, competitions, match_ids=None):
+    """Filter match results to season, competition list and optionally specific match IDs."""
     season_start = int(season.split('-')[0])
     filtered = [
         r for r in results
         if str(r['date'])[:4] in [str(season_start), str(season_start + 1)]
     ]
-    if competition and competition != 'all':
-        filtered = [r for r in filtered if r['competition'] == competition]
+    if competitions:
+        filtered = [r for r in filtered if r['competition'] in competitions]
     if match_ids:
         id_set = set(match_ids)
         filtered = [r for r in filtered if r['match_id'] in id_set]
@@ -128,8 +136,10 @@ def create_team_analysis_layout():
                 dcc.Dropdown(
                     id='ta-competition-selector',
                     options=_ALL_COMPETITIONS,
-                    value='all',
-                    clearable=False,
+                    value=None,
+                    multi=True,
+                    clearable=True,
+                    placeholder="All Competitions…",
                     style={'backgroundColor': COLORS['dark_secondary']},
                 )
             ], md=3),
@@ -171,14 +181,14 @@ def create_team_analysis_layout():
 # Tab builders
 # ---------------------------------------------------------------------------
 
-def _build_overview(season, competition, match_ids=None):
+def _build_overview(season, competitions, match_ids=None):
     all_results = get_match_results()
-    results     = _filter_results(all_results, season, competition, match_ids)
+    results     = _filter_results(all_results, season, competitions, match_ids)
 
     events = get_all_events(season)
     if not events.empty:
-        if competition and competition != 'all' and 'competition' in events.columns:
-            events = events[events['competition'] == competition]
+        if competitions and 'competition' in events.columns:
+            events = events[events['competition'].isin(competitions)]
         if match_ids:
             events = events[events['match_id'].isin(match_ids)]
 
@@ -186,10 +196,10 @@ def _build_overview(season, competition, match_ids=None):
         return html.P("No data available.", style={'color': COLORS['text_secondary']})
 
     # Compute KPIs from the (possibly filtered) scope
-    if match_ids or (competition and competition != 'all'):
+    if match_ids or competitions:
         stats = _kpi_from_results_and_events(results, events)
     else:
-        stats = get_team_season_stats(season, competition)
+        stats = get_team_season_stats(season, 'all')
         if not stats:
             stats = _kpi_from_results_and_events(results, events)
 
@@ -322,13 +332,13 @@ def _body_part_chart(shots):
     return fig
 
 
-def _build_attacking(season, competition, match_ids=None):
+def _build_attacking(season, competitions, match_ids=None):
     events = get_all_events(season)
     if events.empty:
         return html.P("No data available.", style={'color': COLORS['text_secondary']})
 
-    if competition and competition != 'all' and 'competition' in events.columns:
-        events = events[events['competition'] == competition]
+    if competitions and 'competition' in events.columns:
+        events = events[events['competition'].isin(competitions)]
     if match_ids:
         events = events[events['match_id'].isin(match_ids)]
 
@@ -399,8 +409,8 @@ def _build_attacking(season, competition, match_ids=None):
     else:
         player_stats = get_player_stats(season)
         if not player_stats.empty:
-            if competition and competition != 'all':
-                comp_stats = get_player_stats_by_competition(competition, season)
+            if competitions and len(competitions) == 1:
+                comp_stats = get_player_stats_by_competition(competitions[0], season)
                 if not comp_stats.empty:
                     player_stats = comp_stats
             top10 = player_stats[player_stats['goals'] > 0].head(10)
@@ -418,7 +428,7 @@ def _build_attacking(season, competition, match_ids=None):
             scorers_card = section_card("Top Scorers", empty_fig("No scorer data"))
 
     # ── Goals by match ─────────────────────────────────────────────────────
-    results = _filter_results(get_match_results(), season, competition, match_ids)
+    results = _filter_results(get_match_results(), season, competitions, match_ids)
     results_sorted = sorted(results, key=lambda x: x['date'])
     if results_sorted:
         result_colors = {'W': HOME_COLOR, 'D': COLORS['gold'], 'L': AWAY_COLOR}
@@ -448,24 +458,24 @@ def _build_attacking(season, competition, match_ids=None):
     ])
 
 
-def _build_defending(season, competition, match_ids=None):
+def _build_defending(season, competitions, match_ids=None):
     all_results = get_match_results()
-    results     = _filter_results(all_results, season, competition, match_ids)
+    results     = _filter_results(all_results, season, competitions, match_ids)
 
     events = get_all_events(season)
     if not events.empty:
-        if competition and competition != 'all' and 'competition' in events.columns:
-            events = events[events['competition'] == competition]
+        if competitions and 'competition' in events.columns:
+            events = events[events['competition'].isin(competitions)]
         if match_ids:
             events = events[events['match_id'].isin(match_ids)]
 
     if not results:
         return html.P("No data available.", style={'color': COLORS['text_secondary']})
 
-    if match_ids or (competition and competition != 'all'):
+    if match_ids or competitions:
         stats = _kpi_from_results_and_events(results, events)
     else:
-        stats = get_team_season_stats(season, competition)
+        stats = get_team_season_stats(season, 'all')
         if not stats:
             stats = _kpi_from_results_and_events(results, events)
 
@@ -498,14 +508,14 @@ def _build_defending(season, competition, match_ids=None):
     return html.Div([kpi, conceded_card])
 
 
-def _build_attacking_transition(season, competition, match_ids=None):
+def _build_attacking_transition(season, competitions, match_ids=None):
     """Attacking transition: possession gains and counter-attack opportunities."""
     events = get_all_events(season)
     if events.empty:
         return html.P("No data available.", style={'color': COLORS['text_secondary']})
 
-    if competition and competition != 'all' and 'competition' in events.columns:
-        events = events[events['competition'] == competition]
+    if competitions and 'competition' in events.columns:
+        events = events[events['competition'].isin(competitions)]
     if match_ids:
         events = events[events['match_id'].isin(match_ids)]
 
@@ -568,7 +578,7 @@ def _build_attacking_transition(season, competition, match_ids=None):
         gains_card = section_card("Possession Gains", empty_fig("No possession gain data"))
 
     # Gains per match bar chart
-    results = _filter_results(get_match_results(), season, competition, match_ids)
+    results = _filter_results(get_match_results(), season, competitions, match_ids)
     results_sorted = sorted(results, key=lambda x: x['date'])
     if results_sorted and not gains.empty:
         counts = [
@@ -591,14 +601,14 @@ def _build_attacking_transition(season, competition, match_ids=None):
     return html.Div([kpi, gains_card, pm_card])
 
 
-def _build_defensive_transition(season, competition, match_ids=None):
+def _build_defensive_transition(season, competitions, match_ids=None):
     """Defensive transition: pressing intensity and defensive shape."""
     events = get_all_events(season)
     if events.empty:
         return html.P("No data available.", style={'color': COLORS['text_secondary']})
 
-    if competition and competition != 'all' and 'competition' in events.columns:
-        events = events[events['competition'] == competition]
+    if competitions and 'competition' in events.columns:
+        events = events[events['competition'].isin(competitions)]
     if match_ids:
         events = events[events['match_id'].isin(match_ids)]
 
@@ -656,7 +666,7 @@ def _build_defensive_transition(season, competition, match_ids=None):
         def_card = section_card("Defensive Actions Map", empty_fig("No defensive action data"))
 
     # Defensive actions per match
-    results = _filter_results(get_match_results(), season, competition, match_ids)
+    results = _filter_results(get_match_results(), season, competitions, match_ids)
     results_sorted = sorted(results, key=lambda x: x['date'])
     if results_sorted:
         counts = [
@@ -680,13 +690,13 @@ def _build_defensive_transition(season, competition, match_ids=None):
     return html.Div([kpi, def_card, pm_card])
 
 
-def _build_setpieces(season, competition, match_ids=None):
+def _build_setpieces(season, competitions, match_ids=None):
     events = get_all_events(season)
     if events.empty:
         return html.P("No data available.", style={'color': COLORS['text_secondary']})
 
-    if competition and competition != 'all' and 'competition' in events.columns:
-        events = events[events['competition'] == competition]
+    if competitions and 'competition' in events.columns:
+        events = events[events['competition'].isin(competitions)]
     if match_ids:
         events = events[events['match_id'].isin(match_ids)]
 
@@ -759,17 +769,19 @@ def register_team_analysis_callbacks(app):
         Input('ta-competition-selector', 'value'),
     )
     def update_ta_match_options(competition):
+        competitions = _normalize_competitions(competition)
         results = get_match_results()
-        if competition and competition != 'all':
-            results = [r for r in results if r['competition'] == competition]
+        if competitions:
+            results = [r for r in results if r['competition'] in competitions]
         results = sorted(results, key=lambda x: x['date'], reverse=True)
 
         options = []
+        show_tag = not competitions or len(competitions) > 1
         for r in results:
             comp_tag = _COMP_SHORT.get(r['competition'], r['competition'][:4])
             label = (
                 f"{str(r['date'])[:10]}  vs  {r['opponent']}  ({r['result']})"
-                + (f"  · {comp_tag}" if competition == 'all' else '')
+                + (f"  · {comp_tag}" if show_tag else '')
             )
             options.append({'label': label, 'value': r['match_id']})
 
@@ -784,18 +796,19 @@ def register_team_analysis_callbacks(app):
     )
     def update_ta_content(competition, active_tab, match_ids):
         # Normalise: empty list → None (treat as "all matches")
-        match_ids = match_ids or None
+        match_ids    = match_ids or None
+        competitions = _normalize_competitions(competition)
 
         if active_tab == 'ta-tab-overview':
-            return _build_overview(CURRENT_SEASON, competition, match_ids)
+            return _build_overview(CURRENT_SEASON, competitions, match_ids)
         elif active_tab == 'ta-tab-attacking':
-            return _build_attacking(CURRENT_SEASON, competition, match_ids)
+            return _build_attacking(CURRENT_SEASON, competitions, match_ids)
         elif active_tab == 'ta-tab-att-transition':
-            return _build_attacking_transition(CURRENT_SEASON, competition, match_ids)
+            return _build_attacking_transition(CURRENT_SEASON, competitions, match_ids)
         elif active_tab == 'ta-tab-defending':
-            return _build_defending(CURRENT_SEASON, competition, match_ids)
+            return _build_defending(CURRENT_SEASON, competitions, match_ids)
         elif active_tab == 'ta-tab-def-transition':
-            return _build_defensive_transition(CURRENT_SEASON, competition, match_ids)
+            return _build_defensive_transition(CURRENT_SEASON, competitions, match_ids)
         elif active_tab == 'ta-tab-setpieces':
-            return _build_setpieces(CURRENT_SEASON, competition, match_ids)
+            return _build_setpieces(CURRENT_SEASON, competitions, match_ids)
         return html.Div()

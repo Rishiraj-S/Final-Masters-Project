@@ -24,6 +24,41 @@ from modules import (
 from modules.utils import get_organized_path_reversed
 
 
+def cleanup_target_jsons(config: dict, league_name: str, season: str, logger) -> int:
+    """
+    Delete temporary JSON files from data/target after successful transformation.
+    Removes both matchdata/ and matchcentre/ subdirectories for the given competition.
+    Returns the total number of files deleted.
+    """
+    target_dir = config['paths']['target_dir']
+    total_deleted = 0
+
+    for subdirectory in ('matchdata', 'matchcentre'):
+        dir_path = Path(get_organized_path_reversed(
+            target_dir, league_name, season, '', subdirectory=subdirectory
+        ))
+
+        if not dir_path.exists():
+            continue
+
+        json_files = list(dir_path.glob('*.json'))
+        deleted = 0
+
+        for json_file in json_files:
+            try:
+                json_file.unlink()
+                deleted += 1
+            except Exception as e:
+                logger.warning(f"Could not delete {json_file.name}: {e}")
+
+        if deleted:
+            logger.info(f"🗑️  Deleted {deleted} JSON file(s) from {subdirectory}/")
+
+        total_deleted += deleted
+
+    return total_deleted
+
+
 def load_config(config_path: str = None) -> dict:
     """Load configuration from YAML file"""
     if config_path is None:
@@ -133,6 +168,11 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
                            comp_idx, comp_total)
             lineup_transformer = LineupTransformer(config, logger)
             results['lineup_transformed'] = lineup_transformer.transform_all()
+
+            # Clean up temporary JSON files after transform-only run
+            deleted = cleanup_target_jsons(config, league_name, season, logger)
+            if deleted > 0:
+                print(f"   🗑️  Cleaned up {deleted} temporary JSON file(s) from data/target")
 
             return results
 
@@ -269,6 +309,15 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
         logger.info("👥 Transforming Lineups...")
         lineup_transformer = LineupTransformer(config, logger)
         results['lineup_transformed'] = lineup_transformer.transform_all()
+
+        # Step 4: Clean up temporary JSON files from data/target
+        write_progress(display_name, "Cleaning up", "Removing temporary JSON files",
+                       comp_idx, comp_total)
+        logger.info("🗑️  Cleaning up temporary JSON files from data/target...")
+        deleted = cleanup_target_jsons(config, league_name, season, logger)
+        if deleted > 0:
+            print(f"   🗑️  Cleaned up {deleted} temporary JSON file(s) from data/target")
+            logger.info(f"🗑️  Total cleaned up: {deleted} JSON file(s)")
 
     except Exception as e:
         logger.error(f"❌ Error processing {league_name}: {e}")
