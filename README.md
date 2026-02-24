@@ -71,6 +71,10 @@ This is the foundational structure.
 
 ## 🛠️ Next Steps
 
+## ✅ To-Do
+
+- [ ] xG model
+- [ ] Bayesian model for opponent analysis
 
 ## 📝 Development Notes
 
