@@ -67,9 +67,26 @@ class BaseTransformer:
         
         return text.strip()
     
+    def _output_exists(self, match_id: str, subdirectory: str) -> bool:
+        """Return True if a result parquet for match_id already exists."""
+        result_dir = Path(get_organized_path_reversed(
+            self.base_result_dir, self.league_name, self.season, '',
+            subdirectory=subdirectory,
+        ))
+        if not result_dir.exists():
+            return False
+        return any(result_dir.glob(f"*{match_id}*"))
+
     def save_dataframe(self, df: pd.DataFrame, output_path: str) -> None:
-        """Save DataFrame to parquet or CSV"""
-        if self.output_format == 'parquet':
-            df.to_parquet(output_path, index=False, engine='pyarrow', compression='snappy')
-        else:
-            df.to_csv(output_path, index=False, encoding="utf-8-sig")
+        """Save DataFrame to parquet or CSV, writing atomically via a temp file."""
+        output_path = Path(output_path)
+        tmp_path = output_path.with_suffix('.tmp')
+        try:
+            if self.output_format == 'parquet':
+                df.to_parquet(str(tmp_path), index=False, engine='pyarrow', compression='snappy')
+            else:
+                df.to_csv(str(tmp_path), index=False, encoding="utf-8-sig")
+            tmp_path.rename(output_path)
+        except Exception:
+            tmp_path.unlink(missing_ok=True)
+            raise

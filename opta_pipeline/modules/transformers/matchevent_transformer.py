@@ -309,7 +309,11 @@ class MatchEventTransformer(BaseTransformer):
     
     def transform_match(self, match_id: str) -> Optional[str]:
         """Transform match event data"""
-        # CHANGED: Read from matchdata instead of matchevent
+        if self._output_exists(match_id, 'match_event'):
+            self.logger.debug(f"   ⏭️  match_event parquet exists, skipping: {match_id}")
+            return 'skipped'
+
+        # Read from matchdata (contains both events and typeId=34 lineup events)
         json_path = Path(get_organized_path_reversed(
             self.base_target_dir,
             self.league_name,

@@ -73,6 +73,10 @@ class MatchTransformer(BaseTransformer):
     
     def transform_match(self, match_id: str) -> Optional[str]:
         """Transform match info from matchevent JSON"""
+        if self._output_exists(match_id, 'match'):
+            self.logger.debug(f"   ⏭️  match parquet exists, skipping: {match_id}")
+            return 'skipped'
+
         # Load from matchdata directory
         json_path = Path(get_organized_path_reversed(
             self.base_target_dir,

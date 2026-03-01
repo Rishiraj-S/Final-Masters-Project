@@ -32,13 +32,6 @@ APP_CONFIG = {
     'port': 8050
 }
 
-# Logo Configuration
-LOGO_CONFIG = {
-    'path': '/assets/logos/culevision_logo.png',
-    'height': '50px',
-    'alt': 'CuléVision Logo'
-}
-
 # Navigation Links
 NAV_LINKS = [
     {'label': 'Home', 'href': '/'},
@@ -48,36 +41,4 @@ NAV_LINKS = [
     {'label': 'Opposition Analysis', 'href': '/opposition-analysis'}
 ]
 
-# Feature Cards Configuration
-FEATURES = [
-    {
-        'icon': '⚽',
-        'title': 'Match Analysis',
-        'description': 'Automated analysis reducing review time from 3-4 hours to 30 minutes.'
-    },
-    {
-        'icon': '🎯',
-        'title': 'Rival Analysis',
-        'description': 'Comprehensive opposition scouting and SWOT analysis.'
-    },
-    {
-        'icon': '🏆',
-        'title': 'Team Identity',
-        'description': 'KPIs defining Barcelona\'s playing style and game model.'
-    },
-    {
-        'icon': '🚨',
-        'title': 'Live Alerts',
-        'description': 'Real-time detection of critical match moments.'
-    },
-    {
-        'icon': '💬',
-        'title': 'Virtual Assistant',
-        'description': 'Interactive query and analysis capabilities.'
-    },
-    {
-        'icon': '📊',
-        'title': 'Data Insights',
-        'description': 'Deep dive into match statistics and performance metrics.'
-    }
-]
+

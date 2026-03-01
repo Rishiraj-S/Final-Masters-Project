@@ -9,7 +9,7 @@ as utils/interactive_pitch_visualization.py) and cached for performance.
 import matplotlib
 matplotlib.use('Agg')  # non-interactive backend for server use
 import matplotlib.pyplot as plt
-from mplsoccer import Pitch
+from mplsoccer import Pitch, VerticalPitch
 import io
 import base64
 
@@ -197,6 +197,65 @@ PITCH_AXIS_HALF = dict(
                showticklabels=False, fixedrange=True),
     yaxis=dict(range=[-2, 102], showgrid=False, zeroline=False,
                showticklabels=False, scaleanchor='x', fixedrange=True),
+)
+
+
+def _generate_vertical_pitch_image() -> str:
+    """Generate a vertical grass pitch PNG via mplsoccer and return as base64."""
+    key = 'vertical'
+    if key in _PITCH_CACHE:
+        return _PITCH_CACHE[key]
+
+    pitch = VerticalPitch(
+        pitch_type='opta',
+        pitch_color='grass',
+        line_color='white',
+        stripe=True,
+        goal_type='box',
+        goal_alpha=0.8,
+        pad_left=2,
+        pad_right=2,
+        pad_bottom=5,
+        pad_top=5,
+    )
+    fig_mpl, _ = pitch.draw(figsize=(7, 10.5))
+
+    buf = io.BytesIO()
+    fig_mpl.savefig(buf, format='png', dpi=100, bbox_inches='tight', pad_inches=0)
+    buf.seek(0)
+    _PITCH_CACHE[key] = base64.b64encode(buf.read()).decode()
+    plt.close(fig_mpl)
+
+    return _PITCH_CACHE[key]
+
+
+def add_vertical_pitch_background(fig: go.Figure) -> None:
+    """
+    Add a vertical mplsoccer grass pitch as a background image to a Plotly figure.
+
+    Coordinate convention (matches overview.py average-position chart):
+        x : Opta y  (side-to-side, 0 = left touchline, 100 = right touchline)
+        y : Opta x  (goal-to-goal, 0 = home goal at bottom, 100 = away goal at top)
+
+    The image covers x ∈ [-2, 102] and y ∈ [-5, 105] to include the goal areas.
+    Use VPITCH_AXIS to set matching axis ranges on the Plotly figure.
+    """
+    img = _generate_vertical_pitch_image()
+    # Vertical pitch: x covers [-2, 102] (width=104), y covers [-5, 105] (height=110)
+    fig.add_layout_image(dict(
+        source=f'data:image/png;base64,{img}',
+        xref='x', yref='y',
+        x=-2, y=105, sizex=104, sizey=110,
+        sizing='stretch', opacity=1, layer='below',
+    ))
+
+
+# Pre-built axis dict that matches the vertical pitch background dimensions
+VPITCH_AXIS = dict(
+    xaxis=dict(range=[-2, 102], showgrid=False, zeroline=False,
+               showticklabels=False, fixedrange=True, visible=False),
+    yaxis=dict(range=[-5, 105], showgrid=False, zeroline=False,
+               showticklabels=False, fixedrange=True, visible=False),
 )
 
 

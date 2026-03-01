@@ -3,7 +3,7 @@ CuléVision Utils Package
 Contains configuration, data utilities, and match data adapter
 """
 
-from .config import COLORS, APP_CONFIG, NAV_LINKS, LOGO_CONFIG, FEATURES
+from .config import COLORS, APP_CONFIG, NAV_LINKS
 from .data_utils import (
     get_match_results, get_player_stats, get_season_summary, get_top_scorers,
     get_match_stats, get_match_events_timeline, get_all_barcelona_players,
@@ -25,7 +25,7 @@ from .match_data_adapter import (
 
 __all__ = [
     # Config exports
-    'COLORS', 'APP_CONFIG', 'NAV_LINKS', 'LOGO_CONFIG', 'FEATURES',
+    'COLORS', 'APP_CONFIG', 'NAV_LINKS',
     # Data utils exports
     'get_match_results', 'get_player_stats', 'get_season_summary', 'get_top_scorers',
     'get_match_stats', 'get_match_events_timeline', 'get_all_barcelona_players',

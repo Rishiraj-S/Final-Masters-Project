@@ -1,19 +1,20 @@
 """
 CuléVision - Match Analysis Page
 
-Orchestrator module that wires together the layout shell (calendar selector + tabs)
-and delegates rendering of each tab to specialised modules inside
+Orchestrator that wires together the calendar selector, score headline, and
+tabs, delegating rendering of each tab to the modules inside
 ``match_analysis_tabs/``.
 
 Tab modules:
-    overview.py     -- Match Overview (TV-style stat bars)
-    possession.py   -- Organised Possession
-    transitions.py  -- Transitions
-    set_pieces.py   -- Set Pieces
-    contested.py    -- Contested Phases
+    overview.py    -- Lineup viz, average positions, stat bars
+    possession.py  -- Build Up, Positional Play, Finishing
+    transition.py  -- Ball wins, counter-attacks, ball progression
+    recovery.py    -- High Block, Mid Block, Low Block
+    set_pieces.py  -- Corners, Free Kicks, Throw-ins, Penalties
 """
 
 import calendar
+import logging
 from datetime import datetime
 
 from dash import html, dcc, ctx, ALL
@@ -26,17 +27,17 @@ from utils.logos import (
     get_team_logo_path, get_tournament_logo_path,
     team_logo_img, tournament_logo_img,
 )
+from utils.match_data_adapter import get_match_metadata, compute_team_kpis
 
 from .match_analysis_tabs import (
     build_overview_tab,
-    build_attack_tab,
-    build_attacking_transition_tab,
-    build_defence_tab,
-    build_defensive_transition_tab,
+    build_possession_tab,
+    build_transition_tab,
+    build_recovery_tab,
     build_setpieces_tab,
-    register_overview_callbacks,
 )
-from .match_analysis_tabs.shared import page_header
+
+log = logging.getLogger(__name__)
 
 GOLD = COLORS['gold']
 RESULT_COLORS = {'W': '#28a745', 'D': '#ffc107', 'L': '#dc3545'}
@@ -243,17 +244,15 @@ def create_match_analysis_layout():
                     'borderBottom': f'2px solid {GOLD}'}
 
     tabs = dbc.Tabs([
-        dbc.Tab(label="Match Overview",        tab_id="tab-overview",
+        dbc.Tab(label="Overview",              tab_id="tab-overview",
                 tab_style=tab_style, active_tab_style=active_style),
-        dbc.Tab(label="Attack",                tab_id="tab-attack",
+        dbc.Tab(label="Possession Phase", tab_id="tab-possession",
                 tab_style=tab_style, active_tab_style=active_style),
-        dbc.Tab(label="Attacking Transition",  tab_id="tab-attacking-transition",
+        dbc.Tab(label="Transition",      tab_id="tab-transition",
                 tab_style=tab_style, active_tab_style=active_style),
-        dbc.Tab(label="Defence",               tab_id="tab-defence",
+        dbc.Tab(label="Recovery Phase",  tab_id="tab-recovery",
                 tab_style=tab_style, active_tab_style=active_style),
-        dbc.Tab(label="Defensive Transition",  tab_id="tab-defensive-transition",
-                tab_style=tab_style, active_tab_style=active_style),
-        dbc.Tab(label="Set Pieces",            tab_id="tab-setpieces",
+        dbc.Tab(label="Set Pieces",      tab_id="tab-setpieces",
                 tab_style=tab_style, active_tab_style=active_style),
     ], id="pma-tabs", active_tab="tab-overview", className="mb-4")
 
@@ -263,7 +262,7 @@ def create_match_analysis_layout():
         dcc.Store(id='pma-match-data', data=match_data),
         dcc.Store(id='pma-calendar-month', data={'year': init_year, 'month': init_month}),
         dcc.Store(id='pma-selected-match', data=default_match_id),
-        page_header("Match Analysis"),
+        html.H2("Match Analysis", style={'color': COLORS['text_primary'], 'fontWeight': 'bold'}),
         html.Hr(),
 
         # Calendar controls row
@@ -311,6 +310,9 @@ def create_match_analysis_layout():
         # Calendar grid
         html.Div(id='pma-calendar-container', className="mb-4"),
 
+        # Score headline (rendered when a match is selected)
+        html.Div(id='pma-score-headline', className="mb-3"),
+
         tabs,
         html.Div(id='pma-tab-content'),
     ], fluid=True, className="py-4")
@@ -322,7 +324,6 @@ def create_match_analysis_layout():
 
 def register_match_analysis_callbacks(app):
     """Register all callbacks for the match analysis page."""
-    register_overview_callbacks(app)
 
     # --- Month navigation ---
     @app.callback(
@@ -461,6 +462,97 @@ def register_match_analysis_callbacks(app):
             'borderRadius': '8px', 'padding': '10px 14px',
         })
 
+    # --- Score headline ---
+    @app.callback(
+        Output('pma-score-headline', 'children'),
+        Input('pma-selected-match', 'data'),
+    )
+    def update_score_headline(match_id):
+        if not match_id:
+            return None
+
+        events = get_match_events(match_id)
+        if events.empty:
+            return None
+
+        meta       = get_match_metadata(events)
+        home_kpis  = compute_team_kpis(events, 'home')
+        away_kpis  = compute_team_kpis(events, 'away')
+
+        home_team   = meta.get('home_team', 'Home')
+        away_team   = meta.get('away_team', 'Away')
+        competition = meta.get('competition', '')
+
+        raw_time    = str(meta.get('time', '') or '')
+        kickoff_str = raw_time[:5] if len(raw_time) >= 5 else raw_time
+        venue       = str(meta.get('venue', '') or '')
+
+        return dbc.Card([
+            dbc.CardBody([
+                html.Div([
+                    html.Div([
+                        tournament_logo_img(competition, '80px'),
+                    ], style={
+                        'width': '110px', 'height': '110px', 'borderRadius': '50%',
+                        'background': GOLD, 'padding': '15px',
+                        'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center',
+                    }),
+                    html.Div(competition, style={
+                        'color': COLORS['text_primary'], 'fontSize': '1rem',
+                        'fontWeight': '500', 'marginTop': '6px',
+                    }),
+                ], style={
+                    'display': 'flex', 'flexDirection': 'column',
+                    'alignItems': 'center', 'marginBottom': '16px',
+                }),
+
+                dbc.Row([
+                    dbc.Col([
+                        html.Div([team_logo_img(home_team, '88px')],
+                                 style={'textAlign': 'right', 'marginBottom': '6px'}),
+                        html.H3(home_team, className="text-end mb-0",
+                                style={'fontWeight': '600'}),
+                        html.Small("Home", className="text-end d-block",
+                                   style={'color': COLORS['text_secondary']}),
+                    ], width=4),
+
+                    dbc.Col([
+                        html.H1(
+                            f"{home_kpis['goals']}  -  {away_kpis['goals']}",
+                            className="text-center mb-1",
+                            style={'color': GOLD, 'fontWeight': '900',
+                                   'fontSize': '3.5rem', 'letterSpacing': '0.15em'},
+                        ),
+                        html.Div([
+                            html.I(className="fas fa-clock",
+                                   style={'marginRight': '5px', 'fontSize': '0.75rem'}),
+                            html.Span(f"KO {kickoff_str}" if kickoff_str else ''),
+                        ], style={
+                            'textAlign': 'center', 'color': COLORS['text_secondary'],
+                            'fontSize': '0.82rem', 'marginBottom': '3px',
+                        }),
+                        html.Div([
+                            html.I(className="fas fa-map-marker-alt",
+                                   style={'marginRight': '5px', 'fontSize': '0.75rem'}),
+                            html.Span(venue or '—'),
+                        ], style={
+                            'textAlign': 'center', 'color': COLORS['text_secondary'],
+                            'fontSize': '0.82rem',
+                        }),
+                    ], width=4),
+
+                    dbc.Col([
+                        html.Div([team_logo_img(away_team, '88px')],
+                                 style={'textAlign': 'left', 'marginBottom': '6px'}),
+                        html.H3(away_team, className="text-start mb-0",
+                                style={'fontWeight': '600'}),
+                        html.Small("Away", className="text-start d-block",
+                                   style={'color': COLORS['text_secondary']}),
+                    ], width=4),
+                ], align="center"),
+            ])
+        ])
+
     # --- Tab content ---
     @app.callback(
         Output('pma-tab-content', 'children'),
@@ -478,12 +570,11 @@ def register_match_analysis_callbacks(app):
                           style={'color': COLORS['text_secondary']})
 
         tab_builders = {
-            'tab-overview':              build_overview_tab,
-            'tab-attack':                build_attack_tab,
-            'tab-attacking-transition':  build_attacking_transition_tab,
-            'tab-defence':               build_defence_tab,
-            'tab-defensive-transition':  build_defensive_transition_tab,
-            'tab-setpieces':             build_setpieces_tab,
+            'tab-overview':    build_overview_tab,
+            'tab-possession':  build_possession_tab,
+            'tab-transition':  build_transition_tab,
+            'tab-recovery':    build_recovery_tab,
+            'tab-setpieces':   build_setpieces_tab,
         }
 
         builder = tab_builders.get(active_tab, build_overview_tab)

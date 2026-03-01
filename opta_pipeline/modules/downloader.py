@@ -1,13 +1,16 @@
 """
-Match data downloader - Downloads matchevent + lineup (matchcentre) data
-in a single browser session per match.
+Match data downloader - Downloads matchevent data in a single browser session per match.
+
+Lineup and formation data is embedded in the matchevent JSON as typeId=34 events
+and is extracted by the LineupTransformer directly from matchdata/*.json.
+No separate download is required.
 """
 import os
 import re
 import time
 import json
 import logging
-from typing import Optional, Tuple, Dict
+from typing import Optional, Tuple
 from pathlib import Path
 
 from seleniumwire import webdriver
@@ -18,14 +21,13 @@ from .utils import (
     get_match_id_from_json,
     unique_file_path,
     to_player_stats_url,
-    to_formations_url,
     get_organized_path_reversed,
     extract_json_from_jsonp
 )
 
 
 class MatchDownloader:
-    """Downloads matchevent + lineup data from PerformFeeds API"""
+    """Downloads matchevent data from PerformFeeds API"""
 
     def __init__(self, config: dict, logger: logging.Logger):
         self.config = config
@@ -39,17 +41,9 @@ class MatchDownloader:
         self.league_name = competition.get('league_name') or 'Unknown_League'
         self.season = competition.get('season', 'Unknown_Season')
 
-        # PerformFeeds API patterns
-        # matchevent  → /soccerdata/matchevent/
-        # match feed  → /soccerdata/match/  (lineup + basic match info)
+        # PerformFeeds API pattern for matchevent feed
         self.matchevent_pattern = re.compile(
             r"https://api\.performfeeds\.com/soccerdata/matchevent/",
-            re.IGNORECASE
-        )
-        # "match" endpoint – any soccerdata/match/ call that is NOT matchevent
-        # (matchstats, matchfacts, etc. are excluded so we only grab the lineup feed)
-        self.match_lineup_pattern = re.compile(
-            r"https://api\.performfeeds\.com/soccerdata/match/(?!event)",
             re.IGNORECASE
         )
 
@@ -125,16 +119,6 @@ class MatchDownloader:
             return False
         return True
 
-    def _validate_lineup_json(self, json_obj: dict) -> bool:
-        """Validate that the JSON has lineup data (liveData.lineUp array)."""
-        if not isinstance(json_obj, dict):
-            return False
-        live_data = json_obj.get("liveData")
-        if not live_data:
-            return False
-        lineup = live_data.get("lineUp")
-        return bool(lineup and isinstance(lineup, list) and len(lineup) > 0)
-
     # ------------------------------------------------------------------
     # Scroll helper
     # ------------------------------------------------------------------
@@ -152,221 +136,110 @@ class MatchDownloader:
             pass
 
     # ------------------------------------------------------------------
-    # Core download – single driver session, two page navigations
+    # Core download – single driver session, single page navigation
     # ------------------------------------------------------------------
 
-    def download_match_data(
-        self,
-        match_url: str,
-        match_id: str,
-        need_matchevent: bool = True,
-        need_lineup: bool = True,
-    ) -> Dict[str, Optional[str]]:
+    def download_match_data(self, match_url: str, match_id: str) -> Optional[str]:
         """
-        Download matchevent and/or lineup data for a match.
+        Download matchevent data for a match.
 
-        Navigates to:
-          1. /formations  → captures PerformFeeds match feed (lineup)
-          2. /player-stats → captures PerformFeeds matchevent feed
+        Navigates to the player-stats page and captures the PerformFeeds
+        matchevent feed. The matchevent JSON contains all events including
+        typeId=34 (Team Setup) which holds lineup and formation data.
 
         Returns:
-            dict with 'matchevent_path' and 'lineup_path' (None if not captured)
+            Path to the saved JSON file, or None if capture failed.
         """
-        result: Dict[str, Optional[str]] = {
-            "matchevent_path": None,
-            "lineup_path": None,
-        }
-
         driver = self.create_selenium_wire_driver(headless=True)
 
         try:
-            # --------------------------------------------------------
-            # PHASE 1 – Formations page (lineup / match-centre data)
-            # --------------------------------------------------------
-            if need_lineup:
-                formations_url = to_formations_url(match_url)
-                self.logger.debug(f"   [lineup] Opening: {formations_url}")
-                driver.get(formations_url)
-                self._scroll_page(driver)
+            player_stats_url = to_player_stats_url(match_url)
+            self.logger.debug(f"   [matchevent] Opening: {player_stats_url}")
+            driver.get(player_stats_url)
+            self._scroll_page(driver)
 
-                # Active polling loop – same pattern as matchevent capture.
-                # The formations page sometimes takes 15-20 s to fire its API
-                # call, so a static sleep is not reliable.
-                lineup_candidates: list = []
-                seen_lineup_urls: set = set()
-                start = time.time()
+            captured = []
+            seen_urls: set = set()
+            start = time.time()
 
-                while time.time() - start < self.timeout:
-                    for req in driver.requests:
-                        if not req.url or req.url in seen_lineup_urls:
-                            continue
-                        if req.response is None or req.response.body is None:
-                            continue
-                        seen_lineup_urls.add(req.url)
-                        if (
-                            self.match_lineup_pattern.search(req.url)
-                            and len(req.response.body) > 200
-                        ):
-                            lineup_candidates.append({
+            while time.time() - start < self.timeout:
+                for req in driver.requests:
+                    if not req.url or req.url in seen_urls:
+                        continue
+                    if req.response is None or req.response.body is None:
+                        continue
+                    seen_urls.add(req.url)
+                    if self.matchevent_pattern.search(req.url):
+                        body_bytes = req.response.body or b""
+                        if len(body_bytes) > 100:
+                            captured.append({
                                 "url": req.url,
-                                "body": req.response.body,
-                                "size": len(req.response.body),
+                                "body": body_bytes,
+                                "size": len(body_bytes),
                             })
                             self.logger.debug(
-                                f"   [lineup] Captured: {req.url} "
-                                f"({len(req.response.body)} bytes)"
+                                f"   [matchevent] Captured: {len(body_bytes)} bytes"
                             )
-                    # Stop early once we have at least one response
-                    if lineup_candidates:
-                        break
-                    time.sleep(0.5)
+                time.sleep(0.3)
 
-                if lineup_candidates:
-                    largest = max(lineup_candidates, key=lambda x: x["size"])
-                    raw_text = decode_body(largest["body"])
-                    if raw_text:
-                        try:
-                            clean_json_str = extract_json_from_jsonp(raw_text)
-                            json_obj = json.loads(clean_json_str)
-                        except Exception as e:
-                            self.logger.error(
-                                f"   ❌ Invalid lineup JSON for {match_id}: {e}"
-                            )
-                            json_obj = None
+            if not captured:
+                self.logger.warning(f"   ⚠️  No matchevent data captured for {match_id}")
+                print(f"   ⚠️  [matchevent] No API response captured for {match_id}")
+                return None
 
-                        if json_obj and isinstance(json_obj, dict) and (
-                            json_obj.get("matchInfo") or json_obj.get("liveData")
-                        ):
-                            # Log the actual liveData keys so we can inspect structure
-                            live_keys = list(
-                                (json_obj.get("liveData") or {}).keys()
-                            )
-                            self.logger.info(
-                                f"   [lineup] liveData keys: {live_keys}"
-                            )
-                            out_path = get_organized_path_reversed(
-                                self.base_target_dir,
-                                self.league_name,
-                                self.season,
-                                f"{match_id}.json",
-                                subdirectory="matchcentre",
-                            )
-                            out_path = unique_file_path(out_path)
-                            with open(out_path, "w", encoding="utf-8") as f:
-                                f.write(
-                                    json.dumps(json_obj, indent=2, ensure_ascii=False)
-                                )
-                            self.logger.info(
-                                f"   ✅ matchcentre: {Path(out_path).name} "
-                                f"({len(raw_text)} bytes)"
-                            )
-                            result["lineup_path"] = out_path
-                        elif json_obj:
-                            self.logger.warning(
-                                f"   ⚠️  matchcentre JSON has no matchInfo/liveData "
-                                f"for {match_id}"
-                            )
-                            print(f"   ⚠️  [lineup] JSON structure invalid for {match_id}")
-                else:
-                    self.logger.warning(
-                        f"   ⚠️  No match-centre feed captured for {match_id} "
-                        f"(formations page)"
-                    )
-                    print(f"   ⚠️  [lineup] No API response captured for {match_id}")
+            largest = max(captured, key=lambda x: x["size"])
+            raw_text = decode_body(largest["body"])
+            if not raw_text:
+                return None
 
-                # Clear captured requests before navigating to the next page
-                del driver.requests
+            try:
+                clean_json_str = extract_json_from_jsonp(raw_text)
+                json_obj = json.loads(clean_json_str)
+            except Exception as e:
+                self.logger.error(f"   ❌ Invalid matchevent JSON for {match_id}: {e}")
+                return None
 
-            # --------------------------------------------------------
-            # PHASE 2 – Player-stats page (matchevent data)
-            # --------------------------------------------------------
-            if need_matchevent:
-                player_stats_url = to_player_stats_url(match_url)
-                self.logger.debug(f"   [matchevent] Opening: {player_stats_url}")
-                driver.get(player_stats_url)
-                self._scroll_page(driver)
+            if not self._validate_match_json(json_obj):
+                self.logger.error(
+                    f"   ❌ matchevent JSON missing matchInfo/liveData for {match_id}"
+                )
+                return None
 
-                captured = []
-                seen_urls: set = set()
-                start = time.time()
+            try:
+                final_match_id = get_match_id_from_json(raw_text, largest["url"])
+                if not final_match_id or final_match_id == "unknown_match":
+                    final_match_id = match_id
+            except Exception:
+                final_match_id = match_id
 
-                while time.time() - start < self.timeout:
-                    for req in driver.requests:
-                        if not req.url or req.url in seen_urls:
-                            continue
-                        if req.response is None or req.response.body is None:
-                            continue
-                        seen_urls.add(req.url)
-                        if self.matchevent_pattern.search(req.url):
-                            body_bytes = req.response.body or b""
-                            if len(body_bytes) > 100:
-                                captured.append({
-                                    "url": req.url,
-                                    "body": body_bytes,
-                                    "size": len(body_bytes),
-                                })
-                                self.logger.debug(
-                                    f"   [matchevent] Captured: {len(body_bytes)} bytes"
-                                )
-                    time.sleep(0.3)
+            clean_json_str = json.dumps(json_obj, indent=2, ensure_ascii=False)
+            out_path = Path(get_organized_path_reversed(
+                self.base_target_dir,
+                self.league_name,
+                self.season,
+                f"{final_match_id}.json",
+                subdirectory="matchdata",
+            ))
+            out_path = Path(unique_file_path(str(out_path)))
+            tmp_path = out_path.with_suffix('.tmp')
+            try:
+                tmp_path.write_text(clean_json_str, encoding="utf-8")
+                tmp_path.rename(out_path)
+            except Exception as write_err:
+                tmp_path.unlink(missing_ok=True)
+                raise write_err
 
-                if captured:
-                    largest = max(captured, key=lambda x: x["size"])
-                    raw_text = decode_body(largest["body"])
-                    if raw_text:
-                        try:
-                            clean_json_str = extract_json_from_jsonp(raw_text)
-                            json_obj = json.loads(clean_json_str)
-                        except Exception as e:
-                            self.logger.error(
-                                f"   ❌ Invalid matchevent JSON for {match_id}: {e}"
-                            )
-                            json_obj = None
-
-                        if json_obj and self._validate_match_json(json_obj):
-                            try:
-                                final_match_id = get_match_id_from_json(
-                                    raw_text, largest["url"]
-                                )
-                                if not final_match_id or final_match_id == "unknown_match":
-                                    final_match_id = match_id
-                            except Exception:
-                                final_match_id = match_id
-
-                            clean_json_str = json.dumps(
-                                json_obj, indent=2, ensure_ascii=False
-                            )
-                            out_path = get_organized_path_reversed(
-                                self.base_target_dir,
-                                self.league_name,
-                                self.season,
-                                f"{final_match_id}.json",
-                                subdirectory="matchdata",
-                            )
-                            out_path = unique_file_path(out_path)
-                            with open(out_path, "w", encoding="utf-8") as f:
-                                f.write(clean_json_str)
-                            self.logger.info(
-                                f"   ✅ matchevent: {Path(out_path).name} ({len(clean_json_str)} bytes)"
-                            )
-                            result["matchevent_path"] = out_path
-                        elif json_obj:
-                            self.logger.error(
-                                f"   ❌ matchevent JSON missing matchInfo/liveData for {match_id}"
-                            )
-                else:
-                    self.logger.warning(
-                        f"   ⚠️  No matchevent data captured for {match_id}"
-                    )
-                    print(f"   ⚠️  [matchevent] No API response captured for {match_id}")
+            self.logger.info(
+                f"   ✅ matchevent: {out_path.name} ({len(clean_json_str)} bytes)"
+            )
+            return str(out_path)
 
         except Exception as e:
             self.logger.error(f"   ❌ Download failed for {match_id}: {e}")
+            return None
 
         finally:
             driver.quit()
-
-        return result
 
     # ------------------------------------------------------------------
     # Public entry point (with skip + retry logic)
@@ -380,10 +253,9 @@ class MatchDownloader:
         max_retries: int = 3,
     ) -> Tuple[bool, Optional[str]]:
         """
-        Download matchevent + lineup data for a match, with incremental skip logic.
+        Download matchevent data for a match, with skip and retry logic.
 
-        A match is only fully skipped when BOTH files already exist.
-        Missing files are (re-)downloaded on the next pipeline run.
+        Skips if matchdata JSON or match_event parquet already exists.
 
         Returns:
             (success, matchevent_json_path)
@@ -397,40 +269,19 @@ class MatchDownloader:
                 subdirectory="matchdata",
             )
         )
-        matchcentre_path = Path(
-            get_organized_path_reversed(
-                self.base_target_dir,
-                self.league_name,
-                self.season,
-                f"{match_id}.json",
-                subdirectory="matchcentre",
-            )
-        )
 
-        matchevent_exists = (
+        already_exists = (
             matchdata_path.exists()
             or self._parquet_exists_for_match(match_id, 'match_event')
         )
-        lineup_exists = (
-            matchcentre_path.exists()
-            or self._parquet_exists_for_match(match_id, 'lineup')
-        )
 
-        if matchevent_exists and lineup_exists:
-            self.logger.info(f"   ⏭️  Already exists (matchevent + lineup): {match_id}")
-            print(f"   ⏭️  SKIP   {match_id}  (both files exist)")
+        if already_exists:
+            self.logger.info(f"   ⏭️  Already exists: {match_id}")
+            print(f"   ⏭️  SKIP   {match_id}  (already exists)")
             return True, str(matchdata_path)
 
-        if matchevent_exists:
-            self.logger.info(f"   ⏭️  matchevent exists, fetching lineup only: {match_id}")
-            print(f"   📥  {match_id}  — lineup missing, will download")
-        elif lineup_exists:
-            self.logger.info(f"   ⏭️  lineup exists, fetching matchevent only: {match_id}")
-            print(f"   📥  {match_id}  — matchevent missing, will download")
-        else:
-            print(f"   📥  {match_id}  — downloading matchevent + lineup")
+        print(f"   📥  {match_id}  — downloading matchevent")
 
-        # Download with retries
         for attempt in range(1, max_retries + 1):
             if attempt > 1:
                 wait = 3 * attempt
@@ -438,32 +289,17 @@ class MatchDownloader:
                     f"   🔄 Retry {attempt}/{max_retries} for {match_id} (waiting {wait}s)..."
                 )
                 print(f"   🔄 Retry {attempt}/{max_retries} for {match_id} (waiting {wait}s)...")
+                # Remove any stale/partial file from the previous attempt so it
+                # does not cause the next run to skip a corrupt download.
+                matchdata_path.unlink(missing_ok=True)
                 time.sleep(wait)
 
-            result = self.download_match_data(
-                match_url,
-                match_id,
-                need_matchevent=not matchevent_exists,
-                need_lineup=not lineup_exists,
-            )
+            result_path = self.download_match_data(match_url, match_id)
 
-            new_matchevent = result.get("matchevent_path")
-            new_lineup = result.get("lineup_path")
-
-            # Update flags for retry decisions
-            if new_matchevent:
-                matchevent_exists = True
-                print(f"   ✅ matchevent saved: {Path(new_matchevent).name}")
-            if new_lineup:
-                lineup_exists = True
-                print(f"   ✅ lineup saved:     {Path(new_lineup).name}")
-
-            if matchevent_exists:
-                # Core data present – success even if lineup capture failed
-                if not new_lineup and not lineup_exists:
-                    print(f"   ⚠️  lineup not captured for {match_id} (continuing)")
+            if result_path:
+                print(f"   ✅ matchevent saved: {Path(result_path).name}")
                 time.sleep(self.sleep_between)
-                return True, new_matchevent or str(matchdata_path)
+                return True, result_path
 
         self.logger.error(f"   ❌ Failed after {max_retries} attempts: {match_id}")
         print(f"   ❌ FAILED after {max_retries} attempts: {match_id}")

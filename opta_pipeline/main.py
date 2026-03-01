@@ -27,13 +27,13 @@ from modules.utils import get_organized_path_reversed
 def cleanup_target_jsons(config: dict, league_name: str, season: str, logger) -> int:
     """
     Delete temporary JSON files from data/target after successful transformation.
-    Removes both matchdata/ and matchcentre/ subdirectories for the given competition.
+    Removes temporary matchdata/ JSON files for the given competition.
     Returns the total number of files deleted.
     """
     target_dir = config['paths']['target_dir']
     total_deleted = 0
 
-    for subdirectory in ('matchdata', 'matchcentre'):
+    for subdirectory in ('matchdata',):
         dir_path = Path(get_organized_path_reversed(
             target_dir, league_name, season, '', subdirectory=subdirectory
         ))
@@ -86,12 +86,14 @@ PROGRESS_FILE = Path(__file__).parent / "logs" / "progress.json"
 
 def write_progress(competition: str = "", stage: str = "", detail: str = "",
                    current_competition: int = 0, total_competitions: int = 0,
-                   current_match: int = 0, total_matches: int = 0):
+                   current_match: int = 0, total_matches: int = 0,
+                   status: str = "running"):
     """Write current pipeline progress to a JSON file for the UI to read."""
     progress = {
         "competition": competition,
         "stage": stage,
         "detail": detail,
+        "status": status,
         "current_competition": current_competition,
         "total_competitions": total_competitions,
         "current_match": current_match,
@@ -99,9 +101,12 @@ def write_progress(competition: str = "", stage: str = "", detail: str = "",
     }
     try:
         PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        PROGRESS_FILE.write_text(json.dumps(progress), encoding="utf-8")
-    except Exception:
-        pass
+        tmp = PROGRESS_FILE.with_suffix('.tmp')
+        tmp.write_text(json.dumps(progress), encoding="utf-8")
+        tmp.rename(PROGRESS_FILE)
+    except Exception as e:
+        import logging as _log
+        _log.getLogger(__name__).warning(f"Could not write progress.json: {e}")
 
 
 def process_competition(config: dict, competition_info: dict, args, logger) -> dict:
@@ -235,6 +240,8 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
             except Exception as e:
                 logger.error(f"❌ Scraping failed: {e}")
                 logger.info("💡 Continuing with existing data...")
+                write_progress(display_name, "Scraping failed – using existing data",
+                               str(e)[:120], comp_idx, comp_total, status="warning")
 
         # Step 2: Downloading
         if not args.skip_download:

@@ -181,6 +181,10 @@ class LineupTransformer(BaseTransformer):
         Parse the matchdata JSON for one match and write a lineup Parquet.
         Returns output path or None on failure.
         """
+        if self._output_exists(match_id, 'lineup'):
+            self.logger.debug(f"   ⏭️  lineup parquet exists, skipping: {match_id}")
+            return 'skipped'
+
         json_path = Path(
             get_organized_path_reversed(
                 self.base_target_dir,
