@@ -9,7 +9,7 @@ from pathlib import Path
 
 # Data paths
 SCRIPT_DIR = Path(__file__).parent.parent  # Go up one level from utils/ to project root
-DATA_PATH = SCRIPT_DIR / "opta_pipeline" / "data" / "result"
+DATA_PATH = SCRIPT_DIR / "data" / "barcelona" / "result"
 
 COMPETITIONS = {
     'laliga': 'Spain_Primera_Division',

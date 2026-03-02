@@ -54,10 +54,10 @@ downloader:
   
 # Paths
 paths:
-  data_dir: "data"
-  mappings_dir: "mappings"
-  target_dir: "data/target"
-  result_dir: "data/result"
+  data_dir: "../data/barcelona"
+  mappings_dir: "../mappings"
+  target_dir: "../data/barcelona/target"
+  result_dir: "../data/barcelona/result"
   logs_dir: "logs"
   
 # Output Configuration

@@ -170,10 +170,15 @@ def _create_hero_section(is_admin=False):
     if is_admin:
         admin_btn = html.Div([
             dbc.Button(
-                [html.I(className="fas fa-database me-2"), "Update Databases"],
-                id='update-db-button', color="warning", className="mb-3",
+                [html.I(className="fas fa-database me-2"), "Update Barca Databases"],
+                id='update-db-button', color="warning", className="mb-3 me-2",
                 style={'fontWeight': 'bold'}
-            )
+            ),
+            dbc.Button(
+                [html.I(className="fas fa-globe me-2"), "Update Opposition Databases"],
+                id='update-opp-db-button', color="info", className="mb-3",
+                style={'fontWeight': 'bold'}
+            ),
         ], style={'position': 'absolute', 'top': '1rem', 'right': '1.5rem', 'zIndex': 2})
 
     return html.Div([

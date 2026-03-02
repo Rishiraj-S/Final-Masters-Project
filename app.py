@@ -327,22 +327,28 @@ def create_navbar(user_info):
 
 PROGRESS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              'opta_pipeline', 'logs', 'progress.json')
+OPP_PROGRESS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 'opposition_opta_pipeline', 'logs', 'progress.json')
 
 
-def _read_progress():
+def _read_progress(progress_file=None):
     """Read the current pipeline progress from the shared JSON file."""
+    if progress_file is None:
+        progress_file = PROGRESS_FILE
     try:
-        if os.path.exists(PROGRESS_FILE):
-            with open(PROGRESS_FILE, 'r', encoding='utf-8') as f:
+        if os.path.exists(progress_file):
+            with open(progress_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except Exception:
         pass
     return {}
 
 
-def create_update_overlay():
+def create_update_overlay(pipeline='barca'):
     """Create the database update overlay with live progress."""
-    progress = _read_progress()
+    progress_file = OPP_PROGRESS_FILE if pipeline == 'opposition' else PROGRESS_FILE
+    pipeline_label = "Opposition Databases" if pipeline == 'opposition' else "Barca Databases"
+    progress = _read_progress(progress_file)
 
     competition = progress.get('competition', '')
     stage = progress.get('stage', '')
@@ -390,7 +396,7 @@ def create_update_overlay():
     return html.Div([
         html.Div([
             html.Div(className="spinner-border text-warning mb-4", role="status"),
-            html.H2("Databases Are Being Updated",
+            html.H2(f"{pipeline_label} Are Being Updated",
                    style={'color': COLORS['gold'], 'marginBottom': '20px'}),
             html.P("Please wait while the system processes the latest match data...",
                   style={'color': COLORS['text_secondary'], 'fontSize': '1.1rem'}),
@@ -447,6 +453,7 @@ app.layout = html.Div([
     # Session storage
     dcc.Store(id='session-store', storage_type='session'),
     dcc.Store(id='update-status-store', data={'updating': False}),
+    dcc.Store(id='update-opp-status-store', data={'updating': False}),
 
     # Update overlay (hidden by default)
     html.Div(id='update-overlay-container'),
@@ -459,6 +466,7 @@ app.layout = html.Div([
 
     # Interval for checking update status
     dcc.Interval(id='update-check-interval', interval=2000, disabled=True),
+    dcc.Interval(id='update-opp-check-interval', interval=2000, disabled=True),
 
     # Main content container
     html.Div(id='main-container')
@@ -552,14 +560,18 @@ def handle_logout(logout_clicks):
     Output('update-overlay-container', 'children'),
     Output('_refresh-url', 'pathname'),
     Input('update-status-store', 'data'),
+    Input('update-opp-status-store', 'data'),
     prevent_initial_call=True
 )
-def show_update_overlay(update_status):
+def show_update_overlay(update_status, opp_update_status):
     """Show/hide the database update overlay. Refresh page when update finishes."""
     if update_status and update_status.get('updating'):
-        return create_update_overlay(), dash.no_update
+        return create_update_overlay('barca'), dash.no_update
     if update_status and update_status.get('finished'):
-        # Pipeline finished — force a full page reload to pick up new data
+        return html.Div(), '/'
+    if opp_update_status and opp_update_status.get('updating'):
+        return create_update_overlay('opposition'), dash.no_update
+    if opp_update_status and opp_update_status.get('finished'):
         return html.Div(), '/'
     return html.Div(), dash.no_update
 
@@ -622,6 +634,54 @@ def handle_database_update(n_clicks, n_intervals, current_status):
             # so the subsequent page reload reads fresh parquet files from disk.
             clear_events_cache()
             # Mark done so show_update_overlay triggers the page reload.
+            return {'updating': False, 'finished': True}, True
+
+    return current_status, True
+
+
+@app.callback(
+    Output('update-opp-status-store', 'data'),
+    Output('update-opp-check-interval', 'disabled'),
+    Input('update-opp-db-button', 'n_clicks'),
+    Input('update-opp-check-interval', 'n_intervals'),
+    State('update-opp-status-store', 'data'),
+    prevent_initial_call=True
+)
+def handle_opposition_database_update(n_clicks, n_intervals, current_status):
+    """Handle opposition database update button and monitor update progress."""
+    ctx = callback_context
+    if not ctx.triggered:
+        return current_status, True
+
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    if trigger_id == 'update-opp-db-button' and n_clicks:
+        if hasattr(app, '_opp_update_thread') and app._opp_update_thread.is_alive():
+            return {'updating': True}, False
+
+        def run_opp_pipeline():
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            pipeline_path = os.path.join(script_dir, 'opposition_opta_pipeline', 'main.py')
+            result = subprocess.run(
+                [sys.executable, pipeline_path],
+                cwd=script_dir,
+            )
+            if result.returncode != 0:
+                log_path = os.path.join(script_dir, 'opposition_opta_pipeline', 'logs', 'pipeline_error.log')
+                os.makedirs(os.path.dirname(log_path), exist_ok=True)
+                with open(log_path, 'w') as f:
+                    f.write(f"Pipeline exited with code: {result.returncode}\n")
+                    f.write("Check opposition_opta_pipeline/logs/ for details.\n")
+
+        thread = threading.Thread(target=run_opp_pipeline, daemon=True)
+        thread.start()
+        app._opp_update_thread = thread
+        return {'updating': True, 'started': True}, False
+
+    if trigger_id == 'update-opp-check-interval':
+        if hasattr(app, '_opp_update_thread') and app._opp_update_thread.is_alive():
+            return {'updating': True}, False
+        else:
             return {'updating': False, 'finished': True}, True
 
     return current_status, True

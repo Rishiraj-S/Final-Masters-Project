@@ -40,6 +40,9 @@ Thumbs.db
 # Pipeline logs
 opta_pipeline/logs/
 
+# Data directory
+data/
+
 # Environment
 .env
 .env.local

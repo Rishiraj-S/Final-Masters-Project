@@ -121,9 +121,9 @@ _COORDS: dict = {
         7:  (37, 23),   # MC-R
         4:  (37, 50),   # MC-C
         8:  (37, 77),   # MC-L
-        11: (47, 17),   # RW
+        10: (47, 17),   # RW (Opta slot 10 = right forward in 4-3-3)
         9:  (47, 50),   # CF
-        10: (47, 83),   # LW
+        11: (47, 83),   # LW (Opta slot 11 = left forward in 4-3-3)
     },
     "4231": {
         1:  (4,  50),   # GK
@@ -280,7 +280,7 @@ def _get_slot_coords(formation: str, slot: int, is_home: bool):
     coords_home = _COORDS.get(formation, {})
     if slot in coords_home:
         x, y = coords_home[slot]
-        return (x, y) if is_home else (100 - x, y)
+        return (x, y) if is_home else (100 - x, 100 - y)
 
     # Generic fallback: parse formation string and distribute evenly
     lines = [int(d) for d in formation if d.isdigit()]
@@ -302,7 +302,7 @@ def _get_slot_coords(formation: str, slot: int, is_home: bool):
                 break
             cum += count
 
-    return (x, y) if is_home else (100 - x, y)
+    return (x, y) if is_home else (100 - x, 100 - y)
 
 
 def _shorten_name(name) -> str:
