@@ -31,10 +31,18 @@ from utils.match_data_adapter import get_match_metadata, compute_team_kpis
 
 from .match_analysis_tabs import (
     build_overview_tab,
-    build_possession_tab,
-    build_transition_tab,
-    build_recovery_tab,
-    build_setpieces_tab,
+    register_overview_callbacks,
+    build_attacking_output_tab,
+    build_build_up_passing_tab,
+    register_build_up_passing_callbacks,
+    build_defensive_structure_tab,
+    register_defensive_structure_callbacks,
+    build_transitions_counterpressing_tab,
+    register_transitions_counterpressing_callbacks,
+    build_goalkeeping_tab,
+    register_goalkeeping_callbacks,
+    build_player_analysis_tab,
+    register_player_analysis_callbacks,
 )
 
 log = logging.getLogger(__name__)
@@ -244,15 +252,19 @@ def create_match_analysis_layout():
                     'borderBottom': f'2px solid {GOLD}'}
 
     tabs = dbc.Tabs([
-        dbc.Tab(label="Overview",              tab_id="tab-overview",
+        dbc.Tab(label="Overview",                    tab_id="tab-overview",
                 tab_style=tab_style, active_tab_style=active_style),
-        dbc.Tab(label="Possession Phase", tab_id="tab-possession",
+        dbc.Tab(label="Attack",                      tab_id="tab-attacking",
                 tab_style=tab_style, active_tab_style=active_style),
-        dbc.Tab(label="Transition",      tab_id="tab-transition",
+        dbc.Tab(label="Build-Up & Passing",          tab_id="tab-buildup",
                 tab_style=tab_style, active_tab_style=active_style),
-        dbc.Tab(label="Recovery Phase",  tab_id="tab-recovery",
+        dbc.Tab(label="Defense",                     tab_id="tab-defensive",
                 tab_style=tab_style, active_tab_style=active_style),
-        dbc.Tab(label="Set Pieces",      tab_id="tab-setpieces",
+        dbc.Tab(label="Transitions & Counterpressing", tab_id="tab-transitions",
+                tab_style=tab_style, active_tab_style=active_style),
+        dbc.Tab(label="Goalkeeping",                 tab_id="tab-goalkeeping",
+                tab_style=tab_style, active_tab_style=active_style),
+        dbc.Tab(label="Player Analysis",             tab_id="tab-players",
                 tab_style=tab_style, active_tab_style=active_style),
     ], id="pma-tabs", active_tab="tab-overview", className="mb-4")
 
@@ -309,6 +321,32 @@ def create_match_analysis_layout():
 
         # Calendar grid
         html.Div(id='pma-calendar-container', className="mb-4"),
+
+        # Download report button (Flask route — no Dash callback timeout)
+        html.Div(
+            html.A(
+                [html.I(className="fas fa-file-pdf", style={'marginRight': '8px'}),
+                 "Download Match Report"],
+                id='pma-report-link',
+                href='#',
+                target='_blank',
+                className='report-btn',
+                style={
+                    'display': 'inline-block',
+                    'backgroundColor': GOLD,
+                    'color': '#1A1D2E',
+                    'border': 'none',
+                    'borderRadius': '8px',
+                    'padding': '10px 22px',
+                    'cursor': 'pointer',
+                    'fontWeight': '700',
+                    'fontSize': '0.88rem',
+                    'letterSpacing': '0.03em',
+                    'textDecoration': 'none',
+                },
+            ),
+            className="mb-3",
+        ),
 
         # Score headline (rendered when a match is selected)
         html.Div(id='pma-score-headline', className="mb-3"),
@@ -570,12 +608,31 @@ def register_match_analysis_callbacks(app):
                           style={'color': COLORS['text_secondary']})
 
         tab_builders = {
-            'tab-overview':    build_overview_tab,
-            'tab-possession':  build_possession_tab,
-            'tab-transition':  build_transition_tab,
-            'tab-recovery':    build_recovery_tab,
-            'tab-setpieces':   build_setpieces_tab,
+            'tab-overview':     build_overview_tab,
+            'tab-attacking':    build_attacking_output_tab,
+            'tab-buildup':      build_build_up_passing_tab,
+            'tab-defensive':    build_defensive_structure_tab,
+            'tab-transitions':  build_transitions_counterpressing_tab,
+            'tab-goalkeeping':  build_goalkeeping_tab,
+            'tab-players':      build_player_analysis_tab,
         }
 
         builder = tab_builders.get(active_tab, build_overview_tab)
         return builder(events)
+
+    # --- PDF report link (Flask route, no callback timeout) ---
+    @app.callback(
+        Output('pma-report-link', 'href'),
+        Input('pma-selected-match', 'data'),
+    )
+    def update_report_link(match_id):
+        if not match_id:
+            return '#'
+        return f'/download-report/{match_id}'
+
+    register_overview_callbacks(app)
+    register_build_up_passing_callbacks(app)
+    register_defensive_structure_callbacks(app)
+    register_transitions_counterpressing_callbacks(app)
+    register_goalkeeping_callbacks(app)
+    register_player_analysis_callbacks(app)

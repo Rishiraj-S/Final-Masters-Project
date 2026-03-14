@@ -11,6 +11,7 @@ from dash import html, dcc
 from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
+import numpy as np
 
 from utils.config import COLORS
 from utils.data_utils import (
@@ -21,7 +22,9 @@ from utils.data_utils import (
     get_player_events,
     get_all_events,
     get_match_results,
+    get_match_lineup,
     filter_own_goals,
+    exclude_own_goals,
     CURRENT_SEASON,
 )
 from pages.match_analysis_tabs.shared import (
@@ -29,11 +32,13 @@ from pages.match_analysis_tabs.shared import (
     CHART_CONFIG,
     add_pitch_background,
     PITCH_AXIS_HALF,
+    PITCH_AXIS_FULL,
     section_card,
     kpi_row,
     empty_fig,
     page_header,
     render_heatmap_img,
+    render_pass_map_img,
     GOLD,
     HOME_COLOR,
     AWAY_COLOR,
@@ -74,6 +79,105 @@ _COMP_SHORT = {
     'Copa del Rey':      'Copa',
     'Spanish Super Cup': 'SC',
 }
+
+# Event types available in the interactive pitch map selector
+_EVENT_TYPE_OPTIONS = [
+    {'label': 'Pass',          'value': 'Pass'},
+    {'label': 'Touch Heatmap', 'value': 'Touch Heatmap'},
+    {'label': 'Shot Map',      'value': 'Shot Map'},
+    {'label': 'Tackle',        'value': 'Tackle'},
+    {'label': 'Interception',  'value': 'Interception'},
+    {'label': 'Take On',       'value': 'Take On'},
+    {'label': 'Clearance',     'value': 'Clearance'},
+    {'label': 'Foul',          'value': 'Foul'},
+    {'label': 'Ball Recovery', 'value': 'Ball Recovery'},
+    {'label': 'Goal',          'value': 'Goal'},
+    {'label': 'Saved Shot',    'value': 'Saved Shot'},
+    {'label': 'Miss',          'value': 'Miss'},
+]
+
+_PASS_ZONE_MARKS = {0: '0', 33: '33', 66: '66', 100: '100'}
+
+
+# ---------------------------------------------------------------------------
+# Role constants (Opta position label → simplified role bucket)
+# ---------------------------------------------------------------------------
+
+_ROLE_MAP = {
+    'Goalkeeper':                 'GK',
+    'Centre Back':                'CB',
+    'Right Centre Back':          'CB',
+    'Left Centre Back':           'CB',
+    'Right Back':                 'FB',
+    'Left Back':                  'FB',
+    'Right Wing Back':            'FB',
+    'Left Wing Back':             'FB',
+    'Defensive Midfielder':       'DM',
+    'Centre Midfielder':          'CM',
+    'Right Centre Midfielder':    'CM',
+    'Left Centre Midfielder':     'CM',
+    'Attacking Midfielder':       'AM',
+    'Right Attacking Midfielder': 'AM',
+    'Left Attacking Midfielder':  'AM',
+    'Right Midfielder':           'Winger',
+    'Left Midfielder':            'Winger',
+    'Right Winger':               'Winger',
+    'Left Winger':                'Winger',
+    'Centre Forward':             'ST',
+    'Second Striker':             'ST',
+}
+
+_ROLE_LABELS = {
+    'GK':     'Goalkeeper',
+    'CB':     'Centre Back',
+    'FB':     'Full Back',
+    'DM':     'Defensive Midfielder',
+    'CM':     'Central Midfielder',
+    'AM':     'Attacking Midfielder',
+    'Winger': 'Winger',
+    'ST':     'Striker',
+}
+
+
+def _load_season_lineups(season):
+    """Load and combine lineup data for all matches in a season."""
+    import pandas as pd
+    results = get_match_results()
+    season_start = season.split('-')[0]
+    season_end   = season.split('-')[1]
+    results = [
+        r for r in results
+        if str(r['date'])[:4] in (season_start, season_end)
+    ]
+    frames = []
+    for r in results:
+        df = get_match_lineup(r['match_id'])
+        if not df.empty:
+            frames.append(df)
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
+def _player_role(player_name, lineup_df):
+    """Return the most-frequent role bucket for a player from lineup data."""
+    if lineup_df.empty or 'player_name' not in lineup_df.columns or 'position' not in lineup_df.columns:
+        return None
+    rows = lineup_df[lineup_df['player_name'] == player_name]['position'].dropna()
+    roles = [_ROLE_MAP[p] for p in rows if p in _ROLE_MAP]
+    return max(set(roles), key=roles.count) if roles else None
+
+
+def _peers_for_role(role, lineup_df):
+    """Return sorted list of player names who play the given role."""
+    if lineup_df.empty or role is None:
+        return []
+    peer_map = {}
+    for _, row in lineup_df.iterrows():
+        name = row.get('player_name', '')
+        pos  = row.get('position', '')
+        r    = _ROLE_MAP.get(pos)
+        if name and r == role:
+            peer_map.setdefault(name, []).append(r)
+    return sorted(peer_map.keys())
 
 
 # ---------------------------------------------------------------------------
@@ -262,6 +366,9 @@ def _build_match_options(player_name, competition):
     return options
 
 
+
+
+
 # ---------------------------------------------------------------------------
 # Layout
 # ---------------------------------------------------------------------------
@@ -321,12 +428,57 @@ def create_player_analysis_layout():
             ], md=7),
         ], className="mb-4"),
 
-        # ── 4. Content ────────────────────────────────────────────────────
+        # ── 4. Stats & Radars (Dynamic) ───────────────────────────────────
         dcc.Loading(
-            id='pa-loading',
+            id='pa-stats-radars-loading',
             type='circle',
             color=COLORS['gold'],
-            children=html.Div(id='pa-content'),
+            children=html.Div(id='pa-stats-radars', className="mb-4"),
+        ),
+
+        # ── 5. Analysis filter row ────────────────────────────────────────
+        dbc.Row([
+            dbc.Col([
+                html.Label("Event Pitch Map",
+                           style={'color': COLORS['text_secondary'], 'fontSize': '0.85rem'}),
+                dcc.Dropdown(
+                    id='pa-event-type-selector',
+                    options=_EVENT_TYPE_OPTIONS,
+                    value='Pass',
+                    clearable=False,
+                    style={'backgroundColor': COLORS['dark_secondary']},
+                ),
+            ], md=3),
+            dbc.Col([
+                html.Label("Pass Start Zone (x)",
+                           style={'color': COLORS['text_secondary'], 'fontSize': '0.85rem'}),
+                dcc.RangeSlider(
+                    id='pa-pass-start-zone',
+                    min=0, max=100, step=1,
+                    value=[0, 100],
+                    marks=_PASS_ZONE_MARKS,
+                    tooltip={'placement': 'bottom', 'always_visible': False},
+                ),
+            ], md=4),
+            dbc.Col([
+                html.Label("Pass End Zone (x)",
+                           style={'color': COLORS['text_secondary'], 'fontSize': '0.85rem'}),
+                dcc.RangeSlider(
+                    id='pa-pass-end-zone',
+                    min=0, max=100, step=1,
+                    value=[0, 100],
+                    marks=_PASS_ZONE_MARKS,
+                    tooltip={'placement': 'bottom', 'always_visible': False},
+                ),
+            ], md=4),
+        ], className="mb-4"),
+
+        # ── 6. Plots & Match Log (Dynamic) ────────────────────────────────
+        dcc.Loading(
+            id='pa-plots-log-loading',
+            type='circle',
+            color=COLORS['gold'],
+            children=html.Div(id='pa-plots-log'),
         ),
     ], fluid=True, className="py-4")
 
@@ -391,30 +543,28 @@ def register_player_analysis_callbacks(app):
         options = _build_match_options(player_name, competition)
         return options, None   # None = all matches by default
 
-    # -- Main stats content -----------------------------------------------
+    # -- 1. Stats and Radar Plots Callback --
     @app.callback(
-        Output('pa-content', 'children'),
+        Output('pa-stats-radars', 'children'),
         Input('pa-player-selector', 'value'),
         Input('pa-competition-selector', 'value'),
         Input('pa-match-selector', 'value'),
     )
-    def update_pa_content(player_name, competition, selected_matches):
+    def update_pa_stats_radars(player_name, competition, selected_matches):
         if not player_name:
             return html.P("Select a player to view analysis.",
                           style={'color': COLORS['text_secondary']})
 
-        # Raw events for this player (unfiltered first, then scoped)
+        # Base events for player
         player_ev = get_player_events(
             player_name,
             CURRENT_SEASON,
             competition if competition != 'all' else None,
         )
-
-        # Apply match filter if specific matches were chosen
         if selected_matches:
             player_ev = player_ev[player_ev['match_id'].isin(selected_matches)]
 
-        # -- KPI stats --
+        # Base KPIs from pre-computed stats
         all_stats = get_player_stats(CURRENT_SEASON)
         player_row = all_stats[all_stats['player'] == player_name]
 
@@ -426,12 +576,10 @@ def register_player_analysis_callbacks(app):
         appearances = int(ps['appearances']) if ps['appearances'] > 0 else 1
         passes_per_match = round(ps['passes'] / appearances, 1)
 
-        # If filtered to specific matches/competition, derive KPIs from filtered events
+        # Re-derive goals/apps if filtered
         if selected_matches or (competition and competition != 'all'):
             ps_goals = int(
-                filter_own_goals(
-                    player_ev[player_ev['event_type'] == 'Goal']
-                ).shape[0]
+                filter_own_goals(player_ev[player_ev['event_type'] == 'Goal']).shape[0]
             )
             unique_matches = player_ev['match_id'].nunique()
             ps_appearances = unique_matches
@@ -478,42 +626,232 @@ def register_player_analysis_callbacks(app):
                   'border': f'1px solid {COLORS["dark_border"]}',
                   'marginBottom': '24px'})
 
-        # -- Shot map --
-        shot_types = ['Miss', 'Saved Shot', 'Goal']
-        shots = player_ev[player_ev['event_type'].isin(shot_types)].dropna(subset=['x', 'y'])
+        # ---- RADAR PLOTS ----
+        lineup_df   = _load_season_lineups(CURRENT_SEASON)
+        role        = _player_role(player_name, lineup_df)
+        peers       = _peers_for_role(role, lineup_df)
 
-        if not shots.empty:
-            color_map = {'Goal': GOLD, 'Saved Shot': HOME_COLOR, 'Miss': AWAY_COLOR}
-            fig_shots = go.Figure()
-            add_pitch_background(fig_shots, half=True)
-            for etype, color in color_map.items():
-                subset = shots[shots['event_type'] == etype]
-                if subset.empty:
+        radar_cards = html.Div()
+        if role and len(peers) > 1:
+            label = _ROLE_LABELS.get(role, role)
+            bar_events_all = get_all_events(CURRENT_SEASON)
+            if not bar_events_all.empty:
+                bar_events_all = bar_events_all[bar_events_all['team_code'] == 'BAR']
+
+            # Compile peer stats (unfiltered by match so the /90 average is stable)
+            peer_stats = []
+            for p in peers:
+                pe = bar_events_all[bar_events_all['player_name'] == p]
+                apps = int(pe['match_id'].nunique())
+                if apps == 0:
                     continue
-                fig_shots.add_trace(go.Scatter(
-                    x=subset['x'], y=subset['y'],
-                    mode='markers',
-                    name=etype,
-                    marker=dict(color=color, size=11, line=dict(color='white', width=1)),
-                    text=subset['time_min'].astype(str) + "'",
-                    hovertemplate='%{text}<extra>' + etype + '</extra>',
-                ))
-            fig_shots.update_layout(**CHART_LAYOUT_DEFAULTS, height=380, **PITCH_AXIS_HALF)
-            shot_map = section_card("Shot Map",
-                                    dcc.Graph(figure=fig_shots, config=CHART_CONFIG))
-        else:
-            shot_map = section_card("Shot Map", empty_fig("No shots recorded"))
+                goals = int(filter_own_goals(pe[pe['event_type'] == 'Goal']).shape[0])
+                passes = int(pe[pe['event_type'] == 'Pass'].shape[0])
+                shots = int(pe[pe['event_type'].isin(['Miss', 'Saved Shot', 'Goal'])].shape[0])
+                takeons = int(pe[pe['event_type'] == 'Take On'].shape[0])
+                
+                pass_rows = pe[pe['event_type'] == 'Pass']
+                pass_acc = round(pass_rows['outcome'].eq(1).sum() / max(len(pass_rows), 1) * 100, 1)
+                
+                tackles = int(pe[pe['event_type'] == 'Tackle'].shape[0])
+                intercepts = int(pe[pe['event_type'] == 'Interception'].shape[0])
+                recoveries = int(pe[pe['event_type'] == 'Ball Recovery'].shape[0])
+                clearances = int(pe[pe['event_type'] == 'Clearance'].shape[0])
+                
+                aerials = pe[pe['event_type'] == 'Aerial']
+                aerial_win_pct = round(aerials['outcome'].eq(1).sum() / max(len(aerials), 1) * 100, 1)
 
-        # -- Touch heatmap --
-        touch_data = player_ev.dropna(subset=['x', 'y'])
-        if not touch_data.empty:
-            img_src = render_heatmap_img(touch_data['x'].tolist(), touch_data['y'].tolist())
-            heatmap = section_card(
-                "Touch Heatmap",
-                html.Img(src=img_src, style={'width': '100%', 'borderRadius': '4px'}),
-            )
+                peer_stats.append({
+                    'player': p, 'apps': apps,
+                    'is_current': p == player_name,
+                    'goals': goals, 'passes': passes, 'shots': shots, 'takeons': takeons, 'pass_acc': pass_acc,
+                    'tackles': tackles, 'intercepts': intercepts, 'recoveries': recoveries, 
+                    'clearances': clearances, 'aerial_win_pct': aerial_win_pct
+                })
+
+            cur_s = next((s for s in peer_stats if s['is_current']), None)
+            avg_s = [s for s in peer_stats if not s['is_current']]
+            
+            def _per_app(val, apps): return round(val / max(apps, 1), 2)
+            def _avg(key, is_rate=True): 
+                if not avg_s: return 0
+                if is_rate:
+                    return round(sum(s[key] for s in avg_s) / max(sum(s['apps'] for s in avg_s), 1), 2)
+                return round(sum(s[key] for s in avg_s) / len(avg_s), 1)
+
+            if cur_s and avg_s:
+                # 1. Attacking Radar
+                att_cats = ['Goals/App', 'Shots/App', 'Passes/App', 'Pass Acc %', 'Take Ons/App']
+                att_cur = [
+                    _per_app(cur_s['goals'], cur_s['apps']),
+                    _per_app(cur_s['shots'], cur_s['apps']),
+                    _per_app(cur_s['passes'], cur_s['apps']),
+                    cur_s['pass_acc'],
+                    _per_app(cur_s['takeons'], cur_s['apps'])
+                ]
+                att_avg = [
+                    _avg('goals'), _avg('shots'), _avg('passes'), 
+                    _avg('pass_acc', False), _avg('takeons')
+                ]
+
+                # 2. Defending Radar
+                def_cats = ['Tackles/App', 'Intercepts/App', 'Recoveries/App', 'Clearances/App', 'Aerial Win %']
+                def_cur = [
+                    _per_app(cur_s['tackles'], cur_s['apps']),
+                    _per_app(cur_s['intercepts'], cur_s['apps']),
+                    _per_app(cur_s['recoveries'], cur_s['apps']),
+                    _per_app(cur_s['clearances'], cur_s['apps']),
+                    cur_s['aerial_win_pct']
+                ]
+                def_avg = [
+                    _avg('tackles'), _avg('intercepts'), _avg('recoveries'), 
+                    _avg('clearances'), _avg('aerial_win_pct', False)
+                ]
+
+                def _build_radar(title, cats, cur_vals, avg_vals):
+                    maxvals = [max(a, b, 0.001) for a, b in zip(cur_vals, avg_vals)]
+                    cur_norm = [v / m * 100 for v, m in zip(cur_vals, maxvals)]
+                    avg_norm = [v / m * 100 for v, m in zip(avg_vals, maxvals)]
+                    
+                    cats_closed = cats + [cats[0]]
+                    cur_closed = cur_norm + [cur_norm[0]]
+                    avg_closed = avg_norm + [avg_norm[0]]
+
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatterpolar(
+                        r=cur_closed, theta=cats_closed, fill='toself',
+                        name=player_name, line=dict(color=GOLD, width=2),
+                        fillcolor='rgba(161,120,40,0.3)',
+                        hovertemplate='%{theta}: %{r:.1f}<extra></extra>',
+                    ))
+                    fig.add_trace(go.Scatterpolar(
+                        r=avg_closed, theta=cats_closed, fill='toself',
+                        name=f'{label} Avg', line=dict(color=HOME_COLOR, width=2, dash='dot'),
+                        fillcolor='rgba(31,119,180,0.15)',
+                        hovertemplate='%{theta}: %{r:.1f}<extra></extra>',
+                    ))
+                    fig.update_layout(
+                        **CHART_LAYOUT_DEFAULTS, height=320,
+                        margin=dict(t=30, b=30, l=40, r=40),
+                        polar=dict(
+                            bgcolor='rgba(0,0,0,0)',
+                            radialaxis=dict(visible=True, range=[0, 100], color=COLORS['text_secondary'], gridcolor='rgba(255,255,255,0.15)'),
+                            angularaxis=dict(color=COLORS['text_secondary'], gridcolor='rgba(255,255,255,0.15)'),
+                        ),
+                        legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
+                    )
+                    from pages.match_analysis_tabs.shared import section_card
+                    return section_card(title, dcc.Graph(figure=fig, config=CHART_CONFIG))
+
+                radar_cards = dbc.Row([
+                    dbc.Col(_build_radar("Attacking & Possession", att_cats, att_cur, att_avg), md=6),
+                    dbc.Col(_build_radar("Defending", def_cats, def_cur, def_avg), md=6),
+                ], className="mb-4")
+
+        return html.Div([stats_card, radar_cards])
+
+
+    # -- 2. Dynamic Plot and Match Log Callback --
+    @app.callback(
+        Output('pa-plots-log', 'children'),
+        Input('pa-player-selector', 'value'),
+        Input('pa-competition-selector', 'value'),
+        Input('pa-match-selector', 'value'),
+        Input('pa-event-type-selector', 'value'),
+        Input('pa-pass-start-zone', 'value'),
+        Input('pa-pass-end-zone', 'value'),
+    )
+    def update_pa_plots_log(player_name, competition, selected_matches,
+                            event_type, pass_start_zone, pass_end_zone):
+        if not player_name:
+            return html.Div()
+
+        player_ev = get_player_events(
+            player_name, CURRENT_SEASON,
+            competition if competition != 'all' else None,
+        )
+        if selected_matches:
+            player_ev = player_ev[player_ev['match_id'].isin(selected_matches)]
+            
+        dynamic_plot = html.Div()
+
+        # Conditionally render the selected plot type
+        if event_type == 'Touch Heatmap':
+            touch_data = player_ev.dropna(subset=['x', 'y'])
+            if not touch_data.empty:
+                img_src = render_heatmap_img(touch_data['x'].tolist(), touch_data['y'].tolist())
+                dynamic_plot = section_card("Touch Heatmap", html.Img(src=img_src, style={'width': '100%', 'borderRadius': '4px'}))
+            else:
+                dynamic_plot = section_card("Touch Heatmap", empty_fig("No touch data"))
+
+        elif event_type == 'Shot Map':
+            shot_types = ['Miss', 'Saved Shot', 'Goal', 'Post', 'Blocked Shot']
+            shots = exclude_own_goals(player_ev[player_ev['event_type'].isin(shot_types)].copy()).dropna(subset=['x', 'y'])
+            if not shots.empty:
+                color_map = {'Goal': GOLD, 'Saved Shot': HOME_COLOR, 'Miss': AWAY_COLOR, 'Post': '#ffd43b', 'Blocked Shot': '#cc5de8'}
+                fig_shots = go.Figure()
+                add_pitch_background(fig_shots, half=True)
+                for etype, color in color_map.items():
+                    subset = shots[shots['event_type'] == etype]
+                    if subset.empty: continue
+                    fig_shots.add_trace(go.Scatter(
+                        x=subset['x'], y=subset['y'], mode='markers', name=etype,
+                        marker=dict(color=color, size=11, line=dict(color='white', width=1)),
+                        text=subset['time_min'].astype(str) + "'",
+                        hovertemplate='%{text}<extra>' + etype + '</extra>',
+                    ))
+                fig_shots.update_layout(**CHART_LAYOUT_DEFAULTS, height=450, **PITCH_AXIS_HALF)
+                dynamic_plot = section_card("Shot Map", dcc.Graph(figure=fig_shots, config=CHART_CONFIG))
+            else:
+                dynamic_plot = section_card("Shot Map", empty_fig("No shots recorded"))
+
+        elif event_type == 'Pass':
+            passes_df = player_ev[player_ev['event_type'] == 'Pass'].copy()
+            end_x_col, end_y_col = 'Pass End X', 'Pass End Y'
+            has_end_coords = (end_x_col in passes_df.columns and end_y_col in passes_df.columns)
+            
+            if has_end_coords:
+                passes_df = passes_df.dropna(subset=['x', 'y', end_x_col, end_y_col])
+                passes_df[end_x_col] = passes_df[end_x_col].replace({'N/A': np.nan, '': np.nan}).astype(float)
+                passes_df[end_y_col] = passes_df[end_y_col].replace({'N/A': np.nan, '': np.nan}).astype(float)
+                passes_df = passes_df.dropna(subset=[end_x_col, end_y_col])
+                if pass_start_zone:
+                    passes_df = passes_df[passes_df['x'].between(pass_start_zone[0], pass_start_zone[1])]
+                if pass_end_zone:
+                    passes_df = passes_df[passes_df[end_x_col].between(pass_end_zone[0], pass_end_zone[1])]
+            
+            n_passes = len(passes_df)
+            if has_end_coords and n_passes > 0:
+                oc = passes_df['outcome'] if 'outcome' in passes_df.columns else None
+                pm_src = render_pass_map_img(
+                    passes_df['x'].values, passes_df['y'].values,
+                    passes_df[end_x_col].values, passes_df[end_y_col].values,
+                    outcomes=oc.values if oc is not None else None,
+                )
+                dynamic_plot = section_card(f"Pass Map ({n_passes} passes)", html.Img(src=pm_src, style={'width': '100%', 'borderRadius': '4px'}))
+            elif not has_end_coords and n_passes > 0:
+                pm_src = render_heatmap_img(passes_df['x'].dropna().values, passes_df['y'].dropna().values, cmap='Blues')
+                dynamic_plot = section_card(f"Pass Origins ({n_passes} passes)", html.Img(src=pm_src, style={'width': '100%', 'borderRadius': '4px'}))
+            else:
+                dynamic_plot = section_card("Pass Map", empty_fig("No passes in selected zone"))
+
         else:
-            heatmap = section_card("Touch Heatmap", empty_fig("No touch data"))
+            # Generic Event Pitch Map
+            ev_df = player_ev[player_ev['event_type'] == event_type].dropna(subset=['x', 'y'])
+            fig_ev = go.Figure()
+            add_pitch_background(fig_ev, half=False)
+            if not ev_df.empty:
+                def _ev_color(row): return HOME_COLOR if row.get('outcome') == 1 else (AWAY_COLOR if row.get('outcome') == 0 else GOLD)
+                fig_ev.add_trace(go.Scatter(
+                    x=ev_df['x'], y=ev_df['y'], mode='markers',
+                    marker=dict(size=12, color=ev_df.apply(_ev_color, axis=1).tolist(), line=dict(color='white', width=1)),
+                    text=ev_df['time_min'].astype(str) + "'",
+                    hovertemplate='%{text}<extra>' + event_type + '</extra>',
+                    name=event_type,
+                ))
+            fig_ev.update_layout(**CHART_LAYOUT_DEFAULTS, height=450, **PITCH_AXIS_FULL)
+            dynamic_plot = section_card(f"{event_type} Map ({len(ev_df)} events)", dcc.Graph(figure=fig_ev, config=CHART_CONFIG))
+
 
         # -- Match log --
         match_stats = get_player_match_stats(player_name, CURRENT_SEASON)
@@ -532,8 +870,7 @@ def register_player_analysis_callbacks(app):
                     html.Td(str(m['date'])[:10]),
                     html.Td(m.get('competition', '')),
                     html.Td(short_desc),
-                    html.Td(str(m['goals']),
-                            style={'color': goal_color, 'fontWeight': 'bold'}),
+                    html.Td(str(m['goals']), style={'color': goal_color, 'fontWeight': 'bold'}),
                     html.Td(str(m['passes'])),
                     html.Td(str(m['shots'])),
                     html.Td(str(m.get('tackles', 0))),
@@ -541,21 +878,14 @@ def register_player_analysis_callbacks(app):
             match_log = section_card("Match Log", html.Table([
                 html.Thead(html.Tr([
                     html.Th("Date"), html.Th("Competition"), html.Th("Match"),
-                    html.Th("Goals"), html.Th("Passes"),
-                    html.Th("Shots"), html.Th("Tackles"),
+                    html.Th("Goals"), html.Th("Passes"), html.Th("Shots"), html.Th("Tackles"),
                 ])),
                 html.Tbody(rows),
             ], className="table table-dark table-striped table-sm"))
         else:
-            match_log = section_card("Match Log", html.P(
-                "No matches found.", style={'color': COLORS['text_secondary']}
-            ))
+            match_log = section_card("Match Log", html.P("No matches found.", style={'color': COLORS['text_secondary']}))
 
         return html.Div([
-            stats_card,
-            dbc.Row([
-                dbc.Col(shot_map, md=6),
-                dbc.Col(heatmap, md=6),
-            ], className="mb-3"),
-            match_log,
+            dbc.Row([dbc.Col(dynamic_plot, md=8, className="mx-auto")], className="mb-4"),
+            match_log
         ])

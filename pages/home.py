@@ -4,12 +4,33 @@ Rich dashboard with hero section, tournament overview, season summary
 with top contributors and form trendline, and footer navigation.
 """
 
-from dash import html, dcc
-from dash.dependencies import Input, Output
+from pathlib import Path
+
+from dash import html, dcc, callback_context
+from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
+import yaml
 
 from utils.config import COLORS
+
+# ── Opposition pipeline config (for modal dropdowns) ────────────────────────
+
+_OPP_CONFIG_PATH = Path(__file__).parent.parent / 'opposition_pipeline' / 'config.yaml'
+try:
+    with open(_OPP_CONFIG_PATH) as _f:
+        _opp_cfg = yaml.safe_load(_f)
+    _OPP_TEAM_OPTIONS = [{'label': 'All Teams', 'value': ''}] + [
+        {'label': o['team_name'], 'value': o['team_name']}
+        for o in _opp_cfg.get('opponents', [])
+    ]
+    _OPP_COMP_OPTIONS = [{'label': 'All Competitions', 'value': ''}] + [
+        {'label': k.replace('_', ' '), 'value': k}
+        for k in _opp_cfg.get('competitions', {}).keys()
+    ]
+except Exception:
+    _OPP_TEAM_OPTIONS = [{'label': 'All Teams', 'value': ''}]
+    _OPP_COMP_OPTIONS = [{'label': 'All Competitions', 'value': ''}]
 from utils.data_utils import (
     get_player_stats, get_season_summary,
     get_tournament_summary, get_tournament_match_results,
@@ -171,15 +192,18 @@ def _create_hero_section(is_admin=False):
         admin_btn = html.Div([
             dbc.Button(
                 [html.I(className="fas fa-database me-2"), "Update Barca Databases"],
-                id='update-db-button', color="warning", className="mb-3 me-2",
+                id='update-db-button', color="warning", className="me-2",
                 style={'fontWeight': 'bold'}
             ),
             dbc.Button(
-                [html.I(className="fas fa-globe me-2"), "Update Opposition Databases"],
-                id='update-opp-db-button', color="info", className="mb-3",
+                [html.I(className="fas fa-search me-2"), "Update Opponent Databases"],
+                id='update-opp-button', color="info",
                 style={'fontWeight': 'bold'}
             ),
-        ], style={'position': 'absolute', 'top': '1rem', 'right': '1.5rem', 'zIndex': 2})
+        ], style={
+            'position': 'absolute', 'top': '1rem', 'right': '1.5rem', 'zIndex': 2,
+            'display': 'flex', 'alignItems': 'center',
+        })
 
     return html.Div([
         admin_btn,
@@ -366,7 +390,7 @@ def _create_season_summary_section():
     ], className="mb-4")
 
 
-def _create_player_card(player, goals, appearances, img_path=None):
+def _create_player_card(player, goals, assists, appearances, img_path=None):
     """Single player contributor card - dark themed, no rank badge."""
     photo = html.Div(
         html.I(className="fas fa-user", style={'fontSize': '2.5rem', 'color': COLORS['text_secondary']}),
@@ -385,6 +409,10 @@ def _create_player_card(player, goals, appearances, img_path=None):
                 html.Div([
                     html.Div(str(goals), className="player-stat-num"),
                     html.Div("Goals", className="player-stat-lbl"),
+                ], className="player-stat-item"),
+                html.Div([
+                    html.Div(str(assists), className="player-stat-num"),
+                    html.Div("Assists", className="player-stat-lbl"),
                 ], className="player-stat-item"),
                 html.Div([
                     html.Div(str(appearances), className="player-stat-num"),
@@ -409,6 +437,7 @@ def _build_top_contributors(stats_df, n=5):
         img = PLAYER_IMAGES.get(row['player'])
         cards.append(_create_player_card(
             row['player'], int(row['goals']),
+            int(row.get('assists', 0)),
             int(row['appearances']), img
         ))
     return cards
@@ -437,9 +466,9 @@ def _create_footer_nav():
         },
         {
             'title': 'Opposition Analysis',
-            'desc': 'Head-to-head records, tactical heatmaps and key-player profiles for every team that has faced Barça this season.',
+            'desc': "Scout upcoming opponents — match history, tactical tendencies, shot maps, key players and more across their full season data.",
             'href': '/opposition-analysis',
-            'icon': 'fas fa-shield-alt',
+            'icon': 'fas fa-binoculars',
         },
     ]
 
@@ -462,6 +491,106 @@ def _create_footer_nav():
     ], className="mb-4")
 
 
+# ── Opposition pipeline modal ────────────────────────────────────────────────
+
+def _create_opp_pipeline_modal():
+    """Admin-only modal for running the opposition data pipeline with options."""
+    _label = {'color': COLORS['text_secondary'], 'fontSize': '0.85rem', 'fontWeight': 600,
+               'marginBottom': '0.4rem', 'display': 'block'}
+    _hint  = {'color': COLORS['text_secondary'], 'fontSize': '0.8rem', 'marginBottom': '0.35rem'}
+
+    return dbc.Modal([
+        dbc.ModalHeader(
+            dbc.ModalTitle([
+                html.I(className="fas fa-search me-2", style={'color': '#17a2b8'}),
+                "Scout Opponents Pipeline",
+            ]),
+            style={'backgroundColor': COLORS['dark_secondary'],
+                   'borderBottom': f"1px solid {COLORS['dark_border']}",
+                   'color': COLORS['text_primary']},
+        ),
+        dbc.ModalBody([
+            html.P(
+                "Download match event data for all Barcelona opponents across their full seasons.",
+                style={'color': COLORS['text_secondary'], 'marginBottom': '1.25rem'},
+            ),
+
+            # ── Filters row ───────────────────────────────────────────────
+            dbc.Row([
+                dbc.Col([
+                    html.Label("Team", style=_label),
+                    dcc.Dropdown(
+                        id='opp-team-select',
+                        options=_OPP_TEAM_OPTIONS,
+                        value='',
+                        clearable=False,
+                        placeholder="All Teams",
+                        style={'backgroundColor': COLORS['dark_tertiary']},
+                    ),
+                ], width=6),
+                dbc.Col([
+                    html.Label("Competition", style=_label),
+                    dcc.Dropdown(
+                        id='opp-comp-select',
+                        options=_OPP_COMP_OPTIONS,
+                        value='',
+                        clearable=False,
+                        placeholder="All Competitions",
+                        style={'backgroundColor': COLORS['dark_tertiary']},
+                    ),
+                ], width=6),
+            ], className="mb-3"),
+
+            # ── Options ───────────────────────────────────────────────────
+            html.Label("Options", style=_label),
+            dbc.Checklist(
+                id='opp-pipeline-options',
+                options=[
+                    {'label': ' Force Re-scrape  (ignore Scoresway cache)',
+                     'value': 'force_rescrape'},
+                    {'label': ' Transform Only  (skip downloads, re-process existing JSONs)',
+                     'value': 'transform_only'},
+                ],
+                value=[],
+                style={'color': COLORS['text_primary'], 'fontSize': '0.9rem'},
+                className="mb-3",
+            ),
+
+            # ── Info box ──────────────────────────────────────────────────
+            html.Div([
+                html.P([html.Strong("Full run: ", style={'color': COLORS['text_primary']}),
+                        "scrapes Scoresway pages, downloads all match JSON via browser, transforms to Parquet."],
+                       style=_hint),
+                html.P([html.Strong("Force Re-scrape: ", style={'color': COLORS['text_primary']}),
+                        "re-fetches competition result pages instead of using the local CSV cache."],
+                       style=_hint),
+                html.P([html.Strong("Transform Only: ", style={'color': COLORS['text_primary']}),
+                        "re-processes previously downloaded JSONs. No browser or network required."],
+                       style={**_hint, 'marginBottom': 0}),
+            ], style={
+                'backgroundColor': COLORS['dark_bg'],
+                'border': f"1px solid {COLORS['dark_border']}",
+                'borderRadius': '6px', 'padding': '0.85rem',
+            }),
+        ], style={'backgroundColor': COLORS['dark_secondary'], 'color': COLORS['text_primary']}),
+
+        dbc.ModalFooter([
+            dbc.Button("Cancel", id='opp-modal-cancel', color="secondary", className="me-2"),
+            dbc.Button(
+                [html.I(className="fas fa-play me-2"), "Run Pipeline"],
+                id='update-opp-run-button', color="info",
+                style={'fontWeight': 'bold'},
+            ),
+        ], style={'backgroundColor': COLORS['dark_secondary'],
+                  'borderTop': f"1px solid {COLORS['dark_border']}"}),
+    ],
+        id='opp-pipeline-modal',
+        is_open=False,
+        size="lg",
+        backdrop="static",
+    )
+
+
 # ── Main layout ─────────────────────────────────────────────────────────────
 
 def create_home_layout(is_admin=False):
@@ -469,13 +598,17 @@ def create_home_layout(is_admin=False):
     summary = get_season_summary()
     tournament_data = get_tournament_summary()
 
-    return dbc.Container([
+    children = [
         _create_hero_section(is_admin),
         _create_season_overview_header(summary),
         _create_tournament_section(tournament_data),
         _create_season_summary_section(),
         _create_footer_nav(),
-    ], fluid=True, className="py-4")
+    ]
+    if is_admin:
+        children.append(_create_opp_pipeline_modal())
+
+    return dbc.Container(children, fluid=True, className="py-4")
 
 
 # ── Callbacks ───────────────────────────────────────────────────────────────
@@ -483,6 +616,23 @@ def create_home_layout(is_admin=False):
 def register_home_callbacks(app):
     """Register interactive callbacks for the home page."""
     from dash import no_update
+
+    @app.callback(
+        Output('opp-pipeline-modal', 'is_open'),
+        Input('update-opp-button', 'n_clicks'),
+        Input('opp-modal-cancel', 'n_clicks'),
+        Input('update-opp-run-button', 'n_clicks'),
+        State('opp-pipeline-modal', 'is_open'),
+        prevent_initial_call=True,
+    )
+    def toggle_opp_modal(open_clicks, cancel_clicks, run_clicks, is_open):
+        ctx = callback_context
+        if not ctx.triggered:
+            return is_open
+        trigger = ctx.triggered[0]['prop_id'].split('.')[0]
+        if trigger == 'update-opp-button':
+            return True
+        return False  # cancel or run both close
 
     # Combined: form trendline + top contributors, both filtered by tournament
     @app.callback(

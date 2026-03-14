@@ -12,10 +12,11 @@ Individual pages are organized in the pages/ directory:
 - pages/home.py: Season Overview
 - pages/match_analysis.py: Match Analysis (phase-based post-match analysis)
 - pages/player_analysis.py: Player Analysis
-- pages/opposition_analysis.py: Opposition Analysis
 """
 
+import io
 import dash
+import flask
 from dash import html, dcc, callback_context
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
@@ -53,6 +54,31 @@ app = dash.Dash(
     suppress_callback_exceptions=True,
     title=APP_CONFIG['title']
 )
+
+# ---------------------------------------------------------------------------
+# Flask route: PDF match report (bypasses Dash callback timeout)
+# ---------------------------------------------------------------------------
+
+@app.server.route('/download-report/<match_id>')
+def serve_match_report(match_id):
+    try:
+        from utils.pdf_report import generate_match_report_pdf
+        pdf_bytes = generate_match_report_pdf(match_id)
+        return flask.send_file(
+            io.BytesIO(pdf_bytes),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'match_report_{match_id}.pdf',
+        )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("PDF route error for %s: %s", match_id, exc)
+        return flask.Response(
+            f"Error generating report: {exc}",
+            status=500,
+            mimetype='text/plain',
+        )
+
 
 # Custom CSS for dark theme with login styles
 app.index_string = '''
@@ -328,7 +354,7 @@ def create_navbar(user_info):
 PROGRESS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              'opta_pipeline', 'logs', 'progress.json')
 OPP_PROGRESS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 'opposition_opta_pipeline', 'logs', 'progress.json')
+                                  'opposition_pipeline', 'logs', 'progress.json')
 
 
 def _read_progress(progress_file=None):
@@ -344,11 +370,9 @@ def _read_progress(progress_file=None):
     return {}
 
 
-def create_update_overlay(pipeline='barca'):
+def create_update_overlay():
     """Create the database update overlay with live progress."""
-    progress_file = OPP_PROGRESS_FILE if pipeline == 'opposition' else PROGRESS_FILE
-    pipeline_label = "Opposition Databases" if pipeline == 'opposition' else "Barca Databases"
-    progress = _read_progress(progress_file)
+    progress = _read_progress(PROGRESS_FILE)
 
     competition = progress.get('competition', '')
     stage = progress.get('stage', '')
@@ -373,6 +397,9 @@ def create_update_overlay(pipeline='barca'):
         detail_text = ""
         competition_line = ""
 
+    match_pct = round(match_idx / match_total * 100) if match_total > 0 else 0
+    comp_pct  = round(comp_idx  / comp_total  * 100) if comp_total  > 0 else 0
+
     info_children = []
     if competition_line:
         info_children.append(
@@ -388,15 +415,46 @@ def create_update_overlay(pipeline='barca'):
             html.P([html.Strong("Current: "), detail_text],
                    className="mb-2", style={'color': COLORS['gold']})
         )
+
+    # Competition-level progress bar
+    if comp_total > 0:
+        info_children.append(html.Div([
+            html.Div([
+                html.Span("Competitions", style={'color': COLORS['text_secondary'], 'fontSize': '0.75rem'}),
+                html.Span(f"{comp_idx}/{comp_total}  ({comp_pct}%)",
+                          style={'color': COLORS['gold'], 'fontSize': '0.75rem', 'fontWeight': 'bold'}),
+            ], style={'display': 'flex', 'justifyContent': 'space-between', 'marginBottom': '4px'}),
+            html.Div(html.Div(style={
+                'width': f'{comp_pct}%', 'height': '6px',
+                'backgroundColor': COLORS['gold'], 'borderRadius': '3px',
+                'transition': 'width 0.4s ease',
+            }), style={'backgroundColor': '#2A2F4A', 'borderRadius': '3px', 'marginBottom': '10px'}),
+        ]))
+
+    # Match-level progress bar
+    if match_total > 0:
+        info_children.append(html.Div([
+            html.Div([
+                html.Span("Matches", style={'color': COLORS['text_secondary'], 'fontSize': '0.75rem'}),
+                html.Span(f"{match_idx}/{match_total}  ({match_pct}%)",
+                          style={'color': '#17a2b8', 'fontSize': '0.75rem', 'fontWeight': 'bold'}),
+            ], style={'display': 'flex', 'justifyContent': 'space-between', 'marginBottom': '4px'}),
+            html.Div(html.Div(style={
+                'width': f'{match_pct}%', 'height': '6px',
+                'backgroundColor': '#17a2b8', 'borderRadius': '3px',
+                'transition': 'width 0.4s ease',
+            }), style={'backgroundColor': '#2A2F4A', 'borderRadius': '3px', 'marginBottom': '10px'}),
+        ]))
+
     info_children.append(
         html.P([html.Strong("Note: "), "Navigation is disabled during this process to ensure data integrity."],
-               style={'color': '#ffc107'})
+               style={'color': '#ffc107', 'marginTop': '8px'})
     )
 
     return html.Div([
         html.Div([
             html.Div(className="spinner-border text-warning mb-4", role="status"),
-            html.H2(f"{pipeline_label} Are Being Updated",
+            html.H2("Databases Are Being Updated",
                    style={'color': COLORS['gold'], 'marginBottom': '20px'}),
             html.P("Please wait while the system processes the latest match data...",
                   style={'color': COLORS['text_secondary'], 'fontSize': '1.1rem'}),
@@ -407,6 +465,110 @@ def create_update_overlay(pipeline='barca'):
             html.Div([
                 html.Div(className="spinner-grow spinner-grow-sm text-warning me-2", role="status"),
                 html.Span("Processing...", className="pulse-animation", style={'color': COLORS['text_secondary']})
+            ], style={'marginTop': '30px'})
+        ], style={'textAlign': 'center'})
+    ], className="update-overlay", id='update-overlay')
+
+
+def create_opp_update_overlay():
+    """Create the opposition pipeline update overlay with live progress."""
+    progress = _read_progress(OPP_PROGRESS_FILE)
+
+    team        = progress.get('team', '')
+    competition = progress.get('competition', '')
+    stage       = progress.get('stage', '')
+    detail      = progress.get('detail', '')
+    team_idx    = progress.get('current_team', 0)
+    total_teams = progress.get('total_teams', 0)
+    match_idx   = progress.get('current_match', 0)
+    match_total = progress.get('total_matches', 0)
+
+    if team and stage:
+        status_text = f"{stage}: {team}"
+        if competition:
+            status_text += f"  —  {competition}"
+        if stage == "Downloading" and match_total > 0:
+            detail_text = f"Match {match_idx}/{match_total} — {detail}"
+        elif detail:
+            detail_text = detail
+        else:
+            detail_text = ""
+        progress_line = f"Team {team_idx}/{total_teams}" if total_teams else ""
+    else:
+        status_text   = "Initializing opposition pipeline..."
+        detail_text   = ""
+        progress_line = ""
+
+    team_pct  = round(team_idx   / total_teams  * 100) if total_teams  > 0 else 0
+    match_pct = round(match_idx  / match_total  * 100) if match_total  > 0 else 0
+
+    info_children = []
+    if progress_line:
+        info_children.append(
+            html.P([html.Strong("Progress: "), progress_line],
+                   className="mb-2", style={'color': COLORS['text_primary']})
+        )
+    info_children.append(
+        html.P([html.Strong("Stage: "), status_text],
+               className="mb-2", style={'color': COLORS['text_primary']})
+    )
+    if detail_text:
+        info_children.append(
+            html.P([html.Strong("Current: "), detail_text],
+                   className="mb-2", style={'color': '#17a2b8'})
+        )
+
+    # Team-level progress bar
+    if total_teams > 0:
+        info_children.append(html.Div([
+            html.Div([
+                html.Span("Teams", style={'color': COLORS['text_secondary'], 'fontSize': '0.75rem'}),
+                html.Span(f"{team_idx}/{total_teams}  ({team_pct}%)",
+                          style={'color': '#17a2b8', 'fontSize': '0.75rem', 'fontWeight': 'bold'}),
+            ], style={'display': 'flex', 'justifyContent': 'space-between', 'marginBottom': '4px'}),
+            html.Div(html.Div(style={
+                'width': f'{team_pct}%', 'height': '6px',
+                'backgroundColor': '#17a2b8', 'borderRadius': '3px',
+                'transition': 'width 0.4s ease',
+            }), style={'backgroundColor': '#2A2F4A', 'borderRadius': '3px', 'marginBottom': '10px'}),
+        ]))
+
+    # Match-level progress bar
+    if match_total > 0:
+        info_children.append(html.Div([
+            html.Div([
+                html.Span("Matches", style={'color': COLORS['text_secondary'], 'fontSize': '0.75rem'}),
+                html.Span(f"{match_idx}/{match_total}  ({match_pct}%)",
+                          style={'color': COLORS['gold'], 'fontSize': '0.75rem', 'fontWeight': 'bold'}),
+            ], style={'display': 'flex', 'justifyContent': 'space-between', 'marginBottom': '4px'}),
+            html.Div(html.Div(style={
+                'width': f'{match_pct}%', 'height': '6px',
+                'backgroundColor': COLORS['gold'], 'borderRadius': '3px',
+                'transition': 'width 0.4s ease',
+            }), style={'backgroundColor': '#2A2F4A', 'borderRadius': '3px', 'marginBottom': '10px'}),
+        ]))
+
+    info_children.append(
+        html.P([html.Strong("Note: "), "Navigation is disabled during this process to ensure data integrity."],
+               style={'color': '#ffc107', 'marginTop': '8px'})
+    )
+
+    return html.Div([
+        html.Div([
+            html.Div(className="spinner-border text-info mb-4", role="status"),
+            html.H2("Scouting Opposition Databases",
+                   style={'color': '#17a2b8', 'marginBottom': '20px'}),
+            html.P("Please wait while the system downloads opposition match data...",
+                  style={'color': COLORS['text_secondary'], 'fontSize': '1.1rem'}),
+            html.Hr(style={'borderColor': COLORS['dark_border'], 'width': '300px', 'margin': '20px auto'}),
+            html.Div(info_children,
+                     style={'textAlign': 'left', 'maxWidth': '500px', 'margin': '0 auto',
+                            'padding': '20px', 'backgroundColor': '#151932',
+                            'borderRadius': '10px', 'border': '1px solid #2A2F4A'}),
+            html.Div([
+                html.Div(className="spinner-grow spinner-grow-sm text-info me-2", role="status"),
+                html.Span("Processing...", className="pulse-animation",
+                          style={'color': COLORS['text_secondary']})
             ], style={'marginTop': '30px'})
         ], style={'textAlign': 'center'})
     ], className="update-overlay", id='update-overlay')
@@ -453,7 +615,7 @@ app.layout = html.Div([
     # Session storage
     dcc.Store(id='session-store', storage_type='session'),
     dcc.Store(id='update-status-store', data={'updating': False}),
-    dcc.Store(id='update-opp-status-store', data={'updating': False}),
+    dcc.Store(id='opp-update-status-store', data={'updating': False}),
 
     # Update overlay (hidden by default)
     html.Div(id='update-overlay-container'),
@@ -466,7 +628,6 @@ app.layout = html.Div([
 
     # Interval for checking update status
     dcc.Interval(id='update-check-interval', interval=2000, disabled=True),
-    dcc.Interval(id='update-opp-check-interval', interval=2000, disabled=True),
 
     # Main content container
     html.Div(id='main-container')
@@ -560,17 +721,17 @@ def handle_logout(logout_clicks):
     Output('update-overlay-container', 'children'),
     Output('_refresh-url', 'pathname'),
     Input('update-status-store', 'data'),
-    Input('update-opp-status-store', 'data'),
+    Input('opp-update-status-store', 'data'),
     prevent_initial_call=True
 )
 def show_update_overlay(update_status, opp_update_status):
     """Show/hide the database update overlay. Refresh page when update finishes."""
     if update_status and update_status.get('updating'):
-        return create_update_overlay('barca'), dash.no_update
+        return create_update_overlay(), dash.no_update
     if update_status and update_status.get('finished'):
         return html.Div(), '/'
     if opp_update_status and opp_update_status.get('updating'):
-        return create_update_overlay('opposition'), dash.no_update
+        return create_opp_update_overlay(), dash.no_update
     if opp_update_status and opp_update_status.get('finished'):
         return html.Div(), '/'
     return html.Div(), dash.no_update
@@ -578,113 +739,100 @@ def show_update_overlay(update_status, opp_update_status):
 
 @app.callback(
     Output('update-status-store', 'data'),
+    Output('opp-update-status-store', 'data'),
     Output('update-check-interval', 'disabled'),
     Input('update-db-button', 'n_clicks'),
+    Input('update-opp-run-button', 'n_clicks'),
     Input('update-check-interval', 'n_intervals'),
     State('update-status-store', 'data'),
+    State('opp-update-status-store', 'data'),
+    State('opp-team-select', 'value'),
+    State('opp-comp-select', 'value'),
+    State('opp-pipeline-options', 'value'),
     prevent_initial_call=True
 )
-def handle_database_update(n_clicks, n_intervals, current_status):
-    """Handle database update button and monitor update progress."""
+def handle_database_update(n_clicks, opp_clicks, n_intervals,
+                            current_status, opp_status,
+                            opp_team, opp_comp, opp_options):
+    """Handle pipeline update buttons and monitor progress for both pipelines."""
     ctx = callback_context
     if not ctx.triggered:
-        return current_status, True
+        return current_status, opp_status, True
 
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    script_dir = os.path.dirname(os.path.abspath(__file__))
 
+    # ── Barcelona pipeline ──────────────────────────────────────────────────
     if trigger_id == 'update-db-button' and n_clicks:
-        # Prevent double-start
         if hasattr(app, '_update_thread') and app._update_thread.is_alive():
-            return {'updating': True}, False
+            return {'updating': True}, opp_status, False
 
-        # Start the database update process
         def run_pipeline():
-            script_dir = os.path.dirname(os.path.abspath(__file__))
             pipeline_path = os.path.join(script_dir, 'opta_pipeline', 'main.py')
-            # No capture_output — stdout/stderr flow directly to the terminal
-            # so all print() statements in main.py and modules are visible.
-            result = subprocess.run(
-                [sys.executable, pipeline_path],
-                cwd=script_dir,
-            )
+            result = subprocess.run([sys.executable, pipeline_path], cwd=script_dir)
             if result.returncode != 0:
-                # Log the failure; detailed output is already in the terminal
-                # and in opta_pipeline/logs/opta_pipeline.log
                 log_path = os.path.join(script_dir, 'opta_pipeline', 'logs', 'pipeline_error.log')
                 os.makedirs(os.path.dirname(log_path), exist_ok=True)
                 with open(log_path, 'w') as f:
                     f.write(f"Pipeline exited with code: {result.returncode}\n")
-                    f.write("Check opta_pipeline/logs/opta_pipeline.log for details.\n")
+                    f.write("Check opta_pipeline/logs/pipeline.log for details.\n")
 
-        # Start update in background thread
         thread = threading.Thread(target=run_pipeline, daemon=True)
         thread.start()
-
-        # Store the thread reference (we'll check if it's alive)
         app._update_thread = thread
+        return {'updating': True, 'started': True}, opp_status, False
 
-        return {'updating': True, 'started': True}, False
-
-    if trigger_id == 'update-check-interval':
-        # Check if update is still running
-        if hasattr(app, '_update_thread') and app._update_thread.is_alive():
-            return {'updating': True}, False
-        else:
-            # Pipeline subprocess finished — clear the in-process data cache
-            # so the subsequent page reload reads fresh parquet files from disk.
-            clear_events_cache()
-            # Mark done so show_update_overlay triggers the page reload.
-            return {'updating': False, 'finished': True}, True
-
-    return current_status, True
-
-
-@app.callback(
-    Output('update-opp-status-store', 'data'),
-    Output('update-opp-check-interval', 'disabled'),
-    Input('update-opp-db-button', 'n_clicks'),
-    Input('update-opp-check-interval', 'n_intervals'),
-    State('update-opp-status-store', 'data'),
-    prevent_initial_call=True
-)
-def handle_opposition_database_update(n_clicks, n_intervals, current_status):
-    """Handle opposition database update button and monitor update progress."""
-    ctx = callback_context
-    if not ctx.triggered:
-        return current_status, True
-
-    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-
-    if trigger_id == 'update-opp-db-button' and n_clicks:
+    # ── Opposition pipeline ─────────────────────────────────────────────────
+    if trigger_id == 'update-opp-run-button' and opp_clicks:
         if hasattr(app, '_opp_update_thread') and app._opp_update_thread.is_alive():
-            return {'updating': True}, False
+            return current_status, {'updating': True}, False
 
-        def run_opp_pipeline():
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            pipeline_path = os.path.join(script_dir, 'opposition_opta_pipeline', 'main.py')
-            result = subprocess.run(
-                [sys.executable, pipeline_path],
-                cwd=script_dir,
-            )
+        opp_pipeline_path = os.path.join(script_dir, 'opposition_pipeline', 'main.py')
+        cmd = [sys.executable, opp_pipeline_path]
+        if opp_team:
+            cmd += ['--team', opp_team]
+        if opp_comp:
+            cmd += ['--competition', opp_comp]
+        options = opp_options or []
+        if 'force_rescrape' in options:
+            cmd.append('--force-rescrape')
+        if 'transform_only' in options:
+            cmd.append('--transform-only')
+
+        def run_opp_pipeline(cmd=cmd):
+            result = subprocess.run(cmd, cwd=script_dir)
             if result.returncode != 0:
-                log_path = os.path.join(script_dir, 'opposition_opta_pipeline', 'logs', 'pipeline_error.log')
+                log_path = os.path.join(script_dir, 'opposition_pipeline', 'logs', 'pipeline_error.log')
                 os.makedirs(os.path.dirname(log_path), exist_ok=True)
                 with open(log_path, 'w') as f:
                     f.write(f"Pipeline exited with code: {result.returncode}\n")
-                    f.write("Check opposition_opta_pipeline/logs/ for details.\n")
+                    f.write("Check opposition_pipeline/logs/pipeline.log for details.\n")
 
-        thread = threading.Thread(target=run_opp_pipeline, daemon=True)
-        thread.start()
-        app._opp_update_thread = thread
-        return {'updating': True, 'started': True}, False
+        opp_thread = threading.Thread(target=run_opp_pipeline, daemon=True)
+        opp_thread.start()
+        app._opp_update_thread = opp_thread
+        return current_status, {'updating': True, 'started': True}, False
 
-    if trigger_id == 'update-opp-check-interval':
-        if hasattr(app, '_opp_update_thread') and app._opp_update_thread.is_alive():
-            return {'updating': True}, False
-        else:
-            return {'updating': False, 'finished': True}, True
+    # ── Interval: check both threads ────────────────────────────────────────
+    if trigger_id == 'update-check-interval':
+        barca_alive = hasattr(app, '_update_thread') and app._update_thread.is_alive()
+        opp_alive   = hasattr(app, '_opp_update_thread') and app._opp_update_thread.is_alive()
 
-    return current_status, True
+        new_barca = current_status or {}
+        new_opp   = opp_status or {}
+
+        if new_barca.get('updating') and not barca_alive:
+            clear_events_cache()
+            new_barca = {'updating': False, 'finished': True}
+
+        if new_opp.get('updating') and not opp_alive:
+            new_opp = {'updating': False, 'finished': True}
+
+        interval_disabled = not (barca_alive or opp_alive)
+        return new_barca, new_opp, interval_disabled
+
+    return current_status, opp_status, True
+
 
 
 # =============================================================================
@@ -708,7 +856,7 @@ if __name__ == '__main__':
     print("  CuléVision - FC Barcelona Game Analysis Tool")
     print("  Login System Enabled")
 
-    app.run_server(
+    app.run(
         debug=APP_CONFIG['debug'],
         host=APP_CONFIG['host'],
         port=APP_CONFIG['port']

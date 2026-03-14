@@ -31,6 +31,7 @@ from utils.match_data_adapter import (
 from .shared import (
     HOME_COLOR, AWAY_COLOR, GOLD,
     add_vertical_pitch_background, VPITCH_AXIS,
+    section_header,
 )
 
 
@@ -749,6 +750,8 @@ def _build_stat_bars(home_kpis: dict, away_kpis: dict) -> html.Div:
                      home_kpis.get('shots', 0), away_kpis.get('shots', 0)),
         _tv_stat_bar('Shots on Target',
                      home_kpis.get('shots_on_target', 0), away_kpis.get('shots_on_target', 0)),
+        _tv_stat_bar('Assists',
+                     home_kpis.get('assists', 0), away_kpis.get('assists', 0)),
         _tv_stat_bar('Blocked Shots',
                      home_kpis.get('blocked_shots', 0), away_kpis.get('blocked_shots', 0)),
         _tv_stat_bar('Passes',
@@ -913,9 +916,9 @@ def _build_avg_pos_fig(
         xanchor='left',
         text='⬆ Attacking Direction' if is_home else '⬇ Attacking Direction',
         showarrow=False,
-        font=dict(color='rgba(255,255,255,0.70)', size=11, family='Arial'),
+        font=dict(color='black', size=16, family='Arial'),
         align='left',
-        bgcolor='rgba(0,0,0,0.35)',
+        bgcolor='rgba(255,255,255,0.7)',
         borderpad=3,
     )
 
@@ -925,7 +928,13 @@ def _build_avg_pos_fig(
         if not group:
             continue
 
-        py_arr = [float(p['avg_y']) for p in group]   # pitch width → plotly x
+        # Home y is from home's attacking perspective (y=0 = their right touchline),
+        # which is the mirror of the display's x-axis (x=0 = left touchline), so flip.
+        # Away y is already consistent with the absolute display orientation.
+        if is_home:
+            py_arr = [100.0 - float(p['avg_y']) for p in group]
+        else:
+            py_arr = [float(p['avg_y']) for p in group]
         px_arr = [float(p['avg_x']) for p in group]   # pitch length
         plot_y = px_arr if is_home else [100.0 - v for v in px_arr]
 
@@ -1038,10 +1047,7 @@ def build_overview_tab(events):
         )
 
         lineup_section = html.Div([
-            html.H5("Line-Ups", style={
-                'color': GOLD, 'fontWeight': '700',
-                'marginBottom': '12px', 'letterSpacing': '0.04em',
-            }),
+            section_header('Line-Ups'),
             dbc.Row([
                 dbc.Col(home_panel, lg=3, md=6, xs=12, className='mb-3'),
                 dbc.Col(
@@ -1069,10 +1075,7 @@ def build_overview_tab(events):
         # Fallback: text-based lineups side by side
         lineups = get_starting_lineups(events)
         lineup_section = html.Div([
-            html.H5("Line-Ups", style={
-                'color': GOLD, 'fontWeight': '700',
-                'marginBottom': '12px', 'letterSpacing': '0.04em',
-            }),
+            section_header('Line-Ups'),
             dbc.Row([
                 dbc.Col([
                     html.H6("Starting XI", style={

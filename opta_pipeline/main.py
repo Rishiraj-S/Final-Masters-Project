@@ -12,6 +12,19 @@ import yaml
 import argparse
 from pathlib import Path
 
+try:
+    from tqdm import tqdm as _tqdm
+except ImportError:
+    class _tqdm:  # type: ignore[misc]
+        def __init__(self, it, **kw):
+            self._it = list(it)
+        def __iter__(self):
+            return iter(self._it)
+        def set_description(self, *a, **kw):
+            pass
+        def set_postfix_str(self, *a, **kw):
+            pass
+
 from modules import (
     MatchScraper,
     MatchDownloader,
@@ -264,7 +277,10 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
                 skipped = 0
                 failed_matches = []
 
-                for idx, row in matches_df.iterrows():
+                pbar = _tqdm(list(matches_df.iterrows()), total=total,
+                             desc=f"⬇  {display_name}", unit="match",
+                             ncols=90, leave=True)
+                for i, (_, row) in enumerate(pbar, 1):
                     match_id = row['match_id']
                     match_url = row['url_match']
 
@@ -273,12 +289,13 @@ def process_competition(config: dict, competition_info: dict, args, logger) -> d
                     away = row.get('away', '')
                     match_label = f"{home} vs {away}" if home and away else match_id
 
+                    pbar.set_postfix_str(match_label[:35], refresh=True)
                     write_progress(display_name, "Downloading",
                                    match_label,
                                    comp_idx, comp_total,
-                                   idx + 1, total)
+                                   i, total)
 
-                    logger.info(f"[{idx + 1}/{total}] Match: {match_id}")
+                    logger.info(f"[{i}/{total}] Match: {match_id}")
 
                     success, result_path = downloader.download_match(match_id, match_url, competition_id)
 
@@ -413,9 +430,13 @@ def main():
     # Process each competition
     all_results = []
 
-    for idx, competition_info in enumerate(competitions, 1):
+    comp_pbar = _tqdm(competitions, total=total_competitions,
+                      desc="🏆 Competitions", unit="comp", ncols=90)
+    for idx, competition_info in enumerate(comp_pbar, 1):
         league_name = competition_info['league_name']
         season = competition_info['season']
+
+        comp_pbar.set_description(f"🏆 {league_name.replace('_', ' ')[:30]}")
 
         # Pass index info so process_competition can write progress
         competition_info['_idx'] = idx

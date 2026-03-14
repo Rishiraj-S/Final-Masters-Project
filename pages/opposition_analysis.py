@@ -1,372 +1,304 @@
 """
-CuléVision - Opposition Analysis Page
-Full team profile for opponents based on their matches vs Barcelona.
+CuléVision – Opposition Analysis page
+
+Full opponent scouting page: season results, tactical profile, key players,
+and shot map.  Driven by data produced by opposition_pipeline/.
+
+Selector cascade: Country → Club → Competition
 """
 
+from __future__ import annotations
+
+import pandas as pd
 from dash import html, dcc
-from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
-import plotly.graph_objects as go
+from dash.dependencies import Input, Output
 
 from utils.config import COLORS
-from utils.data_utils import (
-    get_all_events,
-    get_all_teams,
-    get_team_events,
-    get_match_results,
-    CURRENT_SEASON,
-    filter_own_goals,
+from utils.opposition_data_utils import (
+    SEASON,
+    list_available_opponents,
+    get_team_competitions,
+    get_team_country,
+    get_opp_team_events,
+    get_opp_team_matches,
 )
-from pages.match_analysis_tabs.shared import (
-    CHART_LAYOUT_DEFAULTS,
-    CHART_CONFIG,
-    add_pitch_background,
-    PITCH_AXIS_FULL,
-    stat_card,
-    section_card,
-    kpi_row,
-    empty_fig,
-    page_header,
-    render_heatmap_img,
-    GOLD,
-    HOME_COLOR,
-    AWAY_COLOR,
+from pages.opposition_analysis_tabs import (
+    build_summary,
+    build_tactical,
+    build_key_players,
+    build_shot_map,
 )
 
+CURRENT_SEASON = SEASON
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-_ALL_COMPETITIONS = [
-    {'label': 'All Competitions', 'value': 'all'},
-    {'label': 'La Liga',          'value': 'La Liga'},
-    {'label': 'Champions League', 'value': 'Champions League'},
-    {'label': 'Copa del Rey',     'value': 'Copa del Rey'},
-    {'label': 'Spanish Super Cup','value': 'Spanish Super Cup'},
-]
+_DROPDOWN_STYLE = {
+    'backgroundColor': '#1E2139',
+    'color': COLORS['text_primary'],
+    'border': f"1px solid {COLORS['dark_border']}",
+    'borderRadius': '4px',
+}
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _filter_results_for_opponent(team_name, competition):
-    """Get match results filtered to a specific opponent."""
-    results = get_match_results()
-    results = [r for r in results if r['opponent'] == team_name]
-    if competition and competition != 'all':
-        results = [r for r in results if r['competition'] == competition]
-    return results
-
-
-def _h2h_record(results):
-    """Compute H2H summary dict from a filtered results list."""
-    barca_wins = sum(1 for r in results if r['result'] == 'W')
-    draws      = sum(1 for r in results if r['result'] == 'D')
-    opp_wins   = sum(1 for r in results if r['result'] == 'L')
-    barca_gf   = sum(r['barca_goals'] for r in results)
-    barca_ga   = sum(r['opponent_goals'] for r in results)
-    return {
-        'matches':    len(results),
-        'barca_wins': barca_wins,
-        'draws':      draws,
-        'opp_wins':   opp_wins,
-        'barca_gf':   barca_gf,
-        'barca_ga':   barca_ga,
-    }
+def _no_team_selected() -> html.Div:
+    return html.Div(
+        html.P(
+            "Select a country and team above to begin analysing the opposition.",
+            style={
+                'color': COLORS['text_secondary'],
+                'textAlign': 'center',
+                'padding': '4rem 0',
+                'fontSize': '1.1rem',
+            },
+        )
+    )
 
 
-# ---------------------------------------------------------------------------
-# Tab builders
-# ---------------------------------------------------------------------------
-
-def _build_h2h(team_name, competition):
-    results = _filter_results_for_opponent(team_name, competition)
-    if not results:
-        return html.P("No head-to-head data found.", style={'color': COLORS['text_secondary']})
-
-    rec = _h2h_record(results)
-    kpi = kpi_row(rec, [
-        ('matches',    'Matches'),
-        ('barca_wins', 'Barça Wins'),
-        ('draws',      'Draws'),
-        ('opp_wins',   f'{team_name} Wins'),
-        ('barca_gf',   'Barça GF'),
-        ('barca_ga',   'Barça GA'),
-    ], colors={
-        'barca_wins': HOME_COLOR,
-        'opp_wins':   AWAY_COLOR,
-    })
-
-    result_color = {'W': '#1a5c2a', 'D': '#5c4a1a', 'L': '#5c1a1a'}
-    rows = []
-    for r in sorted(results, key=lambda x: x['date'], reverse=True):
-        if r['is_home']:
-            home, away = 'Barcelona', r['opponent']
-            score = f"{r['barca_goals']} – {r['opponent_goals']}"
-        else:
-            home, away = r['opponent'], 'Barcelona'
-            score = f"{r['opponent_goals']} – {r['barca_goals']}"
-        result_badge = dbc.Badge(r['result'],
-                                 color='success' if r['result'] == 'W'
-                                 else ('warning' if r['result'] == 'D' else 'danger'),
-                                 className="me-1")
-        rows.append(html.Tr([
-            html.Td(str(r['date'])[:10]),
-            html.Td(r['competition']),
-            html.Td(home),
-            html.Td(score, style={'fontWeight': 'bold', 'textAlign': 'center'}),
-            html.Td(away),
-            html.Td(result_badge),
-        ], style={'backgroundColor': result_color.get(r['result'], 'transparent')}))
-
-    table = section_card("Match History", html.Table([
-        html.Thead(html.Tr([
-            html.Th("Date"), html.Th("Competition"),
-            html.Th("Home"), html.Th("Score", style={'textAlign': 'center'}),
-            html.Th("Away"), html.Th("Result"),
-        ])),
-        html.Tbody(rows),
-    ], className="table table-dark table-sm"))
-
-    return html.Div([kpi, table])
-
-
-def _build_tactical(team_name, competition):
-    team_ev = get_team_events(team_name, CURRENT_SEASON, competition if competition != 'all' else None)
-    if team_ev.empty:
-        return html.P("No event data available.", style={'color': COLORS['text_secondary']})
-
-    # Most common formation
-    formation_col = 'formation'
-    formation_text = "N/A"
-    if formation_col in team_ev.columns:
-        formations = team_ev[formation_col].dropna()
-        formations = formations[formations != '']
-        if not formations.empty:
-            formation_text = formations.mode().iloc[0]
-
-    formation_badge = dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.P("Most Used Formation", className="mb-1",
-                           style={'color': COLORS['text_secondary'], 'fontSize': '0.85rem'}),
-                    html.H2(formation_text, style={'color': GOLD, 'marginBottom': 0}),
-                ])
-            ])
-        ], md=3)
-    ], className="mb-3")
-
-    # KPI stats
-    passes = team_ev[team_ev['event_type'] == 'Pass']
-    pass_acc = round(
-        len(passes[passes['outcome'] == 1]) / len(passes) * 100, 1
-    ) if len(passes) > 0 else 0.0
-
-    # Possession: pass share relative to all events in those matches
-    all_match_ids = team_ev['match_id'].unique()
-
-    all_match_events = get_all_events(CURRENT_SEASON)
-    if not all_match_events.empty:
-        all_match_events = all_match_events[all_match_events['match_id'].isin(all_match_ids)]
-        all_passes = len(all_match_events[all_match_events['event_type'] == 'Pass'])
-        possession = round(len(passes) / all_passes * 100, 1) if all_passes > 0 else 50.0
-    else:
-        possession = 50.0
-
-    shots = team_ev[team_ev['event_type'].isin(['Miss', 'Saved Shot', 'Goal'])]
-
-    # Pressing proxy: tackles + interceptions in Barcelona's half
-    # In Opta coords, x=0 is the team's own goal, x=100 is opponent's goal.
-    # When the opposition is in Barça's half, their x < 50.
-    defensive_actions = team_ev[
-        team_ev['event_type'].isin(['Tackle', 'Interception']) &
-        (team_ev['x'] < 50)
-    ]
-
-    stat_kpi = kpi_row(
-        {
-            'passes':       len(passes),
-            'pass_acc':     pass_acc,
-            'shots':        len(shots),
-            'possession':   possession,
-            'high_press':   len(defensive_actions),
-        },
+def _no_data_alert() -> dbc.Alert:
+    return dbc.Alert(
         [
-            ('passes',     'Passes'),
-            ('pass_acc',   'Pass Accuracy %'),
-            ('shots',      'Shots vs Barça'),
-            ('possession', 'Possession %'),
-            ('high_press', 'High Press Actions'),
+            html.I(className="fas fa-exclamation-triangle me-2"),
+            "No data found for this selection. Run ",
+            html.Strong("Scout Opponents"),
+            " from the Home page to download opposition data.",
         ],
+        color="warning",
+        className="mt-3",
     )
 
-    # Touch heatmap
-    touch_data = team_ev.dropna(subset=['x', 'y'])
-    if not touch_data.empty:
-        img_src = render_heatmap_img(
-            touch_data['x'].tolist(), touch_data['y'].tolist(),
-            cmap='RdYlBu_r', fallback_color=AWAY_COLOR,
-        )
-        heatmap = section_card(
-            "Touch Heatmap (vs Barça)",
-            html.Img(src=img_src, style={'width': '100%', 'borderRadius': '4px'}),
-        )
-    else:
-        heatmap = section_card("Touch Heatmap", empty_fig("No touch data"))
 
-    return html.Div([formation_badge, stat_kpi, heatmap])
+# ── Layout ────────────────────────────────────────────────────────────────────
 
+def create_opposition_analysis_layout() -> dbc.Container:
+    opponents = list_available_opponents()
 
-def _build_key_players(team_name, competition):
-    team_ev = get_team_events(team_name, CURRENT_SEASON, competition if competition != 'all' else None)
-    if team_ev.empty:
-        return html.P("No player data available.", style={'color': COLORS['text_secondary']})
+    # Unique countries, sorted alphabetically
+    countries = sorted({o.get('country', '') for o in opponents if o.get('country')})
+    country_options = [{'label': c, 'value': c} for c in countries]
 
-    # Goals (excluding own goals)
-    goal_events = team_ev[team_ev['event_type'] == 'Goal']
-    goal_events = filter_own_goals(goal_events)
-    goals_by_player = goal_events.groupby('player_name').size().sort_values(ascending=False).head(5)
-
-    # Passes
-    passes_by_player = (
-        team_ev[team_ev['event_type'] == 'Pass']
-        .groupby('player_name').size()
-        .sort_values(ascending=False)
-        .head(5)
-    )
-
-    # Defensive actions (tackles + interceptions)
-    def_actions = team_ev[team_ev['event_type'].isin(['Tackle', 'Interception'])]
-    def_by_player = def_actions.groupby('player_name').size().sort_values(ascending=False).head(5)
-
-    def _hbar(series, color, title):
-        if series.empty:
-            return section_card(title, empty_fig("No data"))
-        fig = go.Figure(go.Bar(
-            x=series.values,
-            y=series.index,
-            orientation='h',
-            marker_color=color,
-            hovertemplate='%{y}: %{x}<extra></extra>',
-        ))
-        fig.update_layout(**CHART_LAYOUT_DEFAULTS, height=280,
-                          yaxis=dict(autorange='reversed'))
-        return section_card(title, dcc.Graph(figure=fig, config=CHART_CONFIG))
-
-    return html.Div([
-        dbc.Row([
-            dbc.Col(_hbar(goals_by_player,   GOLD,      "Top Scorers"), md=4),
-            dbc.Col(_hbar(passes_by_player,  HOME_COLOR,"Most Passes"), md=4),
-            dbc.Col(_hbar(def_by_player,     AWAY_COLOR,"Defensive Leaders"), md=4),
-        ])
-    ])
-
-
-# ---------------------------------------------------------------------------
-# Layout
-# ---------------------------------------------------------------------------
-
-def create_opposition_analysis_layout():
-    """Create the Opposition Analysis page layout."""
     return dbc.Container([
-        page_header("Opposition Analysis"),
-        html.Hr(),
-
-        # Controls
+        # Page title
         dbc.Row([
-            dbc.Col([
-                html.Label("Competition", style={'color': COLORS['text_secondary'], 'fontSize': '0.85rem'}),
-                dcc.Dropdown(
-                    id='oa-competition-selector',
-                    options=_ALL_COMPETITIONS,
-                    value='all',
-                    clearable=False,
-                    style={'backgroundColor': COLORS['dark_secondary']},
+            dbc.Col(
+                html.H2(
+                    "Opposition Analysis",
+                    style={'color': COLORS['gold'], 'marginBottom': '0.25rem'},
                 )
-            ], md=3),
-            dbc.Col([
-                html.Label("Team", style={'color': COLORS['text_secondary'], 'fontSize': '0.85rem'}),
-                dcc.Dropdown(
-                    id='oa-team-selector',
-                    options=[],
-                    value=None,
-                    clearable=False,
-                    style={'backgroundColor': COLORS['dark_secondary']},
-                )
-            ], md=4),
-        ], className="mb-4"),
-
-        dbc.Tabs(id='oa-tabs', active_tab='oa-tab-h2h', children=[
-            dbc.Tab(label='Head to Head',      tab_id='oa-tab-h2h'),
-            dbc.Tab(label='Tactical Profile',  tab_id='oa-tab-tactical'),
-            dbc.Tab(label='Key Players',       tab_id='oa-tab-keyplayers'),
+            ),
         ], className="mb-3"),
 
-        dcc.Loading(
-            id='oa-loading',
-            type='circle',
-            color=COLORS['gold'],
-            children=html.Div(id='oa-content'),
+        # Selector row — cascade: Country → Club → Competition
+        dbc.Row([
+            dbc.Col([
+                html.Label(
+                    "Country",
+                    style={'color': COLORS['text_secondary'], 'fontSize': '0.85rem'},
+                ),
+                dcc.Dropdown(
+                    id='oa-country-select',
+                    options=country_options,
+                    placeholder="Select country…",
+                    style=_DROPDOWN_STYLE,
+                    clearable=False,
+                ),
+            ], md=3),
+            dbc.Col([
+                html.Label(
+                    "Club",
+                    style={'color': COLORS['text_secondary'], 'fontSize': '0.85rem'},
+                ),
+                dcc.Dropdown(
+                    id='oa-team-select',
+                    options=[],
+                    placeholder="Select country first…",
+                    style=_DROPDOWN_STYLE,
+                    clearable=False,
+                    disabled=True,
+                ),
+            ], md=4),
+            dbc.Col([
+                html.Label(
+                    "Competition",
+                    style={'color': COLORS['text_secondary'], 'fontSize': '0.85rem'},
+                ),
+                dcc.Dropdown(
+                    id='oa-comp-select',
+                    options=[],
+                    placeholder="Select club first…",
+                    style=_DROPDOWN_STYLE,
+                    clearable=False,
+                    disabled=True,
+                ),
+            ], md=3),
+        ], className="mb-4"),
+
+        # Date filter row
+        dbc.Row([
+            dbc.Col([
+                html.Label(
+                    "Show matches up to",
+                    style={'color': COLORS['text_secondary'], 'fontSize': '0.85rem'},
+                ),
+                dcc.DatePickerSingle(
+                    id='oa-date-filter',
+                    placeholder='All dates',
+                    display_format='DD MMM YYYY',
+                    clearable=True,
+                    style={'width': '100%'},
+                    className='dark-date-picker',
+                ),
+            ], md=3),
+        ], className="mb-4"),
+
+        # Analysis tabs
+        dbc.Tabs(
+            [
+                dbc.Tab(label="Season Summary",   tab_id="oa-tab-summary"),
+                dbc.Tab(label="Tactical Profile", tab_id="oa-tab-tactical"),
+                dbc.Tab(label="Key Players",      tab_id="oa-tab-players"),
+                dbc.Tab(label="Shot Map",         tab_id="oa-tab-shots"),
+            ],
+            id='oa-tabs',
+            active_tab='oa-tab-summary',
+            className="mb-4",
         ),
-    ], fluid=True, className="py-4")
+
+        html.Div(id='oa-tab-content'),
+
+    ], fluid=True, style={'paddingTop': '1rem'})
 
 
-# ---------------------------------------------------------------------------
-# Callbacks
-# ---------------------------------------------------------------------------
+# ── Callbacks ─────────────────────────────────────────────────────────────────
 
-def register_opposition_analysis_callbacks(app):
-    """Register all Opposition Analysis callbacks."""
+def register_opposition_analysis_callbacks(app) -> None:
 
     @app.callback(
-        Output('oa-team-selector', 'options'),
-        Output('oa-team-selector', 'value'),
-        Input('oa-competition-selector', 'value'),
+        Output('oa-team-select', 'options'),
+        Output('oa-team-select', 'value'),
+        Output('oa-team-select', 'disabled'),
+        Input('oa-country-select', 'value'),
+        prevent_initial_call=True,
     )
-    def update_oa_team_options(competition):
-        teams = get_all_teams(
-            season=CURRENT_SEASON,
-            competition=competition if competition != 'all' else None,
+    def update_team_options(country: str | None):
+        if not country:
+            return [], None, True
+        opponents = list_available_opponents()
+        teams = sorted(
+            [o['team_name'] for o in opponents if o.get('country') == country]
         )
         options = [{'label': t, 'value': t} for t in teams]
-        value = options[0]['value'] if options else None
-        return options, value
+        return options, None, False
 
     @app.callback(
-        Output('oa-content', 'children'),
-        Input('oa-team-selector', 'value'),
-        Input('oa-competition-selector', 'value'),
-        Input('oa-tabs', 'active_tab'),
+        Output('oa-comp-select', 'options'),
+        Output('oa-comp-select', 'value'),
+        Output('oa-comp-select', 'disabled'),
+        Input('oa-team-select', 'value'),
+        prevent_initial_call=True,
     )
-    def update_oa_content(team_name, competition, active_tab):
-        if not team_name:
-            return html.P("Select a team to view analysis.",
-                          style={'color': COLORS['text_secondary']})
+    def update_comp_options(team: str | None):
+        if not team:
+            return [], None, True
+        comps = get_team_competitions(team)
+        options = [{'label': 'All Competitions', 'value': 'all'}]
+        for c in comps:
+            options.append({'label': c.replace('_', ' '), 'value': c})
+        return options, 'all', False
 
-        results = _filter_results_for_opponent(team_name, competition)
-        rec = _h2h_record(results)
+    @app.callback(
+        Output('oa-tab-content', 'children'),
+        Input('oa-tabs', 'active_tab'),
+        Input('oa-team-select', 'value'),
+        Input('oa-comp-select', 'value'),
+        Input('oa-date-filter', 'date'),
+        prevent_initial_call=False,
+    )
+    def render_tab(active_tab: str, team: str | None, comp_key: str | None,
+                   date_cutoff: str | None):
+        if not team:
+            return _no_team_selected()
 
-        # Header card with H2H summary
-        header = dbc.Card([
-            dbc.CardBody(dbc.Row([
-                dbc.Col([
-                    html.H3(team_name, style={'color': COLORS['gold'], 'marginBottom': '4px'}),
-                    html.P(
-                        f"vs Barcelona  |  {rec['barca_wins']}W – {rec['draws']}D – {rec['opp_wins']}L  "
-                        f"|  Barça {rec['barca_gf']} – {rec['barca_ga']} opp",
-                        style={'color': COLORS['text_secondary'], 'marginBottom': 0},
-                    ),
-                ])
-            ]))
-        ], className="mb-3")
+        if not comp_key:
+            return html.P(
+                "Select a competition to continue.",
+                style={'color': COLORS['text_secondary'], 'padding': '2rem 0'},
+            )
 
-        if active_tab == 'oa-tab-h2h':
-            tab_content = _build_h2h(team_name, competition)
-        elif active_tab == 'oa-tab-tactical':
-            tab_content = _build_tactical(team_name, competition)
-        elif active_tab == 'oa-tab-keyplayers':
-            tab_content = _build_key_players(team_name, competition)
+        country   = get_team_country(team)
+        all_comps = get_team_competitions(team)
+
+        # ── Load team events ─────────────────────────────────────────────────
+        if comp_key == 'all':
+            frames = [
+                get_opp_team_events(team, country, c, CURRENT_SEASON)
+                for c in all_comps
+            ]
+            non_empty = [f for f in frames if not f.empty]
+            team_ev = (
+                pd.concat(non_empty, ignore_index=True)
+                if non_empty else pd.DataFrame()
+            )
         else:
-            tab_content = html.Div()
+            team_ev = get_opp_team_events(team, country, comp_key, CURRENT_SEASON)
 
-        return html.Div([header, tab_content])
+        # ── Apply date filter to events ───────────────────────────────────────
+        if date_cutoff and not team_ev.empty and 'match_date' in team_ev.columns:
+            team_ev = team_ev[team_ev['match_date'].astype(str).str[:10] <= date_cutoff[:10]]
+
+        # ── Match count ──────────────────────────────────────────────────────
+        if comp_key == 'all':
+            all_results: list[dict] = []
+            for c in all_comps:
+                all_results.extend(
+                    get_opp_team_matches(team, country, c, CURRENT_SEASON)
+                )
+        else:
+            all_results = get_opp_team_matches(team, country, comp_key, CURRENT_SEASON)
+
+        # ── Apply date filter to results ──────────────────────────────────────
+        if date_cutoff:
+            cutoff = date_cutoff[:10]
+            all_results = [r for r in all_results if r.get('date', '') <= cutoff]
+
+        n_matches = len(all_results)
+
+        # ── Guard: no data at all ────────────────────────────────────────────
+        if n_matches == 0 and team_ev.empty:
+            return _no_data_alert()
+
+        # ── Route to tab builder ─────────────────────────────────────────────
+        if active_tab == 'oa-tab-summary':
+            if comp_key == 'all':
+                sections = []
+                for c in all_comps:
+                    comp_section = build_summary(team, country, c, date_cutoff)
+                    sections.append(html.Div([
+                        html.H5(
+                            c.replace('_', ' '),
+                            style={
+                                'color': COLORS['gold'],
+                                'marginTop': '1.5rem',
+                                'marginBottom': '0.5rem',
+                            },
+                        ),
+                        comp_section,
+                    ]))
+                content = html.Div(sections) if sections else _no_data_alert()
+            else:
+                content = build_summary(team, country, comp_key, date_cutoff)
+
+        elif active_tab == 'oa-tab-tactical':
+            content = build_tactical(team_ev, team, country, comp_key)
+
+        elif active_tab == 'oa-tab-players':
+            content = build_key_players(team_ev)
+
+        elif active_tab == 'oa-tab-shots':
+            content = build_shot_map(team_ev)
+
+        else:
+            content = html.P("Unknown tab.", style={'color': COLORS['text_secondary']})
+
+        return content

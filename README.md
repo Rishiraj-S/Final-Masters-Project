@@ -13,11 +13,11 @@ CuléVision is a professional football analytics dashboard built specifically fo
 
 ## Key Features
 
-- **Match Analysis**: Automated post-match breakdown across six tactical phases — Overview, Attack, Defence, Attacking Transition, Defensive Transition, and Set Pieces
-- **Rival Analysis**: Comprehensive opposition scouting and SWOT analysis
+- **Match Analysis**: Automated post-match breakdown across five tactical phases — Overview, Possession, Transition, Recovery, and Set Pieces
 - **Team Analysis**: KPIs defining Barcelona's playing style and game model across all competitions
 - **Player Analysis**: Match-by-match individual statistics and performance metrics
-- **Data Pipeline**: Fully automated Opta data ingestion (scrape → download → transform → store)
+- **Data Pipeline (Barca)**: Fully automated Opta data ingestion for Barcelona (scrape → download → transform → store)
+- **Data Pipeline (Opposition)**: Separate pipeline to collect match event data for all teams Barcelona faced, organised by country / team / competition
 - **Live Update Overlay**: UI feedback with real-time pipeline progress while databases are being updated
 
 ---
@@ -34,22 +34,17 @@ CuléVision is a professional football analytics dashboard built specifically fo
 
 1. **Clone or download this repository**
 
-2. **Install app dependencies**:
+2. **Install all dependencies**:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **Install pipeline dependencies** (if running the data pipeline):
-```bash
-pip install -r opta_pipeline/requirements.txt
-```
-
-4. **Run the application**:
+3. **Run the application**:
 ```bash
 python app.py
 ```
 
-5. **Access the dashboard**:
+4. **Access the dashboard**:
    - Open your browser and navigate to: `http://localhost:8050`
    - Log in with `Guest / guest` or `Rishi / admin`
 
@@ -60,7 +55,7 @@ python app.py
 ```
 CuléVision/
 ├── app.py                          # Main Dash application entry point
-├── requirements.txt                # App Python dependencies
+├── requirements.txt                # Python dependencies
 ├── STYLING.md                      # UI/UX style guide
 ├── LICENSE
 │
@@ -69,15 +64,20 @@ CuléVision/
 │   ├── match_analysis.py
 │   ├── player_analysis.py
 │   ├── team_analysis.py
-│   ├── opposition_analysis.py
-│   └── match_analysis_tabs/        # Sub-tabs for Match Analysis page
-│       ├── shared.py
-│       ├── overview.py
-│       ├── attack.py
-│       ├── defence.py
-│       ├── attacking_transition.py
-│       ├── defensive_transition.py
-│       └── set_pieces.py
+│   ├── match_analysis_tabs/        # Sub-tabs for Match Analysis page
+│   │   ├── shared.py
+│   │   ├── overview.py
+│   │   ├── possession.py
+│   │   ├── transition.py
+│   │   ├── recovery.py
+│   │   ├── finishing.py
+│   │   └── set_pieces.py
+│   └── opposition_analysis_tabs/   # Opposition Analysis page (in progress)
+│       ├── helpers.py
+│       ├── summary.py
+│       ├── tactical.py
+│       ├── key_players.py
+│       └── shot_map.py
 │
 ├── utils/                          # Shared utility modules
 │   ├── config.py
@@ -85,10 +85,14 @@ CuléVision/
 │   ├── logos.py
 │   └── match_data_adapter.py
 │
-├── opta_pipeline/                  # Standalone data ingestion pipeline
+├── page_utils/                     # Analytical helper modules shared across tabs
+│   ├── pitch_zones.py
+│   ├── possession_utils.py
+│   └── time_utils.py
+│
+├── opta_pipeline/                  # Barcelona data ingestion pipeline
 │   ├── main.py
 │   ├── config.yaml
-│   ├── requirements.txt
 │   ├── modules/
 │   │   ├── scraper.py
 │   │   ├── downloader.py
@@ -98,18 +102,28 @@ CuléVision/
 │   │       ├── match_transformer.py
 │   │       ├── matchevent_transformer.py
 │   │       └── lineup_transformer.py
-│   ├── mappings/
-│   │   ├── opta_event_types.csv
-│   │   └── opta_qualifier_types.csv
-│   ├── data/
-│   │   └── result/
-│   │       └── {League}/{Season}/
-│   │           ├── match/
-│   │           ├── match_event/
-│   │           └── lineup/
 │   └── logs/
 │       ├── pipeline.log
 │       └── progress.json
+│
+├── opposition_pipeline/            # Opposition scouting data pipeline
+│   ├── main.py
+│   ├── config.yaml
+│   └── logs/
+│
+├── mappings/                       # Opta reference data (shared by both pipelines)
+│   ├── opta_event_types.csv
+│   └── opta_qualifier_types.csv
+│
+├── data/                           # All processed Parquet data
+│   └── barcelona/
+│       └── result/
+│           └── {League}/{Season}/
+│               ├── match/
+│               ├── match_event/
+│               └── lineup/
+│
+├── tests/                          # Unit tests for page_utils modules
 │
 └── assets/                         # Static assets served by Dash
     ├── style.css
@@ -134,11 +148,11 @@ The main entry point for the entire application.
   - Admin clicks "Update Databases" → spawns `opta_pipeline/main.py` as a background subprocess via `threading.Thread`
   - A `dcc.Interval` polls every 2 seconds; reads `opta_pipeline/logs/progress.json` to display live stage/competition/match progress in a full-screen overlay
   - On completion, clears the in-process data cache (`clear_events_cache`) and forces a full page reload so fresh parquet data is served
-- **Navbar**: Sticky top bar with brand gradient, nav links (Home, Match Analysis, Player Analysis, Team Analysis, Opposition Analysis), and a logout button
+- **Navbar**: Sticky top bar with brand gradient, nav links (Home, Match Analysis, Player Analysis, Team Analysis), and a logout button
 - **Page callbacks**: Registers all page-level Dash callbacks by calling each page module's `register_*_callbacks(app)` function
 
 ### `requirements.txt`
-Python dependencies for the Dash application layer (Dash, Plotly, pandas, mplsoccer, dash-bootstrap-components, etc.).
+Python dependencies for the entire project (Dash, Plotly, pandas, mplsoccer, dash-bootstrap-components, selenium, selenium-wire, etc.).
 
 ### `STYLING.md`
 UI/UX style guide documenting the design system: colour tokens, typography, component patterns, and spacing conventions used across the dashboard.
@@ -156,13 +170,14 @@ Each page module exports two functions: `create_*_layout()` which returns the Da
 - Shows a per-competition summary table (La Liga, Champions League, Copa del Rey, Spanish Super Cup) with W/D/L, goals, possession, pass accuracy, shot accuracy, and top scorer
 - Renders a scrollable results table of all matches with result badges (W/D/L), date, competition, opponent, and score
 - Includes a rolling cumulative points trendline chart across the season
-- Admin-only: "Update Databases" button triggers the data pipeline (see `app.py`)
+- Admin-only: "Update Databases" button triggers the Barcelona data pipeline (see `app.py`)
 
 ### `pages/match_analysis.py`
 **Post-Match Analysis Page**
 
 - Two dropdowns at the top: competition selector and match selector (filtered by competition)
-- On match selection, renders a tabbed layout with six analysis tabs (see `match_analysis_tabs/` below)
+- Score headline rendered via a dedicated callback (`pma-score-headline`)
+- On match selection, renders a tabbed layout with five analysis tabs (see `match_analysis_tabs/` below)
 - Passes the selected `match_id` to each tab's layout builder so all tabs read from the same match's event data
 
 ### `pages/player_analysis.py`
@@ -180,14 +195,6 @@ Each page module exports two functions: `create_*_layout()` which returns the Da
 - Aggregate Barcelona team KPIs: shots, shots on target, passes, pass accuracy, possession, corners, fouls, cards, tackles, interceptions, clean sheets
 - Comparison views across competitions
 
-### `pages/opposition_analysis.py`
-**Opposition / Rival Analysis Page**
-
-- Opponent selector (all non-Barcelona teams in the dataset)
-- Season and competition filters
-- Displays the opponent's match events and aggregated stats from their games involving Barcelona
-- Designed for pre-match scouting reports
-
 ---
 
 ## Match Analysis Tabs (`pages/match_analysis_tabs/`)
@@ -195,51 +202,79 @@ Each page module exports two functions: `create_*_layout()` which returns the Da
 These sub-modules are loaded on demand when a match is selected in Match Analysis. All tabs share common constants and pitch-drawing utilities from `shared.py`.
 
 ### `shared.py`
-Shared constants, colour tokens (`HOME_COLOR`, `AWAY_COLOR`, `GOLD`), and reusable pitch-drawing helpers used by every other tab. Configures Matplotlib to use the `Agg` (non-interactive server-side) backend. Provides functions to render `mplsoccer` pitches as base64-encoded PNG images embedded in Dash `html.Img` elements.
+Shared constants, colour tokens (`HOME_COLOR`, `AWAY_COLOR`, `GOLD`), and reusable pitch-drawing helpers used by every other tab. Configures Matplotlib to use the `Agg` (non-interactive server-side) backend. Provides functions to render `mplsoccer` pitches as base64-encoded PNG images embedded in Dash `html.Img` elements via Plotly `layout_image`.
 
 ### `overview.py`
 **Tab 1 — Match Overview**
 
-- Renders a horizontal `mplsoccer` pitch with both starting XIs positioned according to their formation and formation slot
-- Uses `pitch.scatter()` to draw circular player markers; home team on the left, away team on the right
-- Overlays jersey numbers and player names using Matplotlib text with path-effect outlines for readability
-- Captain badge displayed next to the captain's name
+- Renders a horizontal `mplsoccer` pitch with both starting XIs positioned according to their formation and slot using `pitch.scatter()` for circular markers; home team on the left, away team on the right
+- Overlays jersey numbers and player names with path-effect outlines for readability; captain badge displayed next to the captain
 - Substitutes panels flank the pitch on either side, showing player name, jersey number, and the minute of substitution
 - TV-style horizontal bar comparisons below the pitch for key stats: possession, shots, shots on target, passes, pass accuracy, corners, fouls, yellow/red cards
 
-### `attack.py`
-**Tab 2 — Attack Phase**
+### `possession.py`
+**Tab 2 — Possession Phase**
 
-- Shot map on an mplsoccer pitch: goals, saved shots, and misses plotted by pitch coordinates (x, y)
-- Shot event table with player, minute, shot type (head/foot), zone, and outcome
-- Barcelona attacking KPIs: total shots, shots on target, shot accuracy, goals, big chances
+- Three labelled sections: **Build Up**, **Positional Play**, and **Finishing**
+- Pass maps and progressive carry sequences plotted on an mplsoccer pitch per phase
+- Possession-phase KPIs: pass accuracy by zone, progressive passes, ball recoveries, PPDA, and chance creation metrics
 
-### `defence.py`
-**Tab 3 — Defence Phase**
+### `transition.py`
+**Tab 3 — Transition**
 
-- Defensive action map: tackles, interceptions, clearances, and blocks plotted on pitch
-- Defensive KPIs: tackles won, interceptions, blocks, clearances, fouls conceded, cards
+- Attacking and defensive transition events mapped on pitch
+- Identifies fast-break sequences using Opta `Fast break` qualifier and event-sequence inference
+- KPIs: counter-attacks initiated, counters resulting in shots/goals, pressing intensity (PPDA), ball recovery locations
 
-### `attacking_transition.py`
-**Tab 4 — Attacking Transition**
+### `recovery.py`
+**Tab 4 — Recovery Phase**
 
-- Counter-attack and fast-break event map
-- Identifies transitions using Opta qualifier `Fast break` and sequence analysis (defensive recovery → rapid forward progression)
-- KPIs: number of counter-attacks initiated, counters resulting in shots, counters resulting in goals
+- Three labelled sections: **High Block**, **Mid Block**, and **Low Block**
+- Defensive action maps per block type: tackles, interceptions, clearances, and blocks plotted by pitch zone
+- Block-specific KPIs: defensive actions per zone, defensive duels won, fouls conceded
 
-### `defensive_transition.py`
-**Tab 5 — Defensive Transition**
+### `finishing.py`
+**Tab 5 — Finishing**
 
-- Tracks pressing actions and ball recoveries immediately after possession loss
-- PPDA (passes allowed per defensive action) as a pressing intensity metric
-- Recovery map showing where Barcelona won the ball back after losing it
+- Shot map on an mplsoccer pitch: goals, saved shots, and misses plotted by pitch coordinates
+- Shot event table with player, minute, shot type, zone, and outcome
+- Attacking KPIs: total shots, shots on target, shot accuracy, goals, big chances created/converted
 
 ### `set_pieces.py`
 **Tab 6 — Set Pieces**
 
-- Corners, free kicks, and throw-ins plotted on pitch with delivery endpoints
-- Separates attacking and defensive set piece phases
-- Outcome breakdown: goals, shots, clearances from set pieces
+- Four labelled sections: **Corners**, **Free Kicks**, **Throw-ins**, and **Penalties**
+- Delivery maps showing origin and endpoint of each set piece delivery
+- Outcome breakdown: goals, shots, clearances from attacking set pieces; defensive actions from defensive set pieces
+
+---
+
+## Opposition Analysis Tabs (`pages/opposition_analysis_tabs/`) *(In Progress)*
+
+Sub-modules for the forthcoming Opposition Analysis page, which will allow scouting of any team Barcelona faced this season using the opposition pipeline data.
+
+| Module | Description |
+|---|---|
+| `helpers.py` | Shared data loaders and formatting utilities for opposition tabs |
+| `summary.py` | Season summary: W/D/L, goals, key KPIs for the selected opponent |
+| `tactical.py` | Tactical shape, formation usage, and pressing metrics |
+| `key_players.py` | Top performers by goal contributions, pass volume, and defensive actions |
+| `shot_map.py` | Shot map for the selected opponent across selected matches |
+
+---
+
+## Page Utils (`page_utils/`)
+
+Analytical helper modules shared across multiple tab files. Coordinate convention: `x=0` is the performing team's own goal, `x=100` is the opponent's goal.
+
+### `pitch_zones.py`
+Pitch zone classification utilities. Divides the pitch into named zones (defensive third, middle third, final third; left/central/right channels) and provides functions to assign each event's x/y coordinates to a zone label.
+
+### `possession_utils.py`
+Possession sequence analysis. Chains consecutive same-team events into possession sequences, classifies each sequence by phase (build-up, positional play, finishing), and computes sequence-level metrics (length, progression, outcome).
+
+### `time_utils.py`
+Match time helpers. Normalises Opta minute/period fields, splits matches into halves, and provides binned time-window aggregators (e.g. events per 15-minute block).
 
 ---
 
@@ -251,10 +286,9 @@ Central configuration constants for the Dash app layer.
 - `COLORS` dict: all colour tokens used throughout the UI (primary blue `#004D98`, garnet `#A50044`, gold `#EDBB00`, dark theme backgrounds and borders, text colours)
 - `APP_CONFIG` dict: app title, debug flag, host `0.0.0.0`, port `8050`
 - `NAV_LINKS` list: ordered navigation links for the navbar
-- `FEATURES` list: feature card definitions shown on the home page
 
 ### `data_utils.py`
-Primary data access layer — all pages and tabs load data exclusively through these functions. Reads Parquet files from `opta_pipeline/data/result/`.
+Primary data access layer — all pages and tabs load data exclusively through these functions. Reads Parquet files from `data/barcelona/result/`.
 
 **Key responsibilities:**
 - `COMPETITIONS` dict maps short keys (`laliga`, `ucl`, `copa`, `supercup`) to folder names on disk
@@ -286,11 +320,11 @@ Maps team and competition names (as they appear in Opta data) to SVG asset filen
 
 - `TEAM_LOGOS` dict: ~60 team name → SVG filename mappings covering La Liga, Champions League, Copa del Rey, and Super Cup opponents
 - `TOURNAMENT_LOGOS` dict: competition display name → SVG filename
-- `get_team_logo_path(team_name)` / `get_tournament_logo_path(competition)`: return Dash-relative `/assets/logos/...` paths
+- `get_team_logo_path(team_name)` / `get_tournament_logo_path(competition)`: return Dash-relative `assets/...` paths
 - `team_logo_img(team_name, size)` / `tournament_logo_img(competition, size)`: return `html.Img` elements ready to embed in layouts
 
 ### `match_data_adapter.py`
-Schema-agnostic interface layer between raw Opta event DataFrames and the six match analysis tab modules.
+Schema-agnostic interface layer between raw Opta event DataFrames and the match analysis tab modules.
 
 - Decomposes match events into tactical phases: organised possession, attacking/defensive transitions, set pieces, and contested phases
 - Uses Opta qualifier flags (e.g. `Fast break`, `Set piece`, `From corner`) where available; falls back to event sequence inference when columns are absent
@@ -302,7 +336,7 @@ Schema-agnostic interface layer between raw Opta event DataFrames and the six ma
 
 ## Opta Pipeline (`opta_pipeline/`)
 
-A standalone automated pipeline for collecting and processing Opta match data. Can be run independently via CLI or triggered from the app UI.
+A standalone automated pipeline for collecting and processing Opta match data for **FC Barcelona**. Can be run independently via CLI or triggered from the app UI by an admin user.
 
 ### `main.py`
 Multi-competition pipeline orchestrator.
@@ -317,44 +351,41 @@ Multi-competition pipeline orchestrator.
 ### `config.yaml`
 Pipeline configuration file.
 
-- **Team**: target team name (`Barcelona`) and default results URL
-- **Competitions**: list of four competitions, each with Opta competition ID, `league_name` (folder name), season string, and Scoresway results URL
-  - `Spain_Copa_del_Rey`
+- **Competitions**: four competitions, each with `league_name` (folder name), season string, and Scoresway results URL
   - `Spain_Primera_Division`
+  - `Spain_Copa_del_Rey`
   - `Spain_Super_Cup`
   - `UEFA_Champions_League`
 - **Scraper settings**: page load timeout, cookie wait, scroll delay
 - **Downloader settings**: Selenium Wire method, per-match timeout (45 s), sleep between matches (1.5 s), `skip_existing: true` to avoid re-downloading
-- **Paths**: relative paths for `data/`, `mappings/`, `data/target/`, `data/result/`, `logs/`
+- **Paths**: relative paths pointing to `../data/barcelona/target/`, `../data/barcelona/result/`, `../mappings/`, `logs/`
 - **Output**: Parquet format, Snappy compression, PyArrow engine; filename pattern `{date}_{home_code}_vs_{away_code}_{match_id}`
-- **Logging**: level `INFO`
 
 ### `modules/scraper.py` — `MatchScraper`
 Scrapes match URLs from Scoresway results pages using Selenium.
 
 - Launches a headless Chrome browser and navigates to the competition results URL
-- Handles cookie consent banners by clicking accept buttons
-- Paginates through all results pages using the Opta widget's "Previous" pagination buttons
-- Parses each results row with BeautifulSoup to extract: `match_id`, `date`, `home`, `away`, `url_match`
-- Returns a DataFrame of match URL records; new results are merged with the existing `matches_urls.csv` (new data wins on duplicates)
+- Handles cookie consent banners automatically
+- Paginates through all results using the Opta widget's "Previous" buttons
+- Parses each row with BeautifulSoup to extract: `match_id`, `date`, `home`, `away`, `url_match`
+- Returns a DataFrame of match records; new results are merged with the cached `matches_urls.csv` (new data wins on duplicates)
 
 ### `modules/downloader.py` — `MatchDownloader`
 Downloads raw Opta JSON data for each match using Selenium Wire.
 
-- Opens a headless Chrome browser instrumented with Selenium Wire to intercept network traffic
-- Navigates to the match centre URL; captures XHR responses from the PerformFeeds API containing `matcheventfeed` and `lineups` JSON payloads
-- Validates each captured JSON before saving (checks for non-empty, parseable content); retries up to 3 times on failure
-- Saves raw JSON files to `data/target/{league}/{season}/matchdata/` with organised filenames
-- Skips matches where a valid JSON file already exists (`skip_existing: true`)
+- Opens a headless Chrome browser instrumented with Selenium Wire to intercept XHR traffic
+- Navigates to the match centre URL; captures PerformFeeds API responses for `matcheventfeed` and `lineups` payloads
+- Validates each JSON before saving; retries up to 3 times with backoff on failure
+- Saves raw JSON files to `data/barcelona/target/{league}/{season}/matchdata/`
+- Skips matches where a valid JSON already exists (`skip_existing: true`)
 
 ### `modules/utils.py`
 Shared utility functions used by both the scraper and downloader:
 
 - URL normalisation and deduplication
-- JSON body decoding (handles gzip, brotli, identity encodings)
 - JSONP unwrapping (`extract_json_from_jsonp`)
-- Match ID extraction from JSON payloads
-- Path helpers: `get_organized_path_reversed(result_dir, league, season, filename)`
+- Match ID extraction from JSON payloads and URLs
+- Path helpers: `get_organized_path_reversed(base_dir, league, season, filename, subdirectory)`
 - Unique file path generation to avoid collisions
 
 ### `modules/transformers/`
@@ -364,63 +395,123 @@ All transformers inherit from `BaseTransformer` and implement a `transform_all()
 #### `base_transformer.py` — `BaseTransformer`
 Abstract base class providing:
 - Config and logger injection
-- Common file-reading helpers (`read_json`, JSON/JSONP detection)
-- Path resolution utilities shared by all concrete transformers
+- JSON/JSONP file reading helpers
+- Atomic Parquet/CSV save via temp-file-then-rename
+- Skip logic: `_output_exists(match_id, subdirectory)` checks whether a result parquet already exists before reprocessing
 
 #### `match_transformer.py` — `MatchTransformer`
 Transforms raw match JSON into `match/` Parquet files.
 
 - Extracts match metadata: `match_id`, `match_date`, `match_time`, `home_team`, `away_team`, `venue`, `competition`, `season`, `week`
-- One row per match; output schema is flat with all match-level fields
-- Output path: `data/result/{league}/{season}/match/{filename}.parquet`
+- One row per match; output: `data/barcelona/result/{league}/{season}/match/{filename}.parquet`
 
 #### `matchevent_transformer.py` — `MatchEventTransformer`
 Transforms raw matchevent JSON into `match_event/` Parquet files — the primary data source for all analysis.
 
-- Parses every event in the Opta feed: ~250 columns including match metadata, event core fields, player/team fields, x/y pitch coordinates, and ~200 qualifier flag columns
-- Qualifier columns are pivoted from a nested list of `{typeId, value}` objects into named columns (e.g. `Long ball`, `Cross`, `Big Chance`, `Pass End X`, `Goal Mouth Z Coordinate`)
-- Qualifier type names are looked up from `mappings/opta_qualifier_types.csv`
-- Event type names are looked up from `mappings/opta_event_types.csv`
-- Deduplicates events and converts dtypes for Parquet efficiency
-- Output path: `data/result/{league}/{season}/match_event/{filename}.parquet`
+- Parses every event: ~250 columns including match metadata, event core fields, player/team fields, x/y pitch coordinates, and ~200 qualifier flag columns
+- Qualifier columns are pivoted from nested `{typeId, value}` objects into named columns (e.g. `Long ball`, `Cross`, `Big Chance`, `Pass End X`)
+- Qualifier and event type names looked up from `mappings/` CSVs
+- Output: `data/barcelona/result/{league}/{season}/match_event/{filename}.parquet`
 
 #### `lineup_transformer.py` — `LineupTransformer`
-Transforms lineup data (Opta `typeId=34` qualifier blocks) from matchevent JSON into `lineup/` Parquet files.
+Transforms lineup data (Opta `typeId=34` qualifier blocks) into `lineup/` Parquet files.
 
 - Reads from already-downloaded `matchdata/*.json` files (no additional downloads needed)
-- Extracts per-player lineup records: `match_id`, `team_position` (home/away), `formation`, `player_name`, `jersey_number`, `formation_slot` (1–11, or 0 for subs), `role` (Start/Sub), `position`, `is_captain`, `sub_on_minute`
-- One row per player per team per match
-- Output path: `data/result/{league}/{season}/lineup/{filename}.parquet`
+- Extracts per-player records: `match_id`, `team_position`, `formation`, `player_name`, `jersey_number`, `formation_slot` (1–11, or 0 for subs), `role` (Start/Sub), `position`, `is_captain`, `sub_on_minute`
+- Output: `data/barcelona/result/{league}/{season}/lineup/{filename}.parquet`
 
-### `mappings/`
+---
 
-Reference CSV files used by the transformers to decode numeric Opta type IDs into human-readable strings.
+## Opposition Pipeline (`opposition_pipeline/`)
+
+A separate pipeline that downloads match event data for **every team Barcelona faced in 2025-2026**, covering all competitions those opponents play in. Data is organised by country / team / competition — independent from the Barcelona pipeline.
+
+### `main.py`
+Opposition data pipeline orchestrator.
+
+- Loads `config.yaml` to read the full opponent list and competition URLs
+- **Phase 1 (Scrape once)**: Scrapes each competition's Scoresway results page once and caches it to `logs/scrape_cache/{competition}_matches.csv`. Multiple opponents in the same competition share the same cached scrape
+- **Phase 2 (Filter & process)**: For each `(opponent × competition)` pair, filters the cached DataFrame using accent-insensitive team name matching, then downloads and transforms all matching matches
+- Reuses all modules from `opta_pipeline/modules/` directly (no code duplication)
+- Builds a per-`(team × competition)` config dict to route output to `data/opposition/{country}/{team}/{competition}/2025-2026/`
+- CLI flags: `--team <name>`, `--competition <name>`, `--transform-only`, `--skip-download`, `--force-rescrape`
+- Can also be triggered from the app UI by an admin user via the **Scout Opponents** tool on the Home page
+
+**CLI usage:**
+
+```bash
+# Full pipeline — all opponents, all competitions
+python opposition_pipeline/main.py
+
+# Single team or single competition
+python opposition_pipeline/main.py --team "Chelsea"
+python opposition_pipeline/main.py --competition "England_Premier_League"
+
+# Force re-scrape the Scoresway pages (otherwise uses cache)
+python opposition_pipeline/main.py --force-rescrape
+
+# Re-transform existing JSONs without re-downloading
+python opposition_pipeline/main.py --transform-only
+```
+
+### `config.yaml`
+Opposition pipeline configuration.
+
+- **Season**: `2025-2026`
+- **Competitions**: 21 competition entries with Scoresway results URLs spanning Spain, England, Germany, Belgium, France, Greece, Denmark, Czech Republic, and three UEFA competitions (UCL, UEL, UECL)
+- **Opponents**: ~30 opponents, each with `team_name`, `country`, optional `search_name` (used when Scoresway's display name differs), and a list of competition keys
+- **Paths**: `result_dir: "../data/opposition"`, `target_dir: "../data/opposition/target"`
+- Scraper/downloader/output settings mirror the Barcelona pipeline
+
+**Opposition data output structure:**
+```
+data/opposition/
+└── {Country}/
+    └── {Team_Name}/
+        └── {Competition}/
+            └── 2025-2026/
+                ├── match_event/   # One .parquet per match
+                ├── match/
+                └── lineup/
+```
+
+---
+
+## Mappings (`mappings/`)
+
+Reference CSV files at the project root, shared by both the Barcelona and opposition pipelines.
 
 | File | Description |
 |---|---|
 | `opta_event_types.csv` | Maps `event_type_id` integers to event type names (e.g. `1 → Pass`, `16 → Goal`) |
 | `opta_qualifier_types.csv` | Maps `qualifier_type_id` integers to qualifier names (e.g. `72 → Cross`, `233 → Big Chance`) |
 
-> **Note**: The string `"Team setp up"` (for `typeId=34`) is intentionally kept as-is in both the CSV and `matchevent_transformer.py` to preserve consistency with the raw Opta data.
+> **Note**: The string `"Team setp up"` (for `typeId=34`) is intentionally kept as-is in both the CSV and `matchevent_transformer.py` to preserve consistency with the raw Opta feed.
 
-### `data/result/`
-Output directory for all processed data, organised by league and season:
+---
+
+## Data (`data/`)
+
+All processed Parquet data lives here, separated by pipeline:
 
 ```
-data/result/
-└── {League_Name}/
-    └── {YYYY-YYYY}/
-        ├── match/            # One .parquet per match — match metadata
-        ├── match_event/      # One .parquet per match — all ~250-column event rows
-        ├── lineup/           # One .parquet per match — per-player lineup rows
-        └── matches_urls.csv  # Scraped match URL index for this competition/season
+data/
+├── barcelona/
+│   └── result/
+│       └── {League}/{Season}/
+│           ├── match/            # One .parquet per match — match metadata
+│           ├── match_event/      # One .parquet per match — all ~250-column event rows
+│           ├── lineup/           # One .parquet per match — per-player lineup rows
+│           └── matches_urls.csv  # Scraped match URL index
+│
+└── opposition/
+    └── {Country}/{Team}/{Competition}/{Season}/
+        ├── match/
+        ├── match_event/
+        └── lineup/
 ```
 
-Supported leagues: `Spain_Primera_Division` (from 2008–2009), `UEFA_Champions_League`, `Spain_Copa_del_Rey`, `Spain_Super_Cup`.
-
-### `logs/`
-- `pipeline.log`: Full pipeline run log with timestamps, stage names, match counts, and error traces
-- `progress.json`: Written during pipeline execution; read by `app.py` every 2 seconds to display live progress in the update overlay. Deleted on clean startup and on completion
+**Barcelona competitions on disk**: `Spain_Primera_Division`, `UEFA_Champions_League`, `Spain_Copa_del_Rey`, `Spain_Super_Cup`
 
 ---
 
@@ -429,19 +520,19 @@ Supported leagues: `Spain_Primera_Division` (from 2008–2009), `UEFA_Champions_
 Static files served directly by Dash at `/assets/...`.
 
 ### `style.css`
-Global CSS overrides and utility classes layered on top of Bootstrap dark theme styles. Defines layout helpers, custom scrollbar styles, and component-specific overrides.
+Global CSS overrides and utility classes layered on top of Bootstrap dark theme. Defines layout helpers, custom scrollbar styles, and component-specific overrides.
 
 ### `fonts/`
 - `Barcelona FC 23-24 Tipografstore.otf` — Official FC Barcelona typeface used for brand headings
 
 ### `logos/team/`
-SVG team badge files (~80 teams) covering all La Liga clubs, Champions League opponents, Copa del Rey, and Super Cup participants. Filenames follow the pattern `{Club-Name}-v{year}.svg`.
+SVG team badge files (~80 teams) covering all La Liga clubs, Champions League opponents, Copa del Rey, and Super Cup participants.
 
 ### `logos/tournament/`
 SVG competition logos for La Liga, UEFA Champions League, Copa del Rey, and Spanish Super Cup.
 
 ### `players/`
-`.webp` player portrait images for the current Barcelona squad (Hansi Flick coaching staff + 25 first-team players), named `{jersey_number}-{player_name}.webp`.
+`.webp` player portrait images for the current Barcelona squad, named `{jersey_number}-{player_name}.webp`.
 
 ---
 
@@ -465,15 +556,18 @@ The application uses FC Barcelona's official color scheme on a dark background:
 
 ## Current Status
 
-**Version**: 0.1.0
+**Version**: 0.2.0
 
-- Data pipeline fully operational across four competitions
-- Match Analysis page (all 6 tabs), Home, Player Analysis, Team Analysis, and Opposition Analysis pages implemented
+- Barcelona data pipeline fully operational across four competitions (La Liga, UCL, Copa del Rey, Super Cup)
+- Opposition data pipeline built and configured for ~30 opponents across 21 competitions
+- Match Analysis page (Overview, Possession, Transition, Recovery, Finishing, Set Pieces tabs), Home, Player Analysis, and Team Analysis pages implemented
+- Opposition Analysis page in progress (`opposition_analysis_tabs/`)
 
 ---
 
 ## To-Do
 
+- [ ] Opposition Analysis page (wire up `opposition_analysis_tabs/` modules)
 - [ ] xG model
 - [ ] Bayesian model for opponent analysis
 
@@ -482,10 +576,11 @@ The application uses FC Barcelona's official color scheme on a dark background:
 ## Development Notes
 
 - Built with Plotly Dash for interactive visualisations
-- Uses mplsoccer for football-specific pitch plotting (server-side Matplotlib → base64 PNG)
+- Uses mplsoccer for football-specific pitch plotting (server-side Matplotlib → base64 PNG → Plotly `layout_image`)
 - Bootstrap components for responsive dark-theme UI
 - Parquet + Snappy compression for fast columnar data access
 - In-process event cache avoids re-reading large Parquet files across page callbacks
+- Both pipelines reuse the same `opta_pipeline/modules/` (scraper, downloader, transformers)
 
 ---
 

@@ -210,8 +210,15 @@ def compute_team_kpis(events: pd.DataFrame, team_position: str) -> Dict[str, Any
     # Interceptions: attributed to the intercepting team (not paired)
     interceptions = len(team[team['event_type'] == 'Interception']) if not team.empty else 0
 
+    # Goal assists: passes with Assist qualifier == 16
+    assists = 0
+    if not passes.empty and 'Assist' in passes.columns:
+        import pandas as _pd
+        assists = int((_pd.to_numeric(passes['Assist'], errors='coerce') == 16).sum())
+
     return {
         'goals': goals,
+        'assists': assists,
         'shots': shots,
         'shots_on_target': shots_on_target,
         'blocked_shots': blocked_shots,

@@ -65,6 +65,22 @@ def filter_own_goals(goals_df):
     return goals_df[goals_df['own goal'] != 'Si']
 
 
+def exclude_own_goals(events_df):
+    """Remove own-goal rows from a mixed event DataFrame.
+
+    Unlike ``filter_own_goals`` (which expects a goals-only DataFrame), this
+    works on any event DataFrame that may contain multiple event types.  Only
+    Goal rows flagged as own goals are dropped; all other event types are kept.
+
+    Use this when building shot maps or attacking stats so that own goals — which
+    are credited to the opposing team — do not appear in the acting team's plots.
+    """
+    if events_df.empty or 'own goal' not in events_df.columns:
+        return events_df
+    og_mask = (events_df['event_type'] == 'Goal') & (events_df['own goal'] == 'Si')
+    return events_df[~og_mask]
+
+
 def get_all_matches(season=CURRENT_SEASON):
     """Load all match data for a given season across all competitions."""
     all_matches = []
@@ -110,16 +126,18 @@ def get_all_events(season=CURRENT_SEASON):
 
 
 def get_match_events(match_id, season=CURRENT_SEASON):
-    """Load event data for a specific match."""
-    for comp_key, comp_folder in COMPETITIONS.items():
-        event_path = DATA_PATH / comp_folder / season / "match_event"
-        if event_path.exists():
-            for file in event_path.glob("*.parquet"):
-                df = pd.read_parquet(file)
-                if not df.empty and df['match_id'].iloc[0] == match_id:
-                    df['competition'] = COMPETITION_NAMES.get(comp_folder, comp_folder)
-                    return df
-    return pd.DataFrame()
+    """Load event data for a specific match.
+
+    Uses the season-level cache populated by get_all_events() to avoid
+    repeated parquet reads for every tab switch or callback fire.
+    """
+    events = get_all_events(season)
+    if events.empty:
+        return pd.DataFrame()
+    match_events = events[events['match_id'] == match_id]
+    if match_events.empty:
+        return pd.DataFrame()
+    return match_events.reset_index(drop=True)
 
 
 def get_recent_matches(n=5):
@@ -136,23 +154,21 @@ def get_recent_matches(n=5):
 def count_goals(goals_df):
     """Count home and away goals, accounting for own goals.
 
-    Uses the centralised ``is_own_goal`` helper.  An own goal by the home
-    team counts as an away goal and vice-versa.
+    Vectorised: no iterrows. An own goal by the home team counts as an away
+    goal and vice-versa.
     """
-    home_goals = 0
-    away_goals = 0
+    if goals_df.empty:
+        return 0, 0
 
-    for _, row in goals_df.iterrows():
-        if is_own_goal(row):
-            if row['team_position'] == 'home':
-                away_goals += 1
-            else:
-                home_goals += 1
-        else:
-            if row['team_position'] == 'home':
-                home_goals += 1
-            else:
-                away_goals += 1
+    home_mask = goals_df['team_position'] == 'home'
+
+    if 'own goal' not in goals_df.columns:
+        return int(home_mask.sum()), int((~home_mask).sum())
+
+    og_mask = goals_df['own goal'] == 'Si'
+
+    home_goals = int((home_mask  & ~og_mask).sum()) + int((~home_mask & og_mask).sum())
+    away_goals = int((~home_mask & ~og_mask).sum()) + int((home_mask  & og_mask).sum())
 
     return home_goals, away_goals
 
@@ -183,52 +199,57 @@ def get_match_results():
     if events.empty:
         return []
 
+    has_venue = 'venue_name' in events.columns
     results = []
-    for match_id in events['match_id'].unique():
-        match_events = events[events['match_id'] == match_id]
 
-        # Get match info
+    for match_id, match_events in events.groupby('match_id', sort=False):
+        first = match_events.iloc[0]
         match_info = {
             'match_id': match_id,
-            'date': match_events['match_date'].iloc[0],
-            'description': match_events['match_description'].iloc[0],
-            'competition': match_events['competition'].iloc[0],
-            'home_team': match_events['home_team'].iloc[0],
-            'away_team': match_events['away_team'].iloc[0],
-            'venue': match_events['venue_name'].iloc[0] if 'venue_name' in match_events.columns else ''
+            'date':        first['match_date'],
+            'description': first['match_description'],
+            'competition': first['competition'],
+            'home_team':   first['home_team'],
+            'away_team':   first['away_team'],
+            'venue':       first['venue_name'] if has_venue else '',
         }
 
-        # Calculate score from goals (own goals count for the opposing side)
         goals = match_events[match_events['event_type'] == 'Goal']
         home_goals, away_goals = count_goals(goals)
-
         match_info['home_goals'] = home_goals
         match_info['away_goals'] = away_goals
 
-        # Determine result for Barcelona
         if 'Barcelona' in match_info['home_team']:
-            match_info['barca_goals'] = home_goals
+            match_info['barca_goals']    = home_goals
             match_info['opponent_goals'] = away_goals
-            match_info['opponent'] = match_info['away_team']
-            match_info['is_home'] = True
+            match_info['opponent']       = match_info['away_team']
+            match_info['is_home']        = True
         else:
-            match_info['barca_goals'] = away_goals
+            match_info['barca_goals']    = away_goals
             match_info['opponent_goals'] = home_goals
-            match_info['opponent'] = match_info['home_team']
-            match_info['is_home'] = False
+            match_info['opponent']       = match_info['home_team']
+            match_info['is_home']        = False
 
-        if match_info['barca_goals'] > match_info['opponent_goals']:
-            match_info['result'] = 'W'
-        elif match_info['barca_goals'] < match_info['opponent_goals']:
-            match_info['result'] = 'L'
-        else:
-            match_info['result'] = 'D'
+        bg, og = match_info['barca_goals'], match_info['opponent_goals']
+        match_info['result'] = 'W' if bg > og else ('L' if bg < og else 'D')
 
         results.append(match_info)
 
-    # Sort by date descending
-    results = sorted(results, key=lambda x: x['date'], reverse=True)
-    return results
+    return sorted(results, key=lambda x: x['date'], reverse=True)
+
+
+def count_assists(events_df):
+    """Count goal assists (passes with Assist qualifier == 16) per player.
+
+    Returns a Series indexed by player_name.
+    """
+    if events_df.empty:
+        return pd.Series(dtype=int)
+    passes = events_df[events_df['event_type'] == 'Pass']
+    if passes.empty or 'Assist' not in passes.columns:
+        return pd.Series(dtype=int)
+    mask = pd.to_numeric(passes['Assist'], errors='coerce') == 16
+    return passes[mask].groupby('player_name').size()
 
 
 def get_player_stats(season=CURRENT_SEASON):
@@ -243,6 +264,9 @@ def get_player_stats(season=CURRENT_SEASON):
     # Get goals (exclude own goals — they shouldn't count as the player's goals)
     barca_goals = filter_own_goals(barca_events[barca_events['event_type'] == 'Goal'])
     goals = barca_goals.groupby('player_name').size()
+
+    # Get goal assists
+    assists = count_assists(barca_events)
 
     # Get appearances (unique matches)
     appearances = barca_events.groupby('player_name')['match_id'].nunique()
@@ -262,6 +286,7 @@ def get_player_stats(season=CURRENT_SEASON):
     # Combine all stats
     stats_df = pd.DataFrame({
         'goals': goals,
+        'assists': assists,
         'appearances': appearances,
         'passes': passes,
         'shots': shots,
@@ -270,10 +295,10 @@ def get_player_stats(season=CURRENT_SEASON):
     }).fillna(0).astype(int)
 
     stats_df = stats_df.reset_index()
-    stats_df.columns = ['player', 'goals', 'appearances', 'passes', 'shots', 'tackles', 'interceptions']
+    stats_df.columns = ['player', 'goals', 'assists', 'appearances', 'passes', 'shots', 'tackles', 'interceptions']
 
-    # Sort by goals then appearances
-    stats_df = stats_df.sort_values(['goals', 'appearances'], ascending=[False, False])
+    # Sort by goals + assists then appearances
+    stats_df = stats_df.sort_values(['goals', 'assists', 'appearances'], ascending=[False, False, False])
 
     return stats_df
 
@@ -536,18 +561,20 @@ def get_player_stats_by_competition(competition, season=CURRENT_SEASON):
 
     comp_barca_goals = filter_own_goals(barca_events[barca_events['event_type'] == 'Goal'])
     goals = comp_barca_goals.groupby('player_name').size()
+    assists = count_assists(barca_events)
     appearances = barca_events.groupby('player_name')['match_id'].nunique()
     shots = barca_events[barca_events['event_type'].isin(['Miss', 'Saved Shot', 'Goal'])].groupby('player_name').size()
 
     stats_df = pd.DataFrame({
         'goals': goals,
+        'assists': assists,
         'appearances': appearances,
         'shots': shots,
     }).fillna(0).astype(int)
 
     stats_df = stats_df.reset_index()
-    stats_df.columns = ['player', 'goals', 'appearances', 'shots']
-    stats_df = stats_df.sort_values(['goals', 'appearances'], ascending=[False, False])
+    stats_df.columns = ['player', 'goals', 'assists', 'appearances', 'shots']
+    stats_df = stats_df.sort_values(['goals', 'assists', 'appearances'], ascending=[False, False, False])
 
     return stats_df
 

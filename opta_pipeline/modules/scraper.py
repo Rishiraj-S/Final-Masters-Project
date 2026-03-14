@@ -23,24 +23,31 @@ from .utils import normalize_url
 class MatchScraper:
     """Scrapes match URLs from Scoresway results pages"""
 
-    # Common pagination selectors found in Opta widgets
+    # Common pagination selectors found in Opta widgets.
+    # Keep these specific — broad attribute selectors like [class*='rev'] can
+    # match match-ID tokens embedded in tbody class names (e.g. Opta-Match-f19ucr3rev…).
     PAGINATION_SELECTORS = [
         # "Previous" style buttons (navigate to older results)
         "#Opta_0 .Opta-Previous",
         "#Opta_0 .Opta-Prev",
         "#Opta_0 button.Opta-Prev",
-        "#Opta_0 [class*='Opta'][class*='revious']",
-        "#Opta_0 [class*='Opta'][class*='rev']",
+        "#Opta_0 [class*='Opta-Previous']",
+        "#Opta_0 [class*='Opta-Prev']",
         # "Load More" / "Show More" style buttons
         "#Opta_0 .Opta-Load-More",
         "#Opta_0 .Opta-Show-More",
-        "#Opta_0 [class*='Opta'][class*='More']",
-        "#Opta_0 [class*='Opta'][class*='Load']",
-        # Generic nav controls
+        "#Opta_0 [class*='Opta-Load-More']",
+        "#Opta_0 [class*='Opta-Show-More']",
+        # Generic nav controls (scoped to actual interactive elements)
         "#Opta_0 .Opta-Nav .Opta-Previous",
         "#Opta_0 .Opta-Controls button",
         "#Opta_0 .Opta-Navigation button",
     ]
+
+    # Only these HTML tags can legitimately be pagination buttons.
+    # Excludes table structural elements (tbody/tr/td) which can match broad
+    # CSS selectors due to match-ID tokens in their class attributes.
+    _INTERACTIVE_TAGS = {'button', 'a', 'input', 'span', 'div', 'li'}
 
     def __init__(self, config: dict, logger: logging.Logger):
         self.config = config
@@ -145,12 +152,14 @@ class MatchScraper:
         """
         info = {'buttons': [], 'all_buttons_in_widget': []}
 
-        # Check all known selectors
+        # Check all known selectors (interactive tags only — skip table elements)
         for selector in self.PAGINATION_SELECTORS:
             try:
                 elements = driver.find_elements(By.CSS_SELECTOR, selector)
                 for elem in elements:
                     try:
+                        if elem.tag_name not in self._INTERACTIVE_TAGS:
+                            continue
                         info['buttons'].append({
                             'selector': selector,
                             'class': elem.get_attribute('class') or '',
@@ -195,6 +204,8 @@ class MatchScraper:
                 elements = driver.find_elements(By.CSS_SELECTOR, selector)
                 for elem in elements:
                     try:
+                        if elem.tag_name not in self._INTERACTIVE_TAGS:
+                            continue
                         if elem.is_displayed() and elem.is_enabled():
                             return elem
                     except StaleElementReferenceException:
@@ -208,6 +219,8 @@ class MatchScraper:
             all_btns = driver.find_elements(By.CSS_SELECTOR, "#Opta_0 button")
             for btn in all_btns:
                 try:
+                    if btn.tag_name not in self._INTERACTIVE_TAGS:
+                        continue
                     txt = (btn.text or '').strip().lower()
                     cls = (btn.get_attribute('class') or '').lower()
                     if any(kw in txt or kw in cls for kw in
@@ -256,6 +269,8 @@ class MatchScraper:
         #  - Match count stops growing (for "Load More")
         #  - Max clicks reached
         clicks = 0
+        consecutive_failures = 0
+        max_consecutive_failures = 5
         prev_match_count = self._get_match_count(driver)
 
         while clicks < self.max_pagination_clicks:
@@ -271,8 +286,14 @@ class MatchScraper:
                 )
                 time.sleep(0.3)
 
-                btn.click()
+                # After repeated normal-click failures, fall back to JS click
+                if consecutive_failures >= 3:
+                    driver.execute_script("arguments[0].click();", btn)
+                else:
+                    btn.click()
+
                 clicks += 1
+                consecutive_failures = 0
 
                 # Wait for content to update
                 time.sleep(1.5)
@@ -293,7 +314,16 @@ class MatchScraper:
                 prev_match_count = new_count
 
             except (ElementClickInterceptedException, StaleElementReferenceException) as e:
-                self.logger.warning(f"   ⚠️  Click failed ({type(e).__name__}), retrying...")
+                consecutive_failures += 1
+                self.logger.warning(
+                    f"   ⚠️  Click failed ({type(e).__name__}), "
+                    f"attempt {consecutive_failures}/{max_consecutive_failures}"
+                )
+                if consecutive_failures >= max_consecutive_failures:
+                    self.logger.warning(
+                        "   ⚠️  Too many consecutive click failures — skipping pagination"
+                    )
+                    break
                 time.sleep(1)
                 continue
             except Exception as e:
@@ -330,6 +360,9 @@ class MatchScraper:
                 pass
 
         clicks = 0
+        consecutive_failures = 0
+        max_consecutive_failures = 5
+
         while clicks < self.max_pagination_clicks:
             btn = self._find_pagination_button(driver)
             if not btn:
@@ -340,8 +373,14 @@ class MatchScraper:
                     "arguments[0].scrollIntoView({block: 'center'});", btn
                 )
                 time.sleep(0.3)
-                btn.click()
+
+                if consecutive_failures >= 3:
+                    driver.execute_script("arguments[0].click();", btn)
+                else:
+                    btn.click()
+
                 clicks += 1
+                consecutive_failures = 0
                 time.sleep(2)
 
                 # Wait for widget to update
@@ -375,6 +414,15 @@ class MatchScraper:
                                  f"({len(new_ids)} matches, {len(seen_match_ids)} total)")
 
             except (ElementClickInterceptedException, StaleElementReferenceException):
+                consecutive_failures += 1
+                self.logger.warning(
+                    f"   ⚠️  Click failed, attempt {consecutive_failures}/{max_consecutive_failures}"
+                )
+                if consecutive_failures >= max_consecutive_failures:
+                    self.logger.warning(
+                        "   ⚠️  Too many consecutive click failures — skipping pagination"
+                    )
+                    break
                 time.sleep(1)
                 continue
             except TimeoutException:

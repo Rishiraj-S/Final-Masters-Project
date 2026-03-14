@@ -254,6 +254,15 @@ a:hover {
     color: var(--barca-blue) !important;
 }
 
+/* Download report button — overrides the global a{color} rule */
+a.report-btn {
+    color: #1A1D2E !important;
+}
+a.report-btn:hover {
+    color: #1A1D2E !important;
+    opacity: 0.85;
+}
+
 /* Modal */
 .modal-content {
     background: linear-gradient(135deg, var(--dark-secondary) 0%, var(--dark-tertiary) 100%) !important;
@@ -687,6 +696,205 @@ a:hover {
 }
 
 /* =============================================================================
+   GLOBAL - Dash v4 Dropdown Dark Theme
+   Dash 4.0.0 uses completely different class names from old React-Select v1.
+   ============================================================================= */
+
+/* Main dropdown button / control */
+.dash-dropdown {
+    background-color: var(--dark-secondary) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 8px !important;
+    color: var(--text-primary) !important;
+    cursor: pointer;
+}
+
+.dash-dropdown:hover {
+    border-color: var(--barca-blue) !important;
+}
+
+.dash-dropdown:focus,
+.dash-dropdown:focus-within {
+    border-color: var(--barca-blue) !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 77, 152, 0.25) !important;
+    outline: none !important;
+}
+
+/* Placeholder text inside dropdown */
+.dash-dropdown .dash-dropdown-value {
+    color: var(--text-primary) !important;
+}
+
+/* Search input inside dropdown */
+.dash-dropdown-search {
+    background-color: var(--dark-secondary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 6px !important;
+    caret-color: var(--text-primary) !important;
+}
+
+.dash-dropdown-search::placeholder {
+    color: var(--text-secondary) !important;
+}
+
+.dash-dropdown-search:focus {
+    border-color: var(--barca-blue) !important;
+    box-shadow: 0 0 0 0.15rem rgba(0, 77, 152, 0.3) !important;
+    outline: none !important;
+}
+
+/* Options container / menu */
+.dash-dropdown-options,
+.dash-options-list {
+    background-color: var(--dark-secondary) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Individual option items */
+.dash-dropdown-option,
+.dash-options-list-option {
+    background-color: var(--dark-secondary) !important;
+    color: var(--text-primary) !important;
+    cursor: pointer;
+}
+
+.dash-dropdown-option:hover,
+.dash-options-list-option:hover,
+.dash-dropdown-option.focused,
+.dash-options-list-option.focused {
+    background-color: var(--dark-tertiary) !important;
+    color: var(--barca-gold) !important;
+}
+
+.dash-dropdown-option.selected,
+.dash-options-list-option.selected {
+    background-color: rgba(0, 77, 152, 0.3) !important;
+    color: var(--barca-gold) !important;
+}
+
+/* Clear / close button */
+.dash-dropdown-clear {
+    color: var(--text-secondary) !important;
+}
+
+.dash-dropdown-clear:hover {
+    color: var(--barca-garnet) !important;
+}
+
+/* Multi-value tags (for multi-select dropdowns) */
+.dash-dropdown .dash-dropdown-tag {
+    background-color: rgba(0, 77, 152, 0.3) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 4px !important;
+}
+
+/* Dropdown arrow indicator */
+.dash-dropdown .dash-dropdown-arrow {
+    color: var(--text-secondary) !important;
+}
+
+/* No results message */
+.dash-dropdown-no-results {
+    color: var(--text-secondary) !important;
+    background-color: var(--dark-secondary) !important;
+}
+
+/* Dropdown menu / popup wrapper (the container that appears when dropdown is open) */
+.dash-dropdown-menu,
+.dash-dropdown-search-container,
+[class*="dash-dropdown"] {
+    background-color: var(--dark-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Catch-all: any div immediately inside the Dash Dropdown component wrapper */
+div[data-dash-is-loading] > div,
+.dash-dropdown + div {
+    background-color: var(--dark-secondary) !important;
+    border-color: var(--dark-border) !important;
+}
+
+/* Search icon inside dropdown */
+.dash-dropdown-search-icon {
+    color: var(--text-secondary) !important;
+    fill: var(--text-secondary) !important;
+}
+
+/* The popover/listbox container that wraps search + options list */
+[role="listbox"] {
+    background-color: var(--dark-secondary) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 8px !important;
+}
+
+/* Any input element inside dropdown component */
+.dash-dropdown input,
+[class*="dash-dropdown"] input {
+    background-color: var(--dark-secondary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--dark-border) !important;
+}
+
+.dash-dropdown input:focus,
+[class*="dash-dropdown"] input:focus {
+    background-color: var(--dark-tertiary) !important;
+    border-color: var(--barca-blue) !important;
+    color: var(--text-primary) !important;
+}
+
+/* =============================================================================
+   GLOBAL - Pitch Plot Legend & Info Boxes
+   ============================================================================= */
+
+.culevision-legend-box {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 16px;
+    background: linear-gradient(135deg,
+        rgba(26, 29, 46, 0.85) 0%,
+        rgba(30, 34, 56, 0.92) 100%);
+    border: 1px solid var(--dark-border);
+    border-left: 3px solid var(--barca-gold);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 14px;
+    backdrop-filter: blur(4px);
+}
+
+.culevision-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    transition: background 0.2s ease;
+}
+
+.culevision-legend-item:hover {
+    background: rgba(255, 255, 255, 0.09);
+}
+
+.culevision-info-box {
+    display: flex;
+    align-items: flex-start;
+    background: linear-gradient(135deg,
+        rgba(26, 29, 46, 0.8) 0%,
+        rgba(30, 34, 56, 0.88) 100%);
+    border: 1px solid var(--dark-border);
+    border-left: 3px solid var(--barca-blue);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 14px;
+    backdrop-filter: blur(4px);
+}
+
+/* =============================================================================
    HOME PAGE - Footer Navigation
    ============================================================================= */
 
@@ -817,4 +1025,143 @@ a:hover {
 
 .pma-period-radio label:hover:not(.pma-period-active) {
     background-color: rgba(200, 168, 75, 0.15) !important;
+}
+
+/* ==========================================================================
+   Opposition Analysis – Dark Date Picker
+   ========================================================================== */
+
+/* Input wrapper */
+.dark-date-picker .SingleDatePickerInput,
+.dark-date-picker .DateInput {
+    background-color: #1E2139 !important;
+    border: none !important;
+}
+
+/* The text input itself */
+.dark-date-picker .DateInput_input {
+    background-color: #1E2139 !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 4px !important;
+    font-size: 0.9rem !important;
+    padding: 6px 10px !important;
+    width: 100% !important;
+    caret-color: var(--text-primary);
+}
+
+.dark-date-picker .DateInput_input::placeholder {
+    color: var(--text-secondary) !important;
+}
+
+.dark-date-picker .DateInput_input:focus {
+    border-color: var(--barca-blue) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 0.15rem rgba(0, 77, 152, 0.3) !important;
+}
+
+/* Focused state outline on the input wrapper */
+.dark-date-picker .DateInput_input__focused {
+    border-bottom: 2px solid var(--barca-blue) !important;
+}
+
+/* Calendar popup */
+.dark-date-picker .SingleDatePicker_picker,
+.DayPicker,
+.DayPicker__withBorder {
+    background-color: #1E2139 !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Month header */
+.dark-date-picker .CalendarMonth,
+.CalendarMonth {
+    background-color: #1E2139 !important;
+}
+
+.dark-date-picker .CalendarMonth_caption,
+.CalendarMonth_caption {
+    color: var(--text-primary) !important;
+}
+
+/* Month grid background */
+.dark-date-picker .CalendarMonthGrid,
+.CalendarMonthGrid {
+    background-color: #1E2139 !important;
+}
+
+/* Day cells */
+.dark-date-picker .CalendarDay__default,
+.CalendarDay__default {
+    background-color: #1E2139 !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--dark-border) !important;
+}
+
+.dark-date-picker .CalendarDay__default:hover,
+.CalendarDay__default:hover {
+    background-color: rgba(0, 77, 152, 0.4) !important;
+    color: var(--barca-gold) !important;
+    border-color: var(--barca-blue) !important;
+}
+
+/* Selected day */
+.dark-date-picker .CalendarDay__selected,
+.CalendarDay__selected,
+.dark-date-picker .CalendarDay__selected:hover,
+.CalendarDay__selected:hover {
+    background-color: var(--barca-blue) !important;
+    color: #fff !important;
+    border-color: var(--barca-blue) !important;
+}
+
+/* Blocked / outside-month days */
+.dark-date-picker .CalendarDay__blocked_out_of_range,
+.CalendarDay__blocked_out_of_range {
+    color: var(--text-secondary) !important;
+    opacity: 0.4 !important;
+}
+
+/* Navigation arrows */
+.dark-date-picker .DayPickerNavigation_button,
+.DayPickerNavigation_button {
+    background-color: transparent !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 4px !important;
+}
+
+.dark-date-picker .DayPickerNavigation_button:hover,
+.DayPickerNavigation_button:hover {
+    border-color: var(--barca-blue) !important;
+    background-color: rgba(0, 77, 152, 0.2) !important;
+}
+
+.dark-date-picker .DayPickerNavigation_svg__horizontal,
+.DayPickerNavigation_svg__horizontal {
+    fill: var(--text-secondary) !important;
+}
+
+/* Day-of-week header row */
+.dark-date-picker .DayPicker_weekHeader,
+.DayPicker_weekHeader {
+    color: var(--text-secondary) !important;
+}
+
+/* Clear / close button inside the input */
+.dark-date-picker .SingleDatePickerInput_clearDate,
+.SingleDatePickerInput_clearDate {
+    background-color: transparent !important;
+}
+
+.dark-date-picker .SingleDatePickerInput_clearDate__default:hover,
+.SingleDatePickerInput_clearDate__default:hover {
+    background-color: rgba(165, 0, 68, 0.2) !important;
+    border-radius: 50% !important;
+}
+
+.dark-date-picker .SingleDatePickerInput_clearDate_svg,
+.SingleDatePickerInput_clearDate_svg {
+    fill: var(--text-secondary) !important;
 }

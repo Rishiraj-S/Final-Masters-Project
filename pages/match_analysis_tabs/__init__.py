@@ -7,16 +7,26 @@ Each ``build_*_tab`` function receives the match events DataFrame and returns
 a Dash layout component for its respective tab.
 """
 
-from .overview   import build_overview_tab
-from .possession import build_possession_tab
-from .transition import build_transition_tab
-from .recovery   import build_recovery_tab
-from .set_pieces import build_setpieces_tab
+from .overview                   import build_overview_tab, register_overview_callbacks
+from .attacking_output           import build_attacking_output_tab
+from .build_up_passing           import build_build_up_passing_tab, register_build_up_passing_callbacks
+from .defensive_structure        import build_defensive_structure_tab, register_defensive_structure_callbacks
+from .transitions_counterpressing import build_transitions_counterpressing_tab, register_transitions_counterpressing_callbacks
+from .goalkeeping                import build_goalkeeping_tab, register_goalkeeping_callbacks
+from .player_analysis            import build_player_analysis_tab, register_player_analysis_callbacks
 
 __all__ = [
     "build_overview_tab",
-    "build_possession_tab",
-    "build_transition_tab",
-    "build_recovery_tab",
-    "build_setpieces_tab",
+    "register_overview_callbacks",
+    "build_attacking_output_tab",
+    "build_build_up_passing_tab",
+    "register_build_up_passing_callbacks",
+    "build_defensive_structure_tab",
+    "register_defensive_structure_callbacks",
+    "build_transitions_counterpressing_tab",
+    "register_transitions_counterpressing_callbacks",
+    "build_goalkeeping_tab",
+    "register_goalkeeping_callbacks",
+    "build_player_analysis_tab",
+    "register_player_analysis_callbacks",
 ]
