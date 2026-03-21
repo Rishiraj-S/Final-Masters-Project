@@ -326,6 +326,10 @@ scraper:
   cookie_wait_seconds: 3
   scroll_delay: 0.9
   max_pagination_clicks: 50
+  # Scrape cache TTL: re-scrape a competition page only when the cached CSV
+  # is older than this many days.  Keeps the match list fresh without
+  # re-hitting Scoresway on every button click.
+  cache_ttl_days: 1
 
 # ── Downloader settings ───────────────────────────────────────────────────────
 downloader:

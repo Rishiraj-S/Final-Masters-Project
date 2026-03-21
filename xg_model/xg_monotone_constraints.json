@@ -1,0 +1,23 @@
+{
+  "distance_to_goal": -1,
+  "body_part_head": 0,
+  "x": 0,
+  "angle_to_goal": -1,
+  "pattern_from_corner": 0,
+  "zone_box_centre": 0,
+  "is_individual_play": 0,
+  "pattern_regular_play": 0,
+  "y": 0,
+  "pattern_fast_break": 0,
+  "is_assisted": 0,
+  "body_part_right_foot": 0,
+  "zone_small_box_centre": 0,
+  "time_min": 0,
+  "pattern_set_piece": 0,
+  "pattern_throw_in_set_piece": 0,
+  "body_part_left_foot": 0,
+  "period_First Half": 0,
+  "zone_out_of_box_centre": 0,
+  "body_part_other": 0,
+  "period_Second Half": 0
+}

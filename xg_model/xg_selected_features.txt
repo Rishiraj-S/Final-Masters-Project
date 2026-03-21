@@ -1,0 +1,21 @@
+distance_to_goal
+body_part_head
+x
+angle_to_goal
+pattern_from_corner
+zone_box_centre
+is_individual_play
+pattern_regular_play
+y
+pattern_fast_break
+is_assisted
+body_part_right_foot
+zone_small_box_centre
+time_min
+pattern_set_piece
+pattern_throw_in_set_piece
+body_part_left_foot
+period_First Half
+zone_out_of_box_centre
+body_part_other
+period_Second Half

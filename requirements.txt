@@ -20,6 +20,9 @@ python-dateutil==2.9.0.post0
 pyyaml==6.0.3
 requests==2.32.5
 
+# xG Model
+xgboost>=2.0.0
+
 # Pipeline (opta_pipeline)
 selenium==4.41.0
 selenium-wire==5.1.0

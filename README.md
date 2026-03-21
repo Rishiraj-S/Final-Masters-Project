@@ -16,6 +16,8 @@ CuléVision is a professional football analytics dashboard built specifically fo
 - **Match Analysis**: Automated post-match breakdown across five tactical phases — Overview, Possession, Transition, Recovery, and Set Pieces
 - **Team Analysis**: KPIs defining Barcelona's playing style and game model across all competitions
 - **Player Analysis**: Match-by-match individual statistics and performance metrics
+- **Opposition Analysis**: Scouting dashboard for every team Barcelona faced, covering defence, transitions, set pieces, in-possession patterns, and player profiling
+- **xG Model**: Custom XGBoost expected goals model trained on Wyscout data with SHAP feature selection and monotone constraints — integrated across all shot visualisations in the app
 - **Data Pipeline (Barca)**: Fully automated Opta data ingestion for Barcelona (scrape → download → transform → store)
 - **Data Pipeline (Opposition)**: Separate pipeline to collect match event data for all teams Barcelona faced, organised by country / team / competition
 - **Live Update Overlay**: UI feedback with real-time pipeline progress while databases are being updated
@@ -24,7 +26,7 @@ CuléVision is a professional football analytics dashboard built specifically fo
 
 ## Prerequisites
 
-- Python 3.9 or higher
+- Python 3.11 or higher
 - Google Chrome (required by Selenium for the data pipeline)
 - pip package manager
 
@@ -64,26 +66,43 @@ CuléVision/
 │   ├── match_analysis.py
 │   ├── player_analysis.py
 │   ├── team_analysis.py
+│   ├── opposition_analysis.py
 │   ├── match_analysis_tabs/        # Sub-tabs for Match Analysis page
-│   │   ├── shared.py
 │   │   ├── overview.py
-│   │   ├── possession.py
-│   │   ├── transition.py
-│   │   ├── recovery.py
-│   │   ├── finishing.py
+│   │   ├── attacking_output.py
+│   │   ├── goalkeeping.py
+│   │   └── player_stats.py
+│   ├── team_analysis_tabs/         # Sub-tabs for Team Analysis page
+│   │   ├── overview.py
+│   │   ├── buildup.py
+│   │   ├── chance_creation.py
+│   │   ├── def_structure.py
+│   │   ├── transitions.py
 │   │   └── set_pieces.py
-│   └── opposition_analysis_tabs/   # Opposition Analysis page (in progress)
-│       ├── helpers.py
-│       ├── summary.py
-│       ├── tactical.py
-│       ├── key_players.py
-│       └── shot_map.py
+│   └── opposition_analysis_tabs/   # Sub-tabs for Opposition Analysis page
+│       ├── defence.py
+│       ├── exploit.py
+│       ├── in_possession.py
+│       ├── scouting.py
+│       ├── set_pieces.py
+│       └── transitions.py
+│
+├── xg_model/                       # Custom XGBoost expected goals model
+│   ├── predictor.py                # Inference class — load artifacts and predict
+│   ├── xg_model_final.json         # Trained XGBoost model weights
+│   ├── xg_scaler.pkl               # MinMaxScaler fitted on training data
+│   ├── xg_zone_bounds.pkl          # Spatial bounds for shot zone imputation
+│   ├── xg_selected_features.txt    # SHAP-selected feature list (21 features)
+│   ├── xg_monotone_constraints.json
+│   └── README.md                   # Model documentation
 │
 ├── utils/                          # Shared utility modules
 │   ├── config.py
 │   ├── data_utils.py
-│   ├── logos.py
-│   └── match_data_adapter.py
+│   ├── opposition_data_utils.py
+│   ├── xg_utils.py                 # Opta → xG model bridge (add_xg_column)
+│   ├── pdf_report.py
+│   └── player_analysis/
 │
 ├── page_utils/                     # Analytical helper modules shared across tabs
 │   ├── pitch_zones.py
@@ -103,8 +122,7 @@ CuléVision/
 │   │       ├── matchevent_transformer.py
 │   │       └── lineup_transformer.py
 │   └── logs/
-│       ├── pipeline.log
-│       └── progress.json
+│       └── pipeline.log
 │
 ├── opposition_pipeline/            # Opposition scouting data pipeline
 │   ├── main.py
@@ -115,13 +133,18 @@ CuléVision/
 │   ├── opta_event_types.csv
 │   └── opta_qualifier_types.csv
 │
-├── data/                           # All processed Parquet data
-│   └── barcelona/
-│       └── result/
-│           └── {League}/{Season}/
-│               ├── match/
-│               ├── match_event/
-│               └── lineup/
+├── data/                           # All processed Parquet data (not in repo — share separately)
+│   ├── barcelona/
+│   │   └── result/
+│   │       └── {League}/{Season}/
+│   │           ├── match/
+│   │           ├── match_event/
+│   │           └── lineup/
+│   └── opposition/
+│       └── {Country}/{Team}/{Competition}/{Season}/
+│           ├── match/
+│           ├── match_event/
+│           └── lineup/
 │
 ├── tests/                          # Unit tests for page_utils modules
 │
@@ -556,19 +579,19 @@ The application uses FC Barcelona's official color scheme on a dark background:
 
 ## Current Status
 
-**Version**: 0.2.0
+**Version**: 0.3.0
 
 - Barcelona data pipeline fully operational across four competitions (La Liga, UCL, Copa del Rey, Super Cup)
 - Opposition data pipeline built and configured for ~30 opponents across 21 competitions
-- Match Analysis page (Overview, Possession, Transition, Recovery, Finishing, Set Pieces tabs), Home, Player Analysis, and Team Analysis pages implemented
-- Opposition Analysis page in progress (`opposition_analysis_tabs/`)
+- Match Analysis (Attacking Output, Goalkeeping, Player Stats), Home, Player Analysis, Team Analysis, and Opposition Analysis pages implemented
+- Custom XGBoost xG model integrated — predictions displayed across all shot visualisations in the app
 
 ---
 
 ## To-Do
 
-- [ ] Opposition Analysis page (wire up `opposition_analysis_tabs/` modules)
-- [ ] xG model
+- [x] Opposition Analysis page
+- [x] xG model (XGBoost, SHAP feature selection, monotone constraints)
 - [ ] Bayesian model for opponent analysis
 
 ---

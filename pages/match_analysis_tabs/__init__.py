@@ -13,7 +13,7 @@ from .build_up_passing           import build_build_up_passing_tab, register_bui
 from .defensive_structure        import build_defensive_structure_tab, register_defensive_structure_callbacks
 from .transitions_counterpressing import build_transitions_counterpressing_tab, register_transitions_counterpressing_callbacks
 from .goalkeeping                import build_goalkeeping_tab, register_goalkeeping_callbacks
-from .player_analysis            import build_player_analysis_tab, register_player_analysis_callbacks
+from .player_stats               import build_player_stats_tab, register_player_stats_callbacks
 
 __all__ = [
     "build_overview_tab",
@@ -27,6 +27,6 @@ __all__ = [
     "register_transitions_counterpressing_callbacks",
     "build_goalkeeping_tab",
     "register_goalkeeping_callbacks",
-    "build_player_analysis_tab",
-    "register_player_analysis_callbacks",
+    "build_player_stats_tab",
+    "register_player_stats_callbacks",
 ]

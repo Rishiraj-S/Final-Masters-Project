@@ -111,17 +111,26 @@ class _HTMLReport:
         self.current_section = None
 
     def add_page(self):
-        # In HTML, we handle page breaks gracefully via CSS
-        pass
+        # Create a continuation page for the current section only if it has content.
+        # Calls immediately before section_title() are no-ops (section has no elements yet).
+        if self.current_section is not None and self.current_section["elements"]:
+            new_section = {
+                "title": self.current_section["title"],
+                "elements": [],
+                "is_continuation": True,
+            }
+            self.context["custom_sections"].append(new_section)
+            self.current_section = new_section
 
     def get_y(self) -> float:
-        # Mock Y for compatibility; HTML flow is dynamic
-        return 100
+        # Mock Y for compatibility; real page breaks are triggered by add_page().
+        return 0
 
     def section_title(self, text: str, color=None):
         self.current_section = {
             "title": text,
-            "elements": []
+            "elements": [],
+            "is_continuation": False,
         }
         self.context["custom_sections"].append(self.current_section)
 
@@ -366,8 +375,9 @@ def generate_match_report_pdf(match_id) -> bytes:
         _half_stats         as _gk_half_stats,
         _goal_mouth_viz     as _gk_mouth_fn,
         _shot_map_fig       as _gk_shot_map_fn,
+        _team_shots         as _gk_team_shots,
     )
-    from pages.match_analysis_tabs.player_analysis import _build_all_player_stats
+    from pages.match_analysis_tabs.player_stats import _build_all_player_stats
 
     # ── Load data ──────────────────────────────────────────────────────
     events = get_match_events(match_id)
@@ -861,49 +871,117 @@ def generate_match_report_pdf(match_id) -> bytes:
             ("home", "away", HOME_COLOR, home_team),
             ("away", "home", AWAY_COLOR, away_team),
         ]:
-            d_f = gk_full[gk_pos]
-            full_gk = {k: d_f[k] for k in
-                       ("total_shots", "shots_on_target", "saves", "goals_conceded", "save_pct")}
-            h1_gk   = _gk_half_stats(h1_events, gk_pos, opp_pos) if not h1_events.empty else {}
-            h2_gk   = _gk_half_stats(h2_events, gk_pos, opp_pos) if not h2_events.empty else {}
+            d_f     = gk_full[gk_pos]
+            gk_list = d_f['gk_list']
 
             if pdf.get_y() > 240:
                 pdf.add_page()
-            pdf.sub_title(f"GK Stats - {team_name}")
-            pdf.single_team_stats(
-                metrics=_gk_metric_defs,
-                full=full_gk, h1=h1_gk, h2=h2_gk,
-                pct_keys={"save_pct"},
-            )
 
-            # Goal Mouth + Shot Map per period
-            for period_label, period in _PERIODS:
-                ev_p = _filter_period(events, period)
-                if ev_p.empty:
-                    continue
-                try:
-                    gk_p = _gk_compute(ev_p)[gk_pos]
-                    shots_faced = gk_p["opp_shots_df"]
-                    gm_png = _plotly_to_png(
-                        _get_figure(_gk_mouth_fn(shots_faced, color, team_name)),
-                        w=500, h=420,
-                    )
-                    sm_png = _plotly_to_png(
-                        _gk_shot_map_fn(shots_faced, color, team_name),
-                        w=440, h=540,
-                    )
-                    if gm_png or sm_png:
-                        if pdf.get_y() > 240:
-                            pdf.add_page()
-                        pdf.sub_title(f"{team_name} - {period_label}", size=8)
-                        if gm_png and sm_png:
-                            pdf.two_images(gm_png, sm_png)
-                        elif gm_png:
-                            pdf.add_image_bytes(gm_png, w=90)
-                        else:
-                            pdf.add_image_bytes(sm_png, w=90)
-                except Exception as exc:
-                    log.warning("GK plots %s %s: %s", team_name, period_label, exc)
+            if len(gk_list) == 1:
+                # ── Single GK: Full / 1H / 2H stats table ──────────────
+                full_gk = {k: d_f[k] for k in
+                           ("total_shots", "shots_on_target", "saves", "goals_conceded", "save_pct")}
+                h1_gk   = _gk_half_stats(h1_events, gk_pos, opp_pos) if not h1_events.empty else {}
+                h2_gk   = _gk_half_stats(h2_events, gk_pos, opp_pos) if not h2_events.empty else {}
+
+                pdf.sub_title(f"GK Stats - {team_name}")
+                pdf.single_team_stats(
+                    metrics=_gk_metric_defs,
+                    full=full_gk, h1=h1_gk, h2=h2_gk,
+                    pct_keys={"save_pct"},
+                )
+
+                # Goal Mouth + Shot Map per period
+                for period_label, period in _PERIODS:
+                    ev_p = _filter_period(events, period)
+                    if ev_p.empty:
+                        continue
+                    try:
+                        gk_p        = _gk_compute(ev_p)[gk_pos]
+                        shots_faced = gk_p["opp_shots_df"]
+                        gm_png = _plotly_to_png(
+                            _get_figure(_gk_mouth_fn(shots_faced, color, team_name)),
+                            w=500, h=420,
+                        )
+                        sm_png = _plotly_to_png(
+                            _gk_shot_map_fn(shots_faced, color, team_name),
+                            w=440, h=540,
+                        )
+                        if gm_png or sm_png:
+                            if pdf.get_y() > 240:
+                                pdf.add_page()
+                            pdf.sub_title(f"{team_name} - {period_label}", size=8)
+                            if gm_png and sm_png:
+                                pdf.two_images(gm_png, sm_png)
+                            elif gm_png:
+                                pdf.add_image_bytes(gm_png, w=90)
+                            else:
+                                pdf.add_image_bytes(sm_png, w=90)
+                    except Exception as exc:
+                        log.warning("GK plots %s %s: %s", team_name, period_label, exc)
+
+            else:
+                # ── Multi-GK: per-GK stats table ───────────────────────
+                pdf.sub_title(f"GK Stats - {team_name} (Multiple Goalkeepers)")
+                gk_rows = []
+                for gk_entry in gk_list:
+                    gk_rows.append({
+                        "Goalkeeper": gk_entry['name'],
+                        "Time":       gk_entry['time_label'] or "Full",
+                        "Shots":      gk_entry['total_shots'],
+                        "SoT":        gk_entry['shots_on_target'],
+                        "Saves":      gk_entry['saves'],
+                        "Goals":      gk_entry['goals_conceded'],
+                        "Save%":      f"{gk_entry['save_pct']}%",
+                    })
+                pdf.data_table(
+                    pd.DataFrame(gk_rows),
+                    col_widths=[50, 20, 18, 14, 14, 14, 16],
+                )
+
+                # Plots: (All, GK0, GK1, …) × (Full, 1H, 2H)
+                gk_selectors = ['all'] + [str(i) for i in range(len(gk_list))]
+                for gk_sel in gk_selectors:
+                    if gk_sel == 'all':
+                        sel_label = "All GKs"
+                    else:
+                        idx       = int(gk_sel)
+                        gk_entry  = gk_list[idx]
+                        sel_label = f"{gk_entry['name']} ({gk_entry['time_label'] or 'Full'})"
+
+                    for period_label, period in _PERIODS:
+                        try:
+                            shots_all = _gk_team_shots(d_f, gk_sel)
+                            if period is not None and 'period_id' in shots_all.columns:
+                                shots = shots_all[shots_all['period_id'] == period]
+                            else:
+                                shots = shots_all
+                            if shots.empty:
+                                continue
+                            title  = f"{team_name} – {sel_label} – {period_label}"
+                            gm_png = _plotly_to_png(
+                                _get_figure(_gk_mouth_fn(shots, color, title)),
+                                w=500, h=420,
+                            )
+                            sm_png = _plotly_to_png(
+                                _gk_shot_map_fn(shots, color, title),
+                                w=440, h=540,
+                            )
+                            if gm_png or sm_png:
+                                if pdf.get_y() > 240:
+                                    pdf.add_page()
+                                pdf.sub_title(title, size=8)
+                                if gm_png and sm_png:
+                                    pdf.two_images(gm_png, sm_png)
+                                elif gm_png:
+                                    pdf.add_image_bytes(gm_png, w=90)
+                                else:
+                                    pdf.add_image_bytes(sm_png, w=90)
+                        except Exception as exc:
+                            log.warning(
+                                "GK plots %s %s %s: %s",
+                                team_name, sel_label, period_label, exc,
+                            )
 
     except Exception as exc:
         log.warning("Goalkeeping section: %s", exc)

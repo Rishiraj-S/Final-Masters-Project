@@ -34,6 +34,7 @@ import json
 import yaml
 import argparse
 import unicodedata
+import time
 from pathlib import Path
 
 try:
@@ -60,6 +61,7 @@ from modules.utils import get_organized_path_reversed
 # ── Constants ──────────────────────────────────────────────────────────────────
 PROGRESS_FILE  = Path(__file__).parent / "logs" / "progress.json"
 SCRAPE_CACHE   = Path(__file__).parent / "logs" / "scrape_cache"
+MANIFEST_FILE  = Path(__file__).parent / "logs" / "download_manifest.json"
 
 
 # ── Progress helper ────────────────────────────────────────────────────────────
@@ -84,6 +86,62 @@ def write_progress(team: str = "", competition: str = "", stage: str = "",
         tmp = PROGRESS_FILE.with_suffix('.tmp')
         tmp.write_text(json.dumps(payload), encoding="utf-8")
         tmp.rename(PROGRESS_FILE)
+    except Exception:
+        pass
+
+
+# ── Manifest helpers ───────────────────────────────────────────────────────────
+
+def _bootstrap_manifest_from_fs(base_result_dir: Path) -> set:
+    """Scan existing opposition match_event parquets and extract match IDs.
+
+    Parquet filenames follow the pattern:
+        {date}_{home_code}_vs_{away_code}_{match_id}.parquet
+    so the match_id is always the last underscore-delimited token in the stem.
+    """
+    ids: set = set()
+    result_path = Path(base_result_dir)
+    if not result_path.exists():
+        return ids
+    for pq in result_path.glob("**/match_event/*.parquet"):
+        stem = pq.stem
+        parts = stem.split('_')
+        if parts and len(parts[-1]) > 3:
+            ids.add(parts[-1])
+    return ids
+
+
+def load_manifest(base_result_dir: Path) -> set:
+    """Load the download manifest from disk.
+
+    On the very first run (no manifest file), bootstrap it from any parquet
+    files already present in base_result_dir so existing data is not re-downloaded.
+    """
+    if MANIFEST_FILE.exists():
+        try:
+            data = json.loads(MANIFEST_FILE.read_text(encoding="utf-8"))
+            return set(data.get("downloaded", []))
+        except Exception:
+            return set()
+
+    # First run — build manifest from what is already on disk
+    ids = _bootstrap_manifest_from_fs(base_result_dir)
+    if ids:
+        save_manifest(ids)
+        print(f"   📋 Bootstrapped manifest with {len(ids)} existing match ID(s)")
+    return ids
+
+
+def save_manifest(manifest: set) -> None:
+    """Atomically write the manifest to disk (crash-safe via .tmp rename)."""
+    try:
+        MANIFEST_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = MANIFEST_FILE.with_suffix('.tmp')
+        tmp.write_text(
+            json.dumps({"downloaded": sorted(manifest)}, indent=2),
+            encoding="utf-8",
+        )
+        tmp.rename(MANIFEST_FILE)
     except Exception:
         pass
 
@@ -198,10 +256,21 @@ def get_scraped_matches(comp_name: str, results_url: str,
     SCRAPE_CACHE.mkdir(parents=True, exist_ok=True)
     cache_file = SCRAPE_CACHE / f"{comp_name}_matches.csv"
 
-    if not force_rescrape and cache_file.exists():
-        logger.info(f"📋 [{comp_name}] Using cached scrape ({cache_file.name})")
-        print(f"   📋 Using cached scrape: {comp_name}")
+    cache_ttl_days = base_config.get('scraper', {}).get('cache_ttl_days', 3)
+    cache_age_days = (
+        (time.time() - cache_file.stat().st_mtime) / 86400
+        if cache_file.exists() else float('inf')
+    )
+    cache_is_fresh = cache_file.exists() and cache_age_days < cache_ttl_days
+
+    if not force_rescrape and cache_is_fresh:
+        logger.info(f"📋 [{comp_name}] Using cached scrape ({cache_file.name}, {cache_age_days:.1f}d old)")
+        print(f"   📋 Using cached scrape: {comp_name} ({cache_age_days:.1f}d old)")
         return pd.read_csv(cache_file)
+
+    if not force_rescrape and cache_file.exists() and not cache_is_fresh:
+        logger.info(f"🔄 [{comp_name}] Cache expired ({cache_age_days:.1f}d > {cache_ttl_days}d TTL) — re-scraping")
+        print(f"   🔄 Cache expired for {comp_name} ({cache_age_days:.1f}d old) — re-scraping")
 
     logger.info(f"🔍 Scraping {comp_name} ...")
     print(f"\n   🔍 Scraping: {comp_name}")
@@ -288,6 +357,7 @@ def process_team_competition(
     args,
     team_idx: int,
     total_teams: int,
+    manifest: set,
 ) -> dict:
     """Download + transform all matches for one team in one competition.
 
@@ -303,16 +373,24 @@ def process_team_competition(
         logger.info(f"   ⚠️  No matches found for '{team_name}' in {comp_name}")
         return {'downloaded': 0, 'skipped': 0, 'transformed': 0, 'status': 'empty'}
 
-    total_matches = len(team_df)
-    logger.info(f"   📊 {total_matches} match(es) for {team_name} in {comp_name}")
+    # Filter out matches already recorded in the manifest
+    already_in_manifest = team_df['match_id'].astype(str).isin(manifest)
+    n_manifest_skip = already_in_manifest.sum()
+    pending_df = team_df[~already_in_manifest].copy()
 
-    stats = {'downloaded': 0, 'skipped': 0, 'transformed': 0, 'status': 'success'}
+    total_matches = len(pending_df)
+    logger.info(
+        f"   📊 {len(team_df)} match(es) for {team_name} in {comp_name} "
+        f"({n_manifest_skip} already in manifest, {total_matches} to download)"
+    )
+
+    stats = {'downloaded': 0, 'skipped': int(n_manifest_skip), 'transformed': 0, 'status': 'success'}
 
     # ── Download phase ─────────────────────────────────────────────────────────
-    if not args.transform_only and not args.skip_download:
+    if not args.transform_only and not args.skip_download and not pending_df.empty:
         downloader = MatchDownloader(comp_config, logger)
 
-        pbar = _tqdm(list(team_df.iterrows()), total=total_matches,
+        pbar = _tqdm(list(pending_df.iterrows()), total=total_matches,
                      desc=f"⬇  {team_name[:18]}", unit="match",
                      ncols=90, leave=True)
         for i, (_, row) in enumerate(pbar, 1):
@@ -334,8 +412,12 @@ def process_team_competition(
             success, _ = downloader.download_match(match_id, match_url)
             if success:
                 stats['downloaded'] += 1
+                manifest.add(match_id)
+                save_manifest(manifest)
             else:
                 stats['skipped'] += 1
+    elif pending_df.empty and not args.transform_only:
+        print(f"      ⏭️  All {len(team_df)} match(es) already in manifest — skipping download")
 
     # ── Transform phase ────────────────────────────────────────────────────────
     write_progress(
@@ -388,6 +470,10 @@ def main():
         PROGRESS_FILE.unlink(missing_ok=True)
     except Exception:
         pass
+
+    # Load (or bootstrap) the download manifest
+    manifest = load_manifest(Path(config['paths']['result_dir']))
+    print(f"   📋 Manifest: {len(manifest)} match ID(s) already downloaded")
 
     all_opponents  = config['opponents']
     all_comp_urls  = config['competitions']
@@ -484,6 +570,7 @@ def main():
                 args=args,
                 team_idx=team_idx,
                 total_teams=total_teams,
+                manifest=manifest,
             )
             all_stats.append({'team': team_name, 'competition': comp_name, **stats})
 

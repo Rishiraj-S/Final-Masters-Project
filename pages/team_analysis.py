@@ -2,7 +2,15 @@
 CuléVision - Team Analysis Page
 
 Game-model focused longitudinal dashboard (season / rolling matches).
-7 tabs covering the full tactical fingerprint of FC Barcelona.
+6 tabs covering the full tactical fingerprint of FC Barcelona,
+structured according to the game model phase mapping:
+
+  Tab 0 — Overview          Aggregates KPIs across all phases
+  Tab 1 — Build-up          How we play out & progress
+  Tab 2 — Chance Creation   How we create & finish
+  Tab 3 — Def. Structure    Where & how we defend
+  Tab 4 — Transitions       Offensive & defensive transition
+  Tab 5 — Set Pieces        Corners, free kicks, throw-ins
 """
 
 from dash import html, dcc
@@ -14,17 +22,17 @@ from utils.data_utils import get_match_results, CURRENT_SEASON
 
 from pages.match_analysis_tabs.shared import page_header, GOLD
 from pages.team_analysis_tabs import (
-    build_identity_tab,
-    build_in_possession_tab,
-    build_out_of_possession_tab,
-    build_def_transition_tab,
-    build_att_transition_tab,
-    build_goalkeeping_tab,
+    build_overview_tab,
+    build_buildup_tab,
+    build_chance_creation_tab,
+    build_def_structure_tab,
+    build_transitions_tab,
+    build_set_pieces_tab,
 )
 
 
 # ---------------------------------------------------------------------------
-# Competition / match helpers (shared with callbacks)
+# Competition / match helpers
 # ---------------------------------------------------------------------------
 
 _ALL_COMPETITIONS = [
@@ -93,14 +101,14 @@ def create_team_analysis_layout():
         # ── Tabs ─────────────────────────────────────────────────────────────
         dbc.Tabs(
             id='ta-tabs',
-            active_tab='ta-tab-identity',
+            active_tab='ta-tab-overview',
             children=[
-                dbc.Tab(label='Team Identity',         tab_id='ta-tab-identity'),
-                dbc.Tab(label='In Possession',         tab_id='ta-tab-in-poss'),
-                dbc.Tab(label='Out of Possession',     tab_id='ta-tab-out-poss'),
-                dbc.Tab(label='Defensive Transition',  tab_id='ta-tab-def-trans'),
-                dbc.Tab(label='Attacking Transition',  tab_id='ta-tab-att-trans'),
-                dbc.Tab(label='Goalkeeping',           tab_id='ta-tab-gk'),
+                dbc.Tab(label='Overview',        tab_id='ta-tab-overview'),
+                dbc.Tab(label='Build-up',        tab_id='ta-tab-buildup'),
+                dbc.Tab(label='Chance Creation', tab_id='ta-tab-chance'),
+                dbc.Tab(label='Def. Structure',  tab_id='ta-tab-def-struct'),
+                dbc.Tab(label='Transitions',     tab_id='ta-tab-transitions'),
+                dbc.Tab(label='Set Pieces',      tab_id='ta-tab-setpieces'),
             ],
             className="mb-3",
         ),
@@ -122,7 +130,7 @@ def create_team_analysis_layout():
 def register_team_analysis_callbacks(app):
     """Register all Team Analysis callbacks with the Dash app."""
 
-    # ── Match selector: updates when competition filter changes ──────────────
+    # ── Match selector updates when competition filter changes ────────────────
     @app.callback(
         Output('ta-match-selector', 'options'),
         Output('ta-match-selector', 'value'),
@@ -136,18 +144,18 @@ def register_team_analysis_callbacks(app):
         results = sorted(results, key=lambda x: x['date'], reverse=True)
 
         show_tag = not competitions or len(competitions) > 1
-        options = []
+        options  = []
         for r in results:
             comp_tag = _COMP_SHORT.get(r['competition'], r['competition'][:4])
-            label = (
+            label    = (
                 f"{str(r['date'])[:10]}  vs  {r['opponent']}  ({r['result']})"
                 + (f"  · {comp_tag}" if show_tag else '')
             )
             options.append({'label': label, 'value': r['match_id']})
 
-        return options, None   # default: all matches selected
+        return options, None
 
-    # ── Tab content renderer ─────────────────────────────────────────────────
+    # ── Tab content renderer ──────────────────────────────────────────────────
     @app.callback(
         Output('ta-content', 'children'),
         Input('ta-competition-selector', 'value'),
@@ -165,12 +173,12 @@ def register_team_analysis_callbacks(app):
         )
 
         dispatch = {
-            'ta-tab-identity':  build_identity_tab,
-            'ta-tab-in-poss':   build_in_possession_tab,
-            'ta-tab-out-poss':  build_out_of_possession_tab,
-            'ta-tab-def-trans': build_def_transition_tab,
-            'ta-tab-att-trans': build_att_transition_tab,
-            'ta-tab-gk':        build_goalkeeping_tab,
+            'ta-tab-overview':     build_overview_tab,
+            'ta-tab-buildup':      build_buildup_tab,
+            'ta-tab-chance':       build_chance_creation_tab,
+            'ta-tab-def-struct':   build_def_structure_tab,
+            'ta-tab-transitions':  build_transitions_tab,
+            'ta-tab-setpieces':    build_set_pieces_tab,
         }
 
         builder = dispatch.get(active_tab)

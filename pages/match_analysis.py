@@ -41,8 +41,8 @@ from .match_analysis_tabs import (
     register_transitions_counterpressing_callbacks,
     build_goalkeeping_tab,
     register_goalkeeping_callbacks,
-    build_player_analysis_tab,
-    register_player_analysis_callbacks,
+    build_player_stats_tab,
+    register_player_stats_callbacks,
 )
 
 log = logging.getLogger(__name__)
@@ -264,7 +264,7 @@ def create_match_analysis_layout():
                 tab_style=tab_style, active_tab_style=active_style),
         dbc.Tab(label="Goalkeeping",                 tab_id="tab-goalkeeping",
                 tab_style=tab_style, active_tab_style=active_style),
-        dbc.Tab(label="Player Analysis",             tab_id="tab-players",
+        dbc.Tab(label="Player Stats",                tab_id="tab-players",
                 tab_style=tab_style, active_tab_style=active_style),
     ], id="pma-tabs", active_tab="tab-overview", className="mb-4")
 
@@ -614,7 +614,7 @@ def register_match_analysis_callbacks(app):
             'tab-defensive':    build_defensive_structure_tab,
             'tab-transitions':  build_transitions_counterpressing_tab,
             'tab-goalkeeping':  build_goalkeeping_tab,
-            'tab-players':      build_player_analysis_tab,
+            'tab-players':      build_player_stats_tab,
         }
 
         builder = tab_builders.get(active_tab, build_overview_tab)
@@ -635,4 +635,4 @@ def register_match_analysis_callbacks(app):
     register_defensive_structure_callbacks(app)
     register_transitions_counterpressing_callbacks(app)
     register_goalkeeping_callbacks(app)
-    register_player_analysis_callbacks(app)
+    register_player_stats_callbacks(app)

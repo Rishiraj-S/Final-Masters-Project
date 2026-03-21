@@ -13,6 +13,7 @@ import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
 from utils.data_utils import exclude_own_goals
+from utils.xg_utils import add_xg_column
 from page_utils.pitch_zones import is_in_penalty_box
 
 from .shared import (
@@ -84,6 +85,7 @@ def _compute(events: pd.DataFrame) -> dict:
         shots = exclude_own_goals(
             sorted_te[sorted_te['event_type'].isin(_SHOT_TYPES)].copy()
         )
+        shots = add_xg_column(shots)
         goals = shots[shots['event_type'] == 'Goal']
         shots['shot_type'] = shots.apply(_get_shot_type, axis=1)
 
@@ -114,6 +116,11 @@ def _compute(events: pd.DataFrame) -> dict:
         shooter_counts['Assists'] = (
             shooter_counts['Player'].map(assist_counts).fillna(0).astype(int)
         )
+        if 'xg' in shots.columns:
+            xg_per_player = shots.groupby('player_name')['xg'].sum().round(2)
+            shooter_counts['xG'] = (
+                shooter_counts['Player'].map(xg_per_player).fillna(0.0).round(2)
+            )
 
         out[pos] = {
             'team':         team,
@@ -121,6 +128,7 @@ def _compute(events: pd.DataFrame) -> dict:
             'key_passes':   key_passes,
             'goals':        len(goals),
             'total_shots':  len(shots),
+            'total_xg':     round(shots['xg'].sum(), 2) if 'xg' in shots.columns else None,
             'on_target':    len(te[te['event_type'] == 'Saved Shot']) + len(goals),
             'from_box':     int(shots['x'].dropna()
                                .apply(lambda x: is_in_penalty_box(float(x), 50)).sum())
@@ -138,12 +146,13 @@ def _compute_team_stats(events: pd.DataFrame, pos: str) -> tuple[dict, dict, dic
     """Return (full, h1, h2) stat dicts for one team position."""
     def _stats(ev: pd.DataFrame) -> dict:
         te = ev[ev['team_position'] == pos]
-        shots = exclude_own_goals(te[te['event_type'].isin(_SHOT_TYPES)].copy())
+        shots = add_xg_column(exclude_own_goals(te[te['event_type'].isin(_SHOT_TYPES)].copy()))
         goals = shots[shots['event_type'] == 'Goal']
         return {
             'shots':     len(shots),
             'on_target': len(te[te['event_type'] == 'Saved Shot']) + len(goals),
             'goals':     len(goals),
+            'xg':        round(shots['xg'].sum(), 2) if 'xg' in shots.columns else None,
             'from_box':  int(shots['x'].dropna()
                              .apply(lambda x: is_in_penalty_box(float(x), 50)).sum())
                          if 'x' in shots.columns else 0,
@@ -169,6 +178,7 @@ def _team_stats_table(
         ('Total Shots',     'shots'),
         ('Shots on Target', 'on_target'),
         ('Goals',           'goals'),
+        ('xG',              'xg'),
         ('Shots from Box',  'from_box'),
     ]
     _col_style = {'textAlign': 'center', 'padding': '6px 12px',
@@ -290,17 +300,25 @@ def _shot_map_fig(shots: pd.DataFrame, key_passes: pd.DataFrame,
             [' (own goal)' if v == 'Si' else '' for v in valid['own goal'].fillna('')]
             if 'own goal' in valid.columns else [''] * len(valid)
         )
+        xg_vals = (valid['xg'].fillna(0).tolist()
+                   if 'xg' in valid.columns else [0] * len(valid))
+        # Size goals at 16, other shots scaled by xG (min 8, max 18)
+        if outcome == 'Goal':
+            sizes = [16] * len(valid)
+        else:
+            sizes = [max(8, min(18, int(v * 60 + 8))) for v in xg_vals]
         fig.add_trace(go.Scatter(
             x=fig_x, y=fig_y, mode='markers', name=outcome,
             marker=dict(color=_OUTCOME_COLOR.get(outcome, team_color),
                         symbol=_OUTCOME_SYMBOL.get(outcome, 'circle'),
-                        size=14 if outcome == 'Goal' else 10,
+                        size=sizes,
                         opacity=0.88, line=dict(color='white', width=1)),
-            customdata=[[p, t, a, st, og] for p, t, a, st, og
-                        in zip(player_names, times, prev_acts, shot_types, og_flags)],
+            customdata=[[p, t, a, st, og, xg] for p, t, a, st, og, xg
+                        in zip(player_names, times, prev_acts, shot_types, og_flags, xg_vals)],
             hovertemplate=(
                 '<b>%{customdata[0]}%{customdata[4]}</b><br>'
                 "%{customdata[1]}' | %{customdata[3]}<br>"
+                'xG: %{customdata[5]:.2f}<br>'
                 'Preceding: %{customdata[2]}<extra></extra>'
             ),
         ))

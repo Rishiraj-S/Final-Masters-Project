@@ -106,18 +106,25 @@ class MatchDownloader:
     # Validators
     # ------------------------------------------------------------------
 
-    def _validate_match_json(self, json_obj: dict) -> bool:
-        """Validate that the JSON has the expected Opta matchevent structure."""
+    def _validate_match_json(self, json_obj: dict) -> tuple[bool, str]:
+        """Validate that the JSON has the expected Opta matchevent structure.
+
+        Returns (is_valid, reason) where reason is one of:
+          'ok'           — passed
+          'no_coverage'  — structural mismatch; match not covered by this token
+          'empty_events' — matchInfo + liveData present but event list is empty
+          'bad_type'     — response is not a dict
+        """
         if not isinstance(json_obj, dict):
-            return False
+            return False, "bad_type"
         match_info = json_obj.get("matchInfo")
-        live_data = json_obj.get("liveData")
+        live_data  = json_obj.get("liveData")
         if not match_info or not live_data:
-            return False
+            return False, "no_coverage"
         events = live_data.get("event")
         if not events or not isinstance(events, list) or len(events) == 0:
-            return False
-        return True
+            return False, "empty_events"
+        return True, "ok"
 
     # ------------------------------------------------------------------
     # Scroll helper
@@ -139,7 +146,7 @@ class MatchDownloader:
     # Core download – single driver session, single page navigation
     # ------------------------------------------------------------------
 
-    def download_match_data(self, match_url: str, match_id: str) -> Optional[str]:
+    def download_match_data(self, match_url: str, match_id: str) -> tuple[Optional[str], str]:
         """
         Download matchevent data for a match.
 
@@ -148,7 +155,8 @@ class MatchDownloader:
         typeId=34 (Team Setup) which holds lineup and formation data.
 
         Returns:
-            Path to the saved JSON file, or None if capture failed.
+            (path_or_None, reason) where reason is 'ok', 'no_data', 'no_coverage',
+            'empty_events', 'bad_json', or 'exception'.
         """
         driver = self.create_selenium_wire_driver(headless=True)
 
@@ -185,25 +193,28 @@ class MatchDownloader:
             if not captured:
                 self.logger.warning(f"   ⚠️  No matchevent data captured for {match_id}")
                 print(f"   ⚠️  [matchevent] No API response captured for {match_id}")
-                return None
+                return None, "no_data"
 
             largest = max(captured, key=lambda x: x["size"])
             raw_text = decode_body(largest["body"])
             if not raw_text:
-                return None
+                return None, "no_data"
 
             try:
                 clean_json_str = extract_json_from_jsonp(raw_text)
                 json_obj = json.loads(clean_json_str)
             except Exception as e:
                 self.logger.error(f"   ❌ Invalid matchevent JSON for {match_id}: {e}")
-                return None
+                return None, "bad_json"
 
-            if not self._validate_match_json(json_obj):
+            valid, reason = self._validate_match_json(json_obj)
+            if not valid:
+                top_keys = list(json_obj.keys()) if isinstance(json_obj, dict) else type(json_obj).__name__
                 self.logger.error(
-                    f"   ❌ matchevent JSON missing matchInfo/liveData for {match_id}"
+                    f"   ❌ matchevent validation failed ({reason}) for {match_id}. "
+                    f"Top-level keys: {top_keys}"
                 )
-                return None
+                return None, reason
 
             try:
                 final_match_id = get_match_id_from_json(raw_text, largest["url"])
@@ -232,11 +243,11 @@ class MatchDownloader:
             self.logger.info(
                 f"   ✅ matchevent: {out_path.name} ({len(clean_json_str)} bytes)"
             )
-            return str(out_path)
+            return str(out_path), "ok"
 
         except Exception as e:
             self.logger.error(f"   ❌ Download failed for {match_id}: {e}")
-            return None
+            return None, "exception"
 
         finally:
             driver.quit()
@@ -269,6 +280,13 @@ class MatchDownloader:
                 subdirectory="matchdata",
             )
         )
+        # Permanent skip marker written when all retries fail with a structural error
+        no_coverage_marker = matchdata_path.with_suffix(".no_coverage")
+
+        if no_coverage_marker.exists():
+            self.logger.info(f"   ⏭️  No coverage (permanent skip): {match_id}")
+            print(f"   ⏭️  SKIP   {match_id}  (no PerformFeeds coverage)")
+            return False, None
 
         already_exists = (
             matchdata_path.exists()
@@ -282,6 +300,10 @@ class MatchDownloader:
 
         print(f"   📥  {match_id}  — downloading matchevent")
 
+        # Structural failure reasons that will never succeed on retry
+        _permanent_failures = {"no_coverage", "empty_events", "bad_json"}
+        last_reason = ""
+
         for attempt in range(1, max_retries + 1):
             if attempt > 1:
                 wait = 3 * attempt
@@ -289,17 +311,29 @@ class MatchDownloader:
                     f"   🔄 Retry {attempt}/{max_retries} for {match_id} (waiting {wait}s)..."
                 )
                 print(f"   🔄 Retry {attempt}/{max_retries} for {match_id} (waiting {wait}s)...")
-                # Remove any stale/partial file from the previous attempt so it
-                # does not cause the next run to skip a corrupt download.
                 matchdata_path.unlink(missing_ok=True)
                 time.sleep(wait)
 
-            result_path = self.download_match_data(match_url, match_id)
+            result_path, last_reason = self.download_match_data(match_url, match_id)
 
             if result_path:
                 print(f"   ✅ matchevent saved: {Path(result_path).name}")
                 time.sleep(self.sleep_between)
                 return True, result_path
+
+            # Don't retry structural failures — the API will never return events for this match
+            if last_reason in _permanent_failures:
+                self.logger.warning(
+                    f"   ⚠️  Permanent skip ({last_reason}): {match_id} — "
+                    f"writing .no_coverage marker"
+                )
+                print(f"   ⚠️  No PerformFeeds coverage for {match_id} ({last_reason}) — skipping permanently")
+                try:
+                    no_coverage_marker.parent.mkdir(parents=True, exist_ok=True)
+                    no_coverage_marker.write_text(last_reason, encoding="utf-8")
+                except Exception:
+                    pass
+                return False, None
 
         self.logger.error(f"   ❌ Failed after {max_retries} attempts: {match_id}")
         print(f"   ❌ FAILED after {max_retries} attempts: {match_id}")

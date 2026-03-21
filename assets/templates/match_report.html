@@ -2,510 +2,913 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CuléVision Match Report - {{ home_team }} vs {{ away_team }}</title>
+    <title>CuléVision Match Report – {{ home_team }} vs {{ away_team }}</title>
     <style>
-        @font-face {
-            font-family: 'Inter';
-            src: local('Inter'), local('Helvetica Neue'), local('Arial');
-        }
-
+        /* ------------------------------------------------------------------ */
+        /*  Variables                                                           */
+        /* ------------------------------------------------------------------ */
         :root {
-            --bg-dark: #0c1028;
-            --gold: #c8a52d;
-            --text-main: #dcdce6;
-            --text-sub: #a0a0b4;
-            --home-clr: #1e50b4;
-            --away-clr: #b42828;
-            --border: #282d4b;
-            --header-bg: #151a3a;
-            
-            --bg-light: #ffffff;
-            --text-light-main: #1a1a2e;
-            --text-light-sub: #555577;
-            --border-light: #e0e0e0;
-            --header-bg-light: #f5f5f7;
+            --gold:        #C8A52D;
+            --gold-light:  #E2C35A;
+            --gold-muted:  rgba(200,165,45,.15);
+            --navy:        #0B0F28;
+            --navy-mid:    #131830;
+            --navy-panel:  #1A1F3A;
+            --border-dark: #252A46;
+
+            --white:       #FFFFFF;
+            --off-white:   #F7F7FB;
+            --panel-light: #F0F0F6;
+            --border-lt:   #E2E2EE;
+            --text-main:   #1A1A2E;
+            --text-sub:    #6060808;
+            --text-muted:  #909098;
+
+            --home-clr:    #1E50B4;
+            --home-bg:     rgba(30,80,180,.08);
+            --away-clr:    #B42828;
+            --away-bg:     rgba(180,40,40,.08);
+
+            --green:       #27AE60;
+            --red-soft:    #E74C3C;
         }
 
+        /* ------------------------------------------------------------------ */
+        /*  Print / Page                                                        */
+        /* ------------------------------------------------------------------ */
         @page {
             size: A4;
             margin: 0;
         }
 
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            background-color: var(--bg-light);
-            color: var(--text-light-main);
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 0;
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 9pt;
+            color: var(--text-main);
+            background: var(--white);
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
 
-        .section {
-            page-break-after: always;
+        /* ------------------------------------------------------------------ */
+        /*  Page sections                                                       */
+        /* ------------------------------------------------------------------ */
+        .page {
+            position: relative;
+            width: 210mm;
             min-height: 297mm;
-            padding: 15mm;
-            box-sizing: border-box;
-            position: relative;
-            background-color: var(--bg-light);
-            color: var(--text-light-main);
+            padding: 0;
+            page-break-after: always;
+            break-after: page;
+            overflow: visible;
         }
+        .page:last-child { page-break-after: auto; break-after: auto; }
 
-        .section.dark {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-        }
-
-        /* Prevent empty last page if possible */
-        .section:last-child {
-            page-break-after: auto;
-        }
-
-        .page-border {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: var(--gold);
-        }
-
-        /* --- Header / Footer --- */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-light);
-            padding-bottom: 5px;
-            margin-bottom: 10mm;
-        }
-        .section.dark .header { border-bottom-color: var(--border); }
-
-        .header .brand {
-            font-size: 14pt;
-            font-weight: 800;
-            color: var(--gold);
-            letter-spacing: 1px;
-        }
-
-        .header .match-meta {
-            font-size: 9pt;
-            color: var(--text-light-sub);
-            text-align: right;
-        }
-        .section.dark .header .match-meta { color: var(--text-sub); }
-
-        .footer {
-            position: absolute;
-            bottom: 10mm;
-            left: 15mm;
-            right: 15mm;
-            font-size: 7pt;
-            color: var(--text-light-sub);
-            border-top: 1px solid var(--border-light);
-            padding-top: 4px;
-            display: flex;
-            justify-content: space-between;
-        }
-        .section.dark .footer { 
-            color: var(--text-sub);
-            border-top-color: var(--border);
-        }
-
-        /* --- Cover Page --- */
-        .cover {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            height: 100%;
-        }
-
-        .cover h1 {
-            font-size: 32pt;
-            color: var(--gold);
-            margin-bottom: 5pt;
-            letter-spacing: 3px;
-        }
-
-        .cover .competition {
-            font-size: 12pt;
-            text-transform: uppercase;
-            color: var(--text-sub);
-            margin-bottom: 30pt;
-        }
-
-        .match-hero {
-            display: flex;
-            align-items: center;
-            gap: 40pt;
-            margin-bottom: 40pt;
-        }
-
-        .hero-team {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 140pt;
-        }
-
-        .hero-logo {
-            width: 80pt;
-            height: 80pt;
-            object-fit: contain;
-            margin-bottom: 10pt;
-        }
-
-        .hero-name {
-            font-size: 16pt;
-            font-weight: 700;
-        }
-
-        .hero-score {
-            font-size: 48pt;
-            font-weight: 900;
-            color: var(--gold);
-        }
-
-        /* --- KPI Bars --- */
-        .kpi-container {
-            width: 80%;
-            margin: 0 auto;
-        }
-
-        .kpi-row {
-            margin-bottom: 12pt;
-        }
-
-        .kpi-label {
-            font-size: 8pt;
-            font-weight: 700;
-            color: var(--text-sub);
-            text-transform: uppercase;
-            margin-bottom: 4pt;
-        }
-
-        .kpi-visual {
-            display: flex;
-            align-items: center;
-            gap: 15pt;
-        }
-
-        .kpi-val {
-            font-size: 11pt;
-            font-weight: 700;
-            min-width: 40pt;
-        }
-        .kpi-val.home { text-align: right; color: var(--home-clr); }
-        .kpi-val.away { text-align: left; color: var(--away-clr); }
-
-        .kpi-track {
-            flex-grow: 1;
-            height: 6pt;
-            background: var(--header-bg-light);
-            border-radius: 3pt;
-            position: relative;
+        /* Cover and overview are exactly one A4 page */
+        .page-fixed {
+            height: 297mm;
             overflow: hidden;
         }
-        .section.dark .kpi-track { background: #1c213c; }
 
-        .kpi-fill {
-            height: 100%;
-            position: absolute;
-            top: 0;
-        }
-        .kpi-fill.home {
-            right: 50%;
-            background: var(--home-clr);
-            border-radius: 3pt 0 0 3pt;
-        }
-        .kpi-fill.away {
-            left: 50%;
-            background: var(--away-clr);
-            border-radius: 0 3pt 3pt 0;
+        /* ------------------------------------------------------------------ */
+        /*  COVER PAGE                                                          */
+        /* ------------------------------------------------------------------ */
+        .page-cover {
+            background: var(--navy);
+            color: var(--white);
+            display: flex;
+            flex-direction: column;
         }
 
-        /* --- Section Styling --- */
-        h2 {
-            font-size: 18pt;
+        /* Top accent strip */
+        .cover-accent-bar {
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, var(--gold) 0%, var(--gold-light) 60%, transparent 100%);
+            flex-shrink: 0;
+        }
+
+        /* Cover inner layout */
+        .cover-inner {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10mm 14mm 0 14mm;
+        }
+
+        /* CuléVision top-centre brand block */
+        .cover-top-brand {
+            text-align: center;
+            padding-bottom: 6mm;
+            border-bottom: 1px solid var(--border-dark);
+            margin-bottom: 6mm;
+        }
+        .cover-brand-title {
+            font-size: 44pt;
+            font-weight: 900;
+            letter-spacing: 4px;
             color: var(--gold);
-            border-left: 4pt solid var(--gold);
-            padding-left: 10pt;
-            margin-bottom: 20pt;
-            margin-top: 0;
+            line-height: 1;
         }
-
-        h3 {
-            font-size: 10pt;
+        .cover-brand-sub {
+            font-size: 7pt;
+            letter-spacing: 3px;
+            color: rgba(255,255,255,.4);
             text-transform: uppercase;
-            color: var(--text-light-sub);
-            margin-bottom: 10pt;
-            margin-top: 20pt;
-            letter-spacing: 1px;
+            margin-top: 3px;
+            margin-bottom: 4mm;
         }
-        .section.dark h3 { color: var(--text-sub); }
+        .cover-competition-badge {
+            display: inline-block;
+            background: var(--gold-muted);
+            border: 1px solid rgba(200,165,45,.4);
+            border-radius: 20px;
+            padding: 4px 14px;
+            font-size: 7.5pt;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--gold-light);
+        }
 
-        .grid {
+        /* Match hero */
+        .cover-hero {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            flex: 1;
+            padding: 8mm 0 6mm;
+        }
+
+        .hero-team-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 55mm;
+        }
+        .hero-logo {
+            width: 22mm;
+            height: 22mm;
+            object-fit: contain;
+            margin-bottom: 5mm;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,.5));
+        }
+        .hero-team-name {
+            font-size: 11pt;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-align: center;
+            color: var(--white);
+        }
+        .hero-team-role {
+            font-size: 6.5pt;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,.35);
+            margin-top: 2px;
+        }
+
+        .hero-score-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 36mm;
+        }
+        .hero-score {
+            font-size: 44pt;
+            font-weight: 900;
+            color: var(--gold);
+            letter-spacing: 4px;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .hero-score-label {
+            font-size: 6pt;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,.35);
+            margin-top: 3px;
+        }
+        .hero-divider {
+            width: 1px;
+            height: 20mm;
+            background: linear-gradient(to bottom, transparent, var(--border-dark), transparent);
+            margin: 0 5mm;
+            align-self: center;
+        }
+
+        /* Match meta strip */
+        .cover-meta-strip {
+            background: var(--navy-mid);
+            border-top: 1px solid var(--border-dark);
+            border-bottom: 1px solid var(--border-dark);
+            display: flex;
+            justify-content: center;
+            gap: 8mm;
+            padding: 4mm 14mm;
+            margin: 0 -14mm;
+        }
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .meta-label {
+            font-size: 5.5pt;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,.3);
+        }
+        .meta-value {
+            font-size: 8pt;
+            font-weight: 600;
+            color: rgba(255,255,255,.85);
+        }
+        .meta-sep {
+            width: 1px;
+            background: var(--border-dark);
+            align-self: stretch;
+            margin: 2px 0;
+        }
+
+        /* KPI comparison section */
+        .cover-kpi-section {
+            padding: 7mm 0 6mm;
+        }
+        .kpi-section-label {
+            font-size: 6pt;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,.25);
+            text-align: center;
+            margin-bottom: 6mm;
+        }
+        .kpi-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20pt;
+            gap: 0 10mm;
+        }
+        .kpi-row {
+            margin-bottom: 5mm;
+        }
+        .kpi-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 2.5px;
+        }
+        .kpi-label {
+            font-size: 6.5pt;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,.4);
+            flex: 1;
+            text-align: center;
+        }
+        .kpi-home-val {
+            font-size: 8.5pt;
+            font-weight: 800;
+            color: #7EB3FF;
+            min-width: 26px;
+            text-align: right;
+        }
+        .kpi-away-val {
+            font-size: 8.5pt;
+            font-weight: 800;
+            color: #FF9090;
+            min-width: 26px;
+            text-align: left;
+        }
+        .kpi-track {
+            position: relative;
+            height: 4px;
+            background: rgba(255,255,255,.06);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .kpi-fill-home {
+            position: absolute;
+            right: 50%;
+            top: 0; height: 100%;
+            background: linear-gradient(to left, #7EB3FF, #1E50B4);
+            border-radius: 2px 0 0 2px;
+        }
+        .kpi-fill-away {
+            position: absolute;
+            left: 50%;
+            top: 0; height: 100%;
+            background: linear-gradient(to right, #FF9090, #B42828);
+            border-radius: 0 2px 2px 0;
+        }
+        .kpi-mid-tick {
+            position: absolute;
+            left: 50%;
+            top: 0; height: 100%;
+            width: 1px;
+            background: rgba(255,255,255,.15);
         }
 
-        .full-width {
-            grid-column: span 2;
+        /* Cover footer */
+        .cover-footer {
+            padding: 4mm 14mm;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border-dark);
+        }
+        .cover-footer-left {
+            font-size: 6pt;
+            letter-spacing: 1px;
+            color: rgba(255,255,255,.2);
+            text-transform: uppercase;
+        }
+        .cover-footer-right {
+            font-size: 6pt;
+            color: rgba(255,255,255,.2);
+        }
+        .cover-confidential {
+            font-size: 5.5pt;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(200,165,45,.4);
+            border: 1px solid rgba(200,165,45,.2);
+            border-radius: 3px;
+            padding: 2px 8px;
         }
 
-        img.pitch-viz {
+        /* ------------------------------------------------------------------ */
+        /*  CONTENT PAGES (light background)                                   */
+        /* ------------------------------------------------------------------ */
+        .page-content {
+            background: var(--white);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Gold accent top bar */
+        .page-accent-bar {
+            height: 3px;
+            background: linear-gradient(90deg, var(--gold) 0%, var(--gold-light) 50%, transparent 100%);
+        }
+
+        /* Content page header */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5mm 14mm 4mm;
+            border-bottom: 1px solid var(--border-lt);
+        }
+        .page-brand {
+            font-size: 10pt;
+            font-weight: 900;
+            letter-spacing: 1.5px;
+            color: var(--gold);
+            text-transform: uppercase;
+        }
+        .page-match-meta {
+            font-size: 7pt;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        /* Content body */
+        .page-body {
+            flex: 1;
+            padding: 7mm 14mm 5mm;
+        }
+
+        /* Section heading */
+        .section-heading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 7mm;
+        }
+        .section-heading-line {
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(to right, var(--border-lt), transparent);
+        }
+        .section-title {
+            font-size: 16pt;
+            font-weight: 900;
+            color: var(--gold);
+            letter-spacing: 0.5px;
+            line-height: 1;
+        }
+
+        /* Subtitle / subsection label */
+        h3.subsection {
+            font-size: 7pt;
+            font-weight: 700;
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin: 6mm 0 3mm;
+            padding-bottom: 2mm;
+            border-bottom: 1px solid var(--border-lt);
+        }
+        h3.subsection:first-child { margin-top: 0; }
+
+        /* ------------------------------------------------------------------ */
+        /*  Overview page: substitutions                                        */
+        /* ------------------------------------------------------------------ */
+        .subs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6mm;
+            margin-top: 4mm;
+        }
+        .subs-team-block {
+            background: var(--off-white);
+            border: 1px solid var(--border-lt);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .subs-team-header {
+            background: var(--panel-light);
+            border-bottom: 1px solid var(--border-lt);
+            padding: 3mm 4mm;
+            font-size: 7.5pt;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .subs-team-header.home { border-left: 3px solid var(--home-clr); color: var(--home-clr); }
+        .subs-team-header.away { border-left: 3px solid var(--away-clr); color: var(--away-clr); }
+        .sub-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 3mm 4mm;
+            border-bottom: 1px solid var(--border-lt);
+            font-size: 7.5pt;
+        }
+        .sub-row:last-child { border-bottom: none; }
+        .sub-minute {
+            font-size: 7pt;
+            font-weight: 800;
+            color: var(--gold);
+            min-width: 22px;
+            padding-top: 1px;
+        }
+        .sub-players { flex: 1; }
+        .sub-off {
+            color: var(--away-clr);
+            font-size: 7pt;
+            margin-bottom: 2px;
+        }
+        .sub-off::before { content: "▼ "; font-size: 6pt; }
+        .sub-on {
+            color: var(--green);
+            font-size: 7pt;
+        }
+        .sub-on::before { content: "▲ "; font-size: 6pt; }
+        .sub-empty {
+            padding: 4mm;
+            font-size: 7.5pt;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* ------------------------------------------------------------------ */
+        /*  Image containers                                                    */
+        /* ------------------------------------------------------------------ */
+        .img-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4mm;
+            margin: 3mm 0;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        .img-wrap {
+            background: var(--off-white);
+            border: 1px solid var(--border-lt);
+            border-radius: 6px;
+            overflow: hidden;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        .img-wrap img {
             width: 100%;
-            border-radius: 8pt;
-            background: #f8f8fa;
-            border: 1px solid var(--border-light);
-            padding: 5pt;
-            box-sizing: border-box;
+            display: block;
+            max-height: 120mm;  /* cap single image height so pairs fit on A4 */
+            object-fit: contain;
         }
-        .section.dark img.pitch-viz {
-            background: #111530;
-            border: none;
+        .img-full {
+            margin: 3mm 0;
+            border-radius: 6px;
+            overflow: hidden;
+            break-inside: avoid;
+            page-break-inside: avoid;
         }
-        .pitch-viz.full-width {
-            background: none !important;
-            border: none !important;
-            padding: 0 !important;
+        .img-full img {
+            width: 100%;
+            display: block;
+            max-height: 200mm;
+            object-fit: contain;
         }
 
-        /* --- Tables --- */
+        /* ------------------------------------------------------------------ */
+        /*  Tables (pandas-generated + custom)                                  */
+        /* ------------------------------------------------------------------ */
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 8pt;
-            margin-bottom: 10pt;
+            font-size: 7.5pt;
+            margin: 3mm 0 5mm;
+            break-inside: avoid;
+            page-break-inside: avoid;
         }
-
+        thead tr {
+            background: var(--panel-light);
+            border-bottom: 2px solid var(--gold);
+        }
         th {
-            background: var(--header-bg-light);
-            color: var(--text-light-sub);
+            padding: 4px 7px;
             text-align: left;
-            padding: 6pt;
+            font-size: 6.5pt;
             font-weight: 700;
+            letter-spacing: 1px;
             text-transform: uppercase;
-        }
-        .section.dark th {
-            background: var(--header-bg);
             color: var(--text-sub);
+            white-space: nowrap;
         }
-
+        th:first-child { border-radius: 0; }
         td {
-            padding: 5pt 6pt;
-            border-bottom: 1px solid var(--border-light);
+            padding: 4px 7px;
+            border-bottom: 1px solid var(--border-lt);
+            color: var(--text-main);
+            vertical-align: middle;
         }
-        .section.dark td { border-bottom-color: var(--border); }
+        tr:nth-child(even) td { background: rgba(0,0,0,.018); }
+        tr:last-child td { border-bottom: none; }
+        /* First column bold for metric tables */
+        td:first-child { font-weight: 600; color: var(--text-main); }
+        /* Numeric columns centered */
+        td:not(:first-child) { text-align: center; color: #444; }
+        th:not(:first-child) { text-align: center; }
 
-        tr:nth-child(even) {
-            background: rgba(0, 0, 0, 0.03);
+        /* Team-split stat tables: home/away column colouring */
+        .stats-table td:nth-child(2),
+        .stats-table td:nth-child(3),
+        .stats-table td:nth-child(4) {
+            color: var(--home-clr);
+            font-weight: 600;
         }
-        .section.dark tr:nth-child(even) {
-            background: rgba(255, 255, 255, 0.02);
+        .stats-table td:nth-child(5),
+        .stats-table td:nth-child(6),
+        .stats-table td:nth-child(7) {
+            color: var(--away-clr);
+            font-weight: 600;
+        }
+        .stats-table th:nth-child(2),
+        .stats-table th:nth-child(3),
+        .stats-table th:nth-child(4) {
+            background: var(--home-bg);
+            color: var(--home-clr);
+        }
+        .stats-table th:nth-child(5),
+        .stats-table th:nth-child(6),
+        .stats-table th:nth-child(7) {
+            background: var(--away-bg);
+            color: var(--away-clr);
         }
 
-        .bold { font-weight: 700; }
-        .text-center { text-align: center; }
-        .home-text { color: var(--home-clr); }
-        .away-text { color: var(--away-clr); }
-
-        /* --- Player Cards --- */
-        .player-row {
+        /* ------------------------------------------------------------------ */
+        /*  Page footer                                                         */
+        /* ------------------------------------------------------------------ */
+        .page-footer {
+            padding: 3mm 14mm;
             display: flex;
-            align-items: flex-start;
-            gap: 15pt;
-            margin-bottom: 20pt;
-            padding: 10pt;
-            background: #f8f8fa;
-            border: 1px solid var(--border-light);
-            border-radius: 8pt;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border-lt);
+            background: var(--white);
+            margin-top: 5mm;
+            break-before: avoid;
+            page-break-before: avoid;
         }
-        .section.dark .player-row {
-            background: rgba(255, 255, 255, 0.03);
-            border: none;
+        .footer-section-name {
+            font-size: 6pt;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--text-muted);
         }
-
-        .player-info {
-            flex: 1;
+        .footer-page-num {
+            font-size: 6pt;
+            color: var(--text-muted);
         }
-
-        .player-name {
-            font-size: 12pt;
-            font-weight: 700;
-            margin-bottom: 2pt;
-        }
-
-        .player-stats {
-            font-size: 8pt;
-            color: var(--text-sub);
+        .footer-brand {
+            font-size: 6pt;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: var(--gold);
         }
 
-        .player-heatmaps {
-            display: flex;
-            gap: 10pt;
+        /* ------------------------------------------------------------------ */
+        /*  KPI section — light-page variant (Overview page)                  */
+        /* ------------------------------------------------------------------ */
+        .kpi-section-light .kpi-section-label {
+            color: var(--text-muted);
+            font-size: 6pt;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            text-align: center;
+            margin-bottom: 4mm;
+        }
+        .kpi-section-light .kpi-grid {
+            grid-template-columns: 1fr;
+        }
+        .kpi-section-light .kpi-label {
+            color: var(--text-muted);
+        }
+        .kpi-section-light .kpi-track {
+            background: var(--border-lt);
+        }
+        .kpi-section-light .kpi-mid-tick {
+            background: rgba(0,0,0,.15);
+        }
+        .kpi-section-light .kpi-home-val { color: var(--home-clr); }
+        .kpi-section-light .kpi-away-val { color: var(--away-clr); }
+        .kpi-section-light .kpi-fill-home {
+            background: linear-gradient(to left, #7EB3FF, var(--home-clr));
+        }
+        .kpi-section-light .kpi-fill-away {
+            background: linear-gradient(to right, #FF9090, var(--away-clr));
+        }
+        .kpi-section-light .kpi-team-label-home { color: var(--home-clr); }
+        .kpi-section-light .kpi-team-label-away { color: var(--away-clr); }
+
+        /* ------------------------------------------------------------------ */
+        /*  Print helpers                                                       */
+        /* ------------------------------------------------------------------ */
+        @media print {
+            .page { page-break-after: always; break-after: page; }
+            .page:last-child { page-break-after: auto; break-after: auto; }
+            thead { display: table-header-group; }
+            tr { page-break-inside: avoid; break-inside: avoid; }
+            .img-grid, .img-full, .img-wrap { page-break-inside: avoid; break-inside: avoid; }
+            table { page-break-inside: avoid; break-inside: avoid; }
         }
 
-        .mini-heatmap {
-            width: 100pt;
-            border-radius: 4pt;
+        /* Keep subsection label with the content that follows it */
+        h3.subsection {
+            break-after: avoid;
+            page-break-after: avoid;
         }
-
     </style>
 </head>
 <body>
 
-    <!-- COVER PAGE -->
-    <div class="section dark">
-        <div class="page-border"></div>
-        <div class="cover">
-            <h1>MATCH REPORT</h1>
-            <div class="competition">{{ competition or 'Match Analysis' }}</div>
+<!-- ======================================================================
+     COVER PAGE
+     ====================================================================== -->
+<div class="page page-cover page-fixed">
+    <div class="cover-accent-bar"></div>
 
-            <div class="match-hero">
-                <div class="hero-team">
-                    {% if home_logo_base64 %}
-                    <img src="data:image/svg+xml;base64,{{ home_logo_base64 }}" class="hero-logo">
-                    {% endif %}
-                    <div class="hero-name">{{ home_team }}</div>
-                </div>
+    <div class="cover-inner">
+
+        <!-- Top-centre brand -->
+        <div class="cover-top-brand">
+            <div class="cover-brand-title">CuléVision</div>
+            <div class="cover-brand-sub">Match Intelligence</div>
+            <div class="cover-competition-badge">{{ competition or 'Match Analysis' }}</div>
+        </div>
+
+        <!-- Match hero -->
+        <div class="cover-hero">
+            <div class="hero-team-block">
+                {% if home_logo_base64 %}
+                <img src="data:image/svg+xml;base64,{{ home_logo_base64 }}" class="hero-logo" alt="{{ home_team }}">
+                {% endif %}
+                <div class="hero-team-name">{{ home_team }}</div>
+                <div class="hero-team-role">Home</div>
+            </div>
+
+            <div class="hero-divider"></div>
+
+            <div class="hero-score-block">
                 <div class="hero-score">{{ score }}</div>
-                <div class="hero-team">
-                    {% if away_logo_base64 %}
-                    <img src="data:image/svg+xml;base64,{{ away_logo_base64 }}" class="hero-logo">
+                <div class="hero-score-label">Full Time</div>
+            </div>
+
+            <div class="hero-divider"></div>
+
+            <div class="hero-team-block">
+                {% if away_logo_base64 %}
+                <img src="data:image/svg+xml;base64,{{ away_logo_base64 }}" class="hero-logo" alt="{{ away_team }}">
+                {% endif %}
+                <div class="hero-team-name">{{ away_team }}</div>
+                <div class="hero-team-role">Away</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meta strip -->
+    <div class="cover-meta-strip">
+        <div class="meta-item">
+            <div class="meta-label">Date</div>
+            <div class="meta-value">{{ date }}</div>
+        </div>
+        <div class="meta-sep"></div>
+        <div class="meta-item">
+            <div class="meta-label">Venue</div>
+            <div class="meta-value">{{ venue or '—' }}</div>
+        </div>
+        <div class="meta-sep"></div>
+        <div class="meta-item">
+            <div class="meta-label">Competition</div>
+            <div class="meta-value">{{ competition or '—' }}</div>
+        </div>
+    </div>
+
+    <!-- Cover footer -->
+    <div class="cover-footer">
+        <div class="cover-footer-left">CuléVision Analysis · {{ generated_at }}</div>
+        <div class="cover-confidential">Confidential</div>
+    </div>
+</div>
+
+
+<!-- ======================================================================
+     OVERVIEW PAGE (Starting XI + Substitutions)
+     ====================================================================== -->
+<div class="page page-content">
+    <div class="page-accent-bar"></div>
+    <div class="page-header">
+        <div class="page-brand">CuléVision</div>
+        <div class="page-match-meta">{{ home_team }} vs {{ away_team }} · {{ date }}</div>
+    </div>
+
+    <div class="page-body">
+        <div class="section-heading">
+            <div class="section-title">1. Overview</div>
+            <div class="section-heading-line"></div>
+        </div>
+
+        <!-- Match Statistics (single vertical list) -->
+        <h3 class="subsection">Match Statistics</h3>
+        <div class="cover-kpi-section kpi-section-light" style="padding: 0 0 5mm;">
+            <!-- Team labels row -->
+            <div style="display:flex; justify-content:space-between; margin-bottom:4mm;">
+                <div style="display:flex; align-items:center; gap:5px;">
+                    {% if home_logo_base64 %}
+                    <img src="data:image/svg+xml;base64,{{ home_logo_base64 }}" style="width:14px;height:14px;object-fit:contain;">
                     {% endif %}
-                    <div class="hero-name">{{ away_team }}</div>
+                    <span style="font-size:7.5pt;font-weight:700;letter-spacing:.5px;" class="kpi-team-label-home">{{ home_team }}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:5px;">
+                    <span style="font-size:7.5pt;font-weight:700;letter-spacing:.5px;" class="kpi-team-label-away">{{ away_team }}</span>
+                    {% if away_logo_base64 %}
+                    <img src="data:image/svg+xml;base64,{{ away_logo_base64 }}" style="width:14px;height:14px;object-fit:contain;">
+                    {% endif %}
                 </div>
             </div>
-
-            <div class="match-meta">
-                {{ venue }} | {{ date }}
-            </div>
-
-            <div class="kpi-container" style="margin-top: 40pt;">
+            <div class="kpi-grid">
                 {% for kpi in main_kpis %}
                 <div class="kpi-row">
-                    <div class="kpi-label">{{ kpi.label }}</div>
-                    <div class="kpi-visual">
-                        <div class="kpi-val home">{{ kpi.home_display }}</div>
-                        <div class="kpi-track">
-                            <div class="kpi-fill home" style="width: {{ kpi.home_pct }}%"></div>
-                            <div class="kpi-fill away" style="width: {{ kpi.away_pct }}%"></div>
-                        </div>
-                        <div class="kpi-val away">{{ kpi.away_display }}</div>
+                    <div class="kpi-header">
+                        <div class="kpi-home-val">{{ kpi.home_display }}</div>
+                        <div class="kpi-label">{{ kpi.label }}</div>
+                        <div class="kpi-away-val">{{ kpi.away_display }}</div>
+                    </div>
+                    <div class="kpi-track">
+                        <div class="kpi-fill-home" style="width: {{ kpi.home_pct }}%;"></div>
+                        <div class="kpi-fill-away" style="width: {{ kpi.away_pct }}%;"></div>
+                        <div class="kpi-mid-tick"></div>
                     </div>
                 </div>
                 {% endfor %}
             </div>
         </div>
-        <div class="footer">
-            <div>CuléVision Analysis</div>
-            <div>Generated on {{ generated_at }}</div>
-        </div>
-    </div>
 
-    <!-- 1. OVERVIEW -->
-    <div class="section">
-        <div class="page-border"></div>
-        <div class="header">
-            <div class="brand">CuléVision</div>
-            <div class="match-meta">{{ home_team }} vs {{ away_team }}</div>
-        </div>
-
-        <h2>1. Overview</h2>
-
-        <h3>Starting XI</h3>
         {% if lineup_img_base64 %}
-        <img src="data:image/png;base64,{{ lineup_img_base64 }}" class="pitch-viz full-width">
+        <h3 class="subsection">Starting XI</h3>
+        <div class="img-full">
+            <img src="data:image/png;base64,{{ lineup_img_base64 }}" alt="Starting XI">
+        </div>
         {% endif %}
 
-        <div class="grid" style="margin-top: 20pt;">
-            <div>
-                <h3>Substitutions</h3>
-                <!-- Simple list or table for subs -->
-                <table>
-                    <thead>
-                        <tr>
-                            <th colspan="2">{{ home_team }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for s in home_subs %}
-                        <tr>
-                            <td class="text-center" width="30">{{ s.minute }}'</td>
-                            <td>
-                                <span class="away-text">▼</span> {{ s.player_off }}<br>
-                                <span style="color: #32a032">▲</span> {{ s.player_on }}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <h3 class="subsection">Substitutions</h3>
+        <div class="subs-grid">
+            <!-- Home subs -->
+            <div class="subs-team-block">
+                <div class="subs-team-header home">{{ home_team }}</div>
+                {% if home_subs %}
+                    {% for s in home_subs %}
+                    <div class="sub-row">
+                        <div class="sub-minute">{{ s.minute }}'</div>
+                        <div class="sub-players">
+                            <div class="sub-off">{{ s.player_off }}</div>
+                            <div class="sub-on">{{ s.player_on }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="sub-empty">No substitutions recorded</div>
+                {% endif %}
             </div>
-            <div>
-                <h3>&nbsp;</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th colspan="2">{{ away_team }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for s in away_subs %}
-                        <tr>
-                            <td class="text-center" width="30">{{ s.minute }}'</td>
-                            <td>
-                                <span class="away-text">▼</span> {{ s.player_off }}<br>
-                                <span style="color: #32a032">▲</span> {{ s.player_on }}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
 
-        <div class="footer">
-            <div>Match Overview</div>
-            <div>Page 2</div>
+            <!-- Away subs -->
+            <div class="subs-team-block">
+                <div class="subs-team-header away">{{ away_team }}</div>
+                {% if away_subs %}
+                    {% for s in away_subs %}
+                    <div class="sub-row">
+                        <div class="sub-minute">{{ s.minute }}'</div>
+                        <div class="sub-players">
+                            <div class="sub-off">{{ s.player_off }}</div>
+                            <div class="sub-on">{{ s.player_on }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="sub-empty">No substitutions recorded</div>
+                {% endif %}
+            </div>
         </div>
     </div>
 
-    <!-- More sections would be added here in the loop -->
-    {% for section in custom_sections %}
-    <div class="section">
-        <div class="page-border"></div>
-        <div class="header">
-            <div class="brand">CuléVision</div>
-            <div class="match-meta">{{ home_team }} vs {{ away_team }}</div>
-        </div>
+    <div class="page-footer">
+        <div class="footer-section-name">Match Overview</div>
+        <div class="footer-brand">CuléVision</div>
+        <div class="footer-page-num">Page 2</div>
+    </div>
+</div>
 
-        <h2>{{ section.title }}</h2>
+
+<!-- ======================================================================
+     ANALYSIS SECTIONS
+     ====================================================================== -->
+{% set ns = namespace(page_num=2) %}
+{% for section in custom_sections %}
+{% set ns.page_num = ns.page_num + 1 %}
+<div class="page page-content">
+    <div class="page-accent-bar"></div>
+    <div class="page-header">
+        <div class="page-brand">CuléVision</div>
+        <div class="page-match-meta">{{ home_team }} vs {{ away_team }} · {{ date }}</div>
+    </div>
+
+    <div class="page-body">
+        {% if not section.is_continuation %}
+        <div class="section-heading">
+            <div class="section-title">{{ section.title }}</div>
+            <div class="section-heading-line"></div>
+        </div>
+        {% else %}
+        <div class="section-heading" style="margin-bottom:4mm;">
+            <div class="section-title" style="font-size:10pt; color:var(--text-muted);">{{ section.title }} <span style="font-size:7pt; font-weight:400;">(cont.)</span></div>
+            <div class="section-heading-line"></div>
+        </div>
+        {% endif %}
 
         {% for element in section.elements %}
+
             {% if element.type == 'subtitle' %}
-                <h3>{{ element.content }}</h3>
+                <h3 class="subsection">{{ element.content }}</h3>
+
             {% elif element.type == 'image_pair' %}
-                <div class="grid">
-                    <img src="data:image/png;base64,{{ element.left }}" class="pitch-viz">
-                    <img src="data:image/png;base64,{{ element.right }}" class="pitch-viz">
+                <div class="img-grid">
+                    {% if element.left %}
+                    <div class="img-wrap">
+                        <img src="data:image/png;base64,{{ element.left }}" alt="">
+                    </div>
+                    {% endif %}
+                    {% if element.right %}
+                    <div class="img-wrap">
+                        <img src="data:image/png;base64,{{ element.right }}" alt="">
+                    </div>
+                    {% endif %}
                 </div>
+
             {% elif element.type == 'image_full' %}
-                <img src="data:image/png;base64,{{ element.content }}" class="pitch-viz full-width">
+                <div class="img-full">
+                    <img src="data:image/png;base64,{{ element.content }}" alt="">
+                </div>
+
             {% elif element.type == 'table' %}
                 {{ element.content | safe }}
-            {% endif %}
-        {% endfor %}
 
-        <div class="footer">
-            <div>{{ section.title }}</div>
-            <div>Page {{ loop.index + 2 }}</div>
-        </div>
+            {% endif %}
+
+        {% endfor %}
     </div>
-    {% endfor %}
+
+    <div class="page-footer">
+        <div class="footer-section-name">{{ section.title }}{% if section.is_continuation %} (cont.){% endif %}</div>
+        <div class="footer-brand">CuléVision</div>
+        <div class="footer-page-num">Page {{ ns.page_num }}</div>
+    </div>
+</div>
+{% endfor %}
 
 </body>
 </html>
