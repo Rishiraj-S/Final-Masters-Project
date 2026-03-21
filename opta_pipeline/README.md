@@ -2,7 +2,7 @@
 
 A comprehensive Python pipeline for scraping, downloading, and transforming Opta football match data from Scoresway into analysis-ready Parquet files.
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -78,8 +78,9 @@ Built for **FC Barcelona La Liga 2025-2026** analysis, but easily configurable f
          ▼
 ┌─────────────────┐
 │  Transformers   │ ──► Parquet files
-│  - Match Info   │     (match_info + match_events)
+│  - Match        │     (match/ + match_event/ + lineup/)
 │  - Match Events │
+│  - Lineup       │
 └─────────────────┘
 ```
 
@@ -89,7 +90,7 @@ Built for **FC Barcelona La Liga 2025-2026** analysis, but easily configurable f
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.11+
 - Chrome/Chromium browser
 - ChromeDriver (compatible with your Chrome version)
 
@@ -238,18 +239,15 @@ opta_pipeline/
 │       ├── __init__.py
 │       ├── base_transformer.py
 │       ├── match_transformer.py
-│       └── matchevent_transformer.py
-├── mappings/
-│   ├── opta_event_types.csv
-│   └── opta_qualifier_types.csv
-├── data/
+│       ├── matchevent_transformer.py
+│       └── lineup_transformer.py
+│
+data/                                    # Lives at project root (../data/ from pipeline)
+├── barcelona/
 │   ├── target/                          # Raw JSON files
 │   │   └── Spain_Primera_Division/
 │   │       └── 2025-2026/
-│   │           ├── match/               # Basic match JSON
-│   │           │   ├── match123.json
-│   │           │   └── match456.json
-│   │           └── matchevent/          # Event data JSON
+│   │           └── matchdata/           # Combined match + matchevent JSON
 │   │               ├── match123.json
 │   │               └── match456.json
 │   │
@@ -257,21 +255,25 @@ opta_pipeline/
 │       └── Spain_Primera_Division/
 │           └── 2025-2026/
 │               ├── matches_urls.csv
-│               ├── match_info/          # Match metadata
+│               ├── match/               # Match metadata
 │               │   ├── 2025-12-25_BAR_vs_RMA_abc123.parquet
 │               │   └── 2025-12-28_BAR_vs_ATM_def456.parquet
-│               └── match_events/        # Event-level data
+│               ├── match_event/         # Event-level data
+│               │   ├── 2025-12-25_BAR_vs_RMA_abc123.parquet
+│               │   └── 2025-12-28_BAR_vs_ATM_def456.parquet
+│               └── lineup/              # Per-player lineup rows
 │                   ├── 2025-12-25_BAR_vs_RMA_abc123.parquet
 │                   └── 2025-12-28_BAR_vs_ATM_def456.parquet
-└── logs/
-    └── pipeline_YYYYMMDD_HHMMSS.log
+│
+logs/
+└── pipeline.log
 ```
 
 ---
 
 ## 📊 Output Files
 
-### 1. Match Info (`match_info/*.parquet`)
+### 1. Match Info (`match/*.parquet`)
 
 Basic match metadata and final results.
 
@@ -289,14 +291,14 @@ Basic match metadata and final results.
 import pandas as pd
 
 # Read match info
-match_info = pd.read_parquet('data/result/Spain_Primera_Division/2025-2026/match_info/2025-12-25_BAR_vs_RMA_abc123.parquet')
+match_info = pd.read_parquet('data/barcelona/result/Spain_Primera_Division/2025-2026/match/2025-12-25_BAR_vs_RMA_abc123.parquet')
 
 print(f"Match: {match_info['home_team_name'].iloc[0]} vs {match_info['away_team_name'].iloc[0]}")
 print(f"Score: {match_info['home_score'].iloc[0]} - {match_info['away_score'].iloc[0]}")
 print(f"Date: {match_info['date'].iloc[0]}")
 ```
 
-### 2. Match Events (`match_events/*.parquet`)
+### 2. Match Events (`match_event/*.parquet`)
 
 Comprehensive event-by-event data with 200+ columns.
 
@@ -320,7 +322,7 @@ Comprehensive event-by-event data with 200+ columns.
 import pandas as pd
 
 # Read match events
-events = pd.read_parquet('data/result/Spain_Primera_Division/2025-2026/match_events/2025-12-25_BAR_vs_RMA_abc123.parquet')
+events = pd.read_parquet('data/barcelona/result/Spain_Primera_Division/2025-2026/match_event/2025-12-25_BAR_vs_RMA_abc123.parquet')
 
 # Get all goals
 goals = events[events['event_type'] == 'Goal']
@@ -366,8 +368,8 @@ import glob
 
 # Load all match events
 all_events = pd.concat([
-    pd.read_parquet(f) 
-    for f in glob.glob('data/result/Spain_Primera_Division/2025-2026/match_events/*.parquet')
+    pd.read_parquet(f)
+    for f in glob.glob('data/barcelona/result/Spain_Primera_Division/2025-2026/match_event/*.parquet')
 ], ignore_index=True)
 
 print(f"Total events: {len(all_events):,}")

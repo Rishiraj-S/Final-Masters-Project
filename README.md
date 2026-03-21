@@ -13,11 +13,11 @@ CuléVision is a professional football analytics dashboard built specifically fo
 
 ## Key Features
 
-- **Match Analysis**: Automated post-match breakdown across five tactical phases — Overview, Possession, Transition, Recovery, and Set Pieces
+- **Match Analysis**: Automated post-match breakdown across seven tabs — Overview, Attacking Output, Build-Up & Passing, Defensive Structure, Transitions & Counter-pressing, Goalkeeping, and Player Stats
 - **Team Analysis**: KPIs defining Barcelona's playing style and game model across all competitions
 - **Player Analysis**: Match-by-match individual statistics and performance metrics
 - **Opposition Analysis**: Scouting dashboard for every team Barcelona faced, covering defence, transitions, set pieces, in-possession patterns, and player profiling
-- **xG Model**: Custom XGBoost expected goals model trained on Wyscout data with SHAP feature selection and monotone constraints — integrated across all shot visualisations in the app
+- **xG Model**: Three specialised XGBoost models (open play, direct free kick, penalty) trained on Wyscout data with SHAP feature selection and monotone constraints — an `XGRouter` automatically routes each shot to the correct model. Integrated across all shot visualisations in the app
 - **Data Pipeline (Barca)**: Fully automated Opta data ingestion for Barcelona (scrape → download → transform → store)
 - **Data Pipeline (Opposition)**: Separate pipeline to collect match event data for all teams Barcelona faced, organised by country / team / competition
 - **Live Update Overlay**: UI feedback with real-time pipeline progress while databases are being updated
@@ -68,8 +68,12 @@ CuléVision/
 │   ├── team_analysis.py
 │   ├── opposition_analysis.py
 │   ├── match_analysis_tabs/        # Sub-tabs for Match Analysis page
+│   │   ├── shared.py
 │   │   ├── overview.py
 │   │   ├── attacking_output.py
+│   │   ├── build_up_passing.py
+│   │   ├── defensive_structure.py
+│   │   ├── transitions_counterpressing.py
 │   │   ├── goalkeeping.py
 │   │   └── player_stats.py
 │   ├── team_analysis_tabs/         # Sub-tabs for Team Analysis page
@@ -87,13 +91,23 @@ CuléVision/
 │       ├── set_pieces.py
 │       └── transitions.py
 │
-├── xg_model/                       # Custom XGBoost expected goals model
-│   ├── predictor.py                # Inference class — load artifacts and predict
-│   ├── xg_model_final.json         # Trained XGBoost model weights
-│   ├── xg_scaler.pkl               # MinMaxScaler fitted on training data
-│   ├── xg_zone_bounds.pkl          # Spatial bounds for shot zone imputation
-│   ├── xg_selected_features.txt    # SHAP-selected feature list (21 features)
+├── xg_model/                       # Custom XGBoost expected goals model (3 sub-models)
+│   ├── predictor.py                # Inference classes — XGPredictor, XGDFKPredictor, XGPenaltyPredictor, XGRouter
+│   ├── xg_model_final.json         # Open-play model weights
+│   ├── xg_scaler.pkl               # Open-play MinMaxScaler
+│   ├── xg_zone_bounds.pkl          # Open-play shot zone bounds
+│   ├── xg_selected_features.txt    # SHAP-selected feature list (open play)
 │   ├── xg_monotone_constraints.json
+│   ├── xg_dfk_model_final.json     # Direct free kick model weights
+│   ├── xg_dfk_scaler.pkl
+│   ├── xg_dfk_zone_bounds.pkl
+│   ├── xg_dfk_selected_features.txt
+│   ├── xg_dfk_monotone_constraints.json
+│   ├── xg_penalty_model_final.json # Penalty model weights
+│   ├── xg_penalty_scaler.pkl
+│   ├── xg_penalty_zone_bounds.pkl
+│   ├── xg_penalty_selected_features.txt
+│   ├── xg_penalty_monotone_constraints.json
 │   └── README.md                   # Model documentation
 │
 ├── utils/                          # Shared utility modules
@@ -235,54 +249,59 @@ Shared constants, colour tokens (`HOME_COLOR`, `AWAY_COLOR`, `GOLD`), and reusab
 - Substitutes panels flank the pitch on either side, showing player name, jersey number, and the minute of substitution
 - TV-style horizontal bar comparisons below the pitch for key stats: possession, shots, shots on target, passes, pass accuracy, corners, fouls, yellow/red cards
 
-### `possession.py`
-**Tab 2 — Possession Phase**
+### `attacking_output.py`
+**Tab 2 — Attacking Output**
 
-- Three labelled sections: **Build Up**, **Positional Play**, and **Finishing**
-- Pass maps and progressive carry sequences plotted on an mplsoccer pitch per phase
-- Possession-phase KPIs: pass accuracy by zone, progressive passes, ball recoveries, PPDA, and chance creation metrics
+- Shot map on an mplsoccer pitch: goals, saved shots, off-target, and blocked shots plotted by pitch coordinates with xG values
+- Shot event table with player, minute, body part, shot zone, xG, and outcome
+- KPIs: total shots, shots on target, shot accuracy, goals, xG, big chances created/converted
 
-### `transition.py`
-**Tab 3 — Transition**
+### `build_up_passing.py`
+**Tab 3 — Build-Up & Passing**
+
+- Pass maps showing progressive passing sequences and build-up patterns
+- Possession-phase KPIs: pass accuracy by zone, progressive passes, PPDA, ball recoveries, and chance creation metrics
+
+### `defensive_structure.py`
+**Tab 4 — Defensive Structure**
+
+- Defensive action maps: tackles, interceptions, clearances, and blocks plotted by pitch zone
+- KPIs: defensive actions by zone, defensive duels won, fouls conceded, clean sheet metrics
+
+### `transitions_counterpressing.py`
+**Tab 5 — Transitions & Counter-pressing**
 
 - Attacking and defensive transition events mapped on pitch
-- Identifies fast-break sequences using Opta `Fast break` qualifier and event-sequence inference
+- Counter-attack sequences identified via Opta `Fast break` qualifier
 - KPIs: counter-attacks initiated, counters resulting in shots/goals, pressing intensity (PPDA), ball recovery locations
 
-### `recovery.py`
-**Tab 4 — Recovery Phase**
+### `goalkeeping.py`
+**Tab 6 — Goalkeeping**
 
-- Three labelled sections: **High Block**, **Mid Block**, and **Low Block**
-- Defensive action maps per block type: tackles, interceptions, clearances, and blocks plotted by pitch zone
-- Block-specific KPIs: defensive actions per zone, defensive duels won, fouls conceded
+- Goalkeeper save map plotted on a goal-frame pitch view, with shot origin overlay
+- KPIs: saves, goals conceded, save percentage, xG faced vs goals conceded, distribution stats
 
-### `finishing.py`
-**Tab 5 — Finishing**
+### `player_stats.py`
+**Tab 7 — Player Stats**
 
-- Shot map on an mplsoccer pitch: goals, saved shots, and misses plotted by pitch coordinates
-- Shot event table with player, minute, shot type, zone, and outcome
-- Attacking KPIs: total shots, shots on target, shot accuracy, goals, big chances created/converted
-
-### `set_pieces.py`
-**Tab 6 — Set Pieces**
-
-- Four labelled sections: **Corners**, **Free Kicks**, **Throw-ins**, and **Penalties**
-- Delivery maps showing origin and endpoint of each set piece delivery
-- Outcome breakdown: goals, shots, clearances from attacking set pieces; defensive actions from defensive set pieces
+- Per-player match statistics table for both teams
+- Stats columns: minutes played, goals, assists, shots, shots on target, passes, pass accuracy, key passes, tackles, interceptions, fouls, cards
 
 ---
 
-## Opposition Analysis Tabs (`pages/opposition_analysis_tabs/`) *(In Progress)*
+## Opposition Analysis Tabs (`pages/opposition_analysis_tabs/`)
 
-Sub-modules for the forthcoming Opposition Analysis page, which will allow scouting of any team Barcelona faced this season using the opposition pipeline data.
+Sub-modules for the Opposition Analysis page, allowing scouting of any team Barcelona faced using the opposition pipeline data.
 
 | Module | Description |
 |---|---|
 | `helpers.py` | Shared data loaders and formatting utilities for opposition tabs |
-| `summary.py` | Season summary: W/D/L, goals, key KPIs for the selected opponent |
-| `tactical.py` | Tactical shape, formation usage, and pressing metrics |
-| `key_players.py` | Top performers by goal contributions, pass volume, and defensive actions |
-| `shot_map.py` | Shot map for the selected opponent across selected matches |
+| `scouting.py` | Season summary dashboard: W/D/L, goals, and headline KPIs for the selected opponent |
+| `in_possession.py` | Opposition in-possession patterns: pass maps, progressive carries, chance creation |
+| `defence.py` | Opposition defensive organisation: block shape, defensive actions, duels |
+| `transitions.py` | Opposition transition behaviour: counter-attacks, pressing, ball recoveries |
+| `set_pieces.py` | Opposition set piece analysis: corners, free kicks, throw-ins |
+| `exploit.py` | Exploitable weaknesses: zones to attack, vulnerable opponents, high-xG areas |
 
 ---
 
@@ -579,12 +598,12 @@ The application uses FC Barcelona's official color scheme on a dark background:
 
 ## Current Status
 
-**Version**: 0.3.0
+**Version**: 0.4.0
 
 - Barcelona data pipeline fully operational across four competitions (La Liga, UCL, Copa del Rey, Super Cup)
 - Opposition data pipeline built and configured for ~30 opponents across 21 competitions
-- Match Analysis (Attacking Output, Goalkeeping, Player Stats), Home, Player Analysis, Team Analysis, and Opposition Analysis pages implemented
-- Custom XGBoost xG model integrated — predictions displayed across all shot visualisations in the app
+- All five dashboard pages implemented: Home, Match Analysis (7 tabs), Player Analysis, Team Analysis, and Opposition Analysis
+- Three-model xG suite (open play, direct free kick, penalty) with `XGRouter` — predictions displayed across all shot visualisations in the app
 
 ---
 
