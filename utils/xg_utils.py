@@ -12,8 +12,9 @@ Public API
 ----------
     add_xg_column(shots_df) -> pd.DataFrame
         Accepts any Opta shot event DataFrame and returns a copy with an 'xg'
-        column added.  Penalties and direct free kicks get NaN (excluded from
-        training).  Errors per-row are caught silently and also produce NaN.
+        column added.  Own goals get NaN (no model covers them).  Penalties
+        and direct free kicks are routed to their dedicated sub-models.
+        Errors per-row are caught silently and also produce NaN.
 
 The predictor is loaded once (lazy singleton) so the model weights are only
 read from disk on the first call, not on every page load.
@@ -35,9 +36,9 @@ _predictor = None
 def _get_predictor():
     global _predictor
     if _predictor is None:
-        from xg_model.predictor import XGPredictor
+        from xg_model.predictor import XGRouter
         model_dir = Path(__file__).parent.parent / 'xg_model'
-        _predictor = XGPredictor(model_dir)
+        _predictor = XGRouter(model_dir)
     return _predictor
 
 
@@ -54,6 +55,7 @@ _PERIOD_MAP = {
     2: 'Second Half',
     3: 'Extra Time First Half',
     4: 'Extra Time Second Half',
+    5: 'Penalty Shootout',   # kept by xg_penalty.py — needed for correct OHE
 }
 
 # Qualifier values that mean "not present" in Opta data
@@ -74,17 +76,21 @@ def _flag(row, *cols: str) -> int:
 
 def _row_to_shot_dict(row) -> dict | None:
     """
-    Map a single Opta shot event row to the dict format XGPredictor expects.
+    Map a single Opta shot event row to the dict format XGRouter expects.
 
-    Returns None for shots excluded from the model:
-      - Penalties         (qualifier 'Penalty')
-      - Direct free kicks (qualifier 'Free kick')
+    Returns None only for own goals — no model covers them and they should
+    not receive an xG value.  Penalties and direct free kicks are included
+    and routed to their dedicated sub-models by XGRouter.
 
     Qualifier column names come from opta_qualifier_types.csv qualifierTypeName.
     """
-    # Exclude shot types the model was not trained on
-    if _present(row.get('Penalty')) or _present(row.get('Free kick')):
+    # Own goals are excluded from all three models — return None so they get NaN
+    if row.get('own goal') == 'Si':
         return None
+
+    # Routing flags — passed through to XGRouter, ignored by individual models
+    is_penalty = 1 if _present(row.get('Penalty')) else 0
+    is_dfk     = 1 if _present(row.get('Free kick')) else 0
 
     x = float(row.get('x') or 0)
     y = float(row.get('y') or 0)
@@ -117,17 +123,17 @@ def _row_to_shot_dict(row) -> dict | None:
 
     # ── Pattern of play ───────────────────────────────────────────────────────
     # Opta qualifier IDs: 22=Regular play, 23=Fast break, 24=Set piece,
-    # 25=From corner, 96=Corner situation, 160=Throw In set piece.
-    # Qualifier 26=Free kick (direct FK) is EXCLUDED from model.
+    # 25=From corner, 96=Corner situation, 160=Throw In set piece, 26=Free kick.
     regular     = _flag(row, 'Regular play')
     fast_break  = _flag(row, 'Fast break')
     set_piece   = _flag(row, 'Set piece')
     from_corner = _flag(row, 'From corner')
     corner_sit  = _flag(row, 'Corner situation')
     throw_in    = _flag(row, 'Throw In set piece')
-    # If no pattern qualifier is tagged, default to regular play
-    if not (regular or fast_break or set_piece or from_corner or corner_sit or throw_in):
-        regular = 1
+    # Only default to regular play for open play shots — not DFKs or penalties
+    if not is_dfk and not is_penalty:
+        if not (regular or fast_break or set_piece or from_corner or corner_sit or throw_in):
+            regular = 1
 
     # ── Context ───────────────────────────────────────────────────────────────
     # Opta qualifier 29 = Assisted (on the shot), 215 = Individual Play
@@ -140,25 +146,29 @@ def _row_to_shot_dict(row) -> dict | None:
     period_name = _PERIOD_MAP.get(period_id, 'First Half')
 
     return {
-        'x':                       x,
-        'y':                       y,
-        'distance_to_goal':        distance,
-        'angle_to_goal':           angle,
-        'body_part_head':          head,
-        'body_part_right_foot':    right_foot,
-        'body_part_left_foot':     left_foot,
-        'body_part_other':         other,
-        'pattern_regular_play':    regular,
-        'pattern_fast_break':      fast_break,
-        'pattern_set_piece':       set_piece,
-        'pattern_from_corner':     from_corner,
-        'pattern_corner_situation': corner_sit,
+        'x':                          x,
+        'y':                          y,
+        'distance_to_goal':           distance,
+        'angle_to_goal':              angle,
+        'body_part_head':             head,
+        'body_part_right_foot':       right_foot,
+        'body_part_left_foot':        left_foot,
+        'body_part_other':            other,
+        'pattern_regular_play':       regular,
+        'pattern_fast_break':         fast_break,
+        'pattern_set_piece':          set_piece,
+        'pattern_from_corner':        from_corner,
+        'pattern_corner_situation':   corner_sit,
         'pattern_throw_in_set_piece': throw_in,
-        'is_assisted':             assisted,
-        'is_individual_play':      individual,
-        'time_min':                time_min,
-        'period_name':             period_name,
-        'shot_zone':               None,   # inferred from (x, y) by XGPredictor
+        'is_assisted':                assisted,
+        'is_individual_play':         individual,
+        'time_min':                   time_min,
+        'period_name':                period_name,
+        'shot_zone':                  None,   # inferred from (x, y) by predictor
+        # Routing flags — read by XGRouter, silently dropped by individual models
+        'is_penalty':                 is_penalty,
+        'pattern_direct_free_kick':   is_dfk,
+        'is_own_goal':                0,  # own goals return None above
     }
 
 
@@ -182,7 +192,8 @@ def add_xg_column(shots_df: pd.DataFrame) -> pd.DataFrame:
     -------
     pd.DataFrame
         A copy of shots_df with an additional 'xg' column (float, 0–1).
-        Penalties and direct free kicks get NaN.
+        Own goals get NaN.  Penalties and direct free kicks are routed to
+        their dedicated models and receive real predictions.
         Rows that fail to produce a prediction also get NaN.
     """
     if shots_df.empty:

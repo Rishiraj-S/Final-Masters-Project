@@ -216,11 +216,22 @@ def compute_team_kpis(events: pd.DataFrame, team_position: str) -> Dict[str, Any
         import pandas as _pd
         assists = int((_pd.to_numeric(passes['Assist'], errors='coerce') == 16).sum())
 
+    # xG: sum of per-shot expected goals (routes to open play / DFK / penalty model)
+    xg = 0.0
+    shots_df = team[team['event_type'].isin(shot_types)] if not team.empty else team.iloc[0:0]
+    if not shots_df.empty:
+        try:
+            from utils.xg_utils import add_xg_column
+            xg = round(float(add_xg_column(shots_df)['xg'].sum(skipna=True)), 2)
+        except Exception:
+            xg = 0.0
+
     return {
         'goals': goals,
         'assists': assists,
         'shots': shots,
         'shots_on_target': shots_on_target,
+        'xg': xg,
         'blocked_shots': blocked_shots,
         'passes': total_passes,
         'pass_accuracy': pass_acc,

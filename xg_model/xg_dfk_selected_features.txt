@@ -1,0 +1,15 @@
+distance_to_goal
+x
+angle_to_goal
+y
+time_min
+body_part_right_foot
+body_part_left_foot
+is_assisted
+zone_35plus_centre
+period_First Half
+zone_out_of_box_centre
+period_Second Half
+is_individual_play
+zone_out_of_box_deep_right
+zone_out_of_box_right

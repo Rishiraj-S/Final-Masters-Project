@@ -541,12 +541,19 @@ def _build_lineup_html_panel(
 # TV-style stat bar component
 # =============================================================================
 
-def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False):
+def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False, decimals=0, tooltip=None):
     """
     Build a single TV-broadcast-style comparison bar.
 
     Layout:  home_value  [=====|=====]  away_value
                       stat label
+
+    Parameters
+    ----------
+    decimals : int
+        Decimal places for display. 0 = integer (default). Use 2 for xG.
+    tooltip : str | None
+        If provided, shown on hover over the label (native browser title attribute).
     """
     hv = float(home_val) if home_val else 0
     av = float(away_val) if away_val else 0
@@ -558,6 +565,9 @@ def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False):
     if is_percentage:
         h_display = f"{hv:.1f}{suffix}"
         a_display = f"{av:.1f}{suffix}"
+    elif decimals > 0:
+        h_display = f"{hv:.{decimals}f}{suffix}"
+        a_display = f"{av:.{decimals}f}{suffix}"
     else:
         h_display = f"{int(hv)}{suffix}"
         a_display = f"{int(av)}{suffix}"
@@ -573,13 +583,25 @@ def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False):
         'display': 'flex',
     }
 
+    label_style = {
+        'textAlign': 'center',
+        'color': COLORS['text_secondary'],
+        'fontSize': '0.85rem',
+        'marginBottom': '4px',
+    }
+    if tooltip:
+        label_style['cursor'] = 'help'
+        label_style['borderBottom'] = f"1px dashed {COLORS['text_secondary']}"
+        label_style['display'] = 'inline-block'
+
+    label_el = html.Div(
+        html.Span(label, title=tooltip, style=label_style) if tooltip
+        else label,
+        style={'textAlign': 'center', 'marginBottom': '4px'} if tooltip else label_style,
+    )
+
     return html.Div([
-        html.Div(label, style={
-            'textAlign': 'center',
-            'color': COLORS['text_secondary'],
-            'fontSize': '0.85rem',
-            'marginBottom': '4px',
-        }),
+        label_el,
         html.Div([
             html.Div(h_display, style={
                 'width': '65px', 'textAlign': 'right', 'fontWeight': h_weight,
@@ -750,6 +772,10 @@ def _build_stat_bars(home_kpis: dict, away_kpis: dict) -> html.Div:
                      home_kpis.get('shots', 0), away_kpis.get('shots', 0)),
         _tv_stat_bar('Shots on Target',
                      home_kpis.get('shots_on_target', 0), away_kpis.get('shots_on_target', 0)),
+        _tv_stat_bar('xG',
+                     home_kpis.get('xg', 0.0), away_kpis.get('xg', 0.0),
+                     decimals=2,
+                     tooltip='Expected goals (xG) — how many goals a team should have scored on average based on the number and quality of shots taken.'),
         _tv_stat_bar('Assists',
                      home_kpis.get('assists', 0), away_kpis.get('assists', 0)),
         _tv_stat_bar('Blocked Shots',

@@ -1,0 +1,17 @@
+{
+  "distance_to_goal": -1,
+  "x": 0,
+  "angle_to_goal": -1,
+  "y": 0,
+  "time_min": 0,
+  "body_part_right_foot": 0,
+  "body_part_left_foot": 0,
+  "is_assisted": 0,
+  "zone_35plus_centre": 0,
+  "period_First Half": 0,
+  "zone_out_of_box_centre": 0,
+  "period_Second Half": 0,
+  "is_individual_play": 0,
+  "zone_out_of_box_deep_right": 0,
+  "zone_out_of_box_right": 0
+}

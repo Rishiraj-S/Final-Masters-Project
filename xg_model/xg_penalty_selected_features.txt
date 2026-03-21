@@ -1,0 +1,12 @@
+time_min
+angle_to_goal
+distance_to_goal
+y
+period_First Half
+period_Second Half
+body_part_right_foot
+x
+body_part_left_foot
+period_Penalty Shootout
+zone_35plus_centre
+period_Extra Time First Half
