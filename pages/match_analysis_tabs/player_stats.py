@@ -17,9 +17,14 @@ from utils.data_utils import get_match_events, exclude_own_goals
 from utils.xg_utils import add_xg_column
 
 from .shared import (
-    HOME_COLOR, AWAY_COLOR, GOLD,
+    CARD_STYLE,
+    section_header,
+)
+from page_utils.visualizations import (
+    HOME_COLOR,
+    AWAY_COLOR,
+    GOLD,
     render_lsc_heatmap_img,
-    CARD_STYLE, section_header
 )
 
 _SHOT_TYPES = {'Miss', 'Saved Shot', 'Goal', 'Post', 'Blocked Shot'}

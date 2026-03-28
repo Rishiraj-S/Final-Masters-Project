@@ -14,14 +14,16 @@ import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
 from pages.match_analysis_tabs.shared import (
+    section_card,
+    kpi_row,
+)
+from page_utils.visualizations import (
     layout_config,
     CHART_CONFIG,
     add_pitch_background,
     PITCH_AXIS_FULL,
-    section_card,
-    kpi_row,
     empty_fig,
-    render_heatmap_img,
+    render_lsc_heatmap_img,
     GOLD,
     HOME_COLOR,
     AWAY_COLOR,
@@ -45,7 +47,11 @@ def _recovery_zones_map(opp_ev: pd.DataFrame) -> go.Figure:
     if gains.empty:
         return empty_fig("No ball recovery data")
 
-    img = render_heatmap_img(gains["x"].tolist(), gains["y"].tolist(), cmap="YlGn")
+    # The instruction was to replace render_heatmap_img with render_lsc_heatmap_img.
+    # The original call was `render_heatmap_img(gains["x"].tolist(), gains["y"].tolist(), cmap="YlGn")`
+    # `render_lsc_heatmap_img` expects `color_hex` and `half` arguments.
+    # Assuming the intent is to use AWAY_COLOR for opposition and full pitch.
+    img = render_lsc_heatmap_img(gains["x"].tolist(), gains["y"].tolist(), color_hex=AWAY_COLOR, half=False)
     fig = go.Figure()
     add_pitch_background(fig)
     fig.add_layout_image(dict(

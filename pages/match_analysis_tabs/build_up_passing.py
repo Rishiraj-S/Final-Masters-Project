@@ -29,15 +29,23 @@ import dash_bootstrap_components as dbc
 from utils.config import COLORS
 from utils.data_utils import get_match_events
 from .shared import (
-    HOME_COLOR, AWAY_COLOR, GOLD,
-    CHART_CONFIG, layout_config,
-    add_pitch_background, PITCH_AXIS_FULL,
-    render_lsc_heatmap_img,
-    build_legend_box, build_info_box,
+    build_legend_box,
+    build_info_box,
     build_team_stats_table,
-    CARD_STYLE, section_header,
+    CARD_STYLE,
+    section_header,
     HALF_BTN_ACTIVE as _BTN_ACTIVE,
     HALF_BTN_IDLE   as _BTN_IDLE,
+)
+from page_utils.visualizations import (
+    HOME_COLOR,
+    AWAY_COLOR,
+    GOLD,
+    CHART_CONFIG,
+    layout_config,
+    add_pitch_background,
+    PITCH_AXIS_FULL,
+    render_lsc_heatmap_img,
 )
 
 

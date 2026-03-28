@@ -33,11 +33,19 @@ from utils.data_utils import get_match_events, count_goals, exclude_own_goals
 from utils.xg_utils import add_xg_column
 
 from .shared import (
-    HOME_COLOR, AWAY_COLOR, GOLD,
-    CHART_CONFIG, layout_config,
-    add_pitch_background, PITCH_AXIS_FULL,
-    add_vertical_half_pitch_background, VPITCH_AXIS_HALF,
-    CARD_STYLE, section_header,
+    CARD_STYLE,
+    section_header,
+)
+from page_utils.visualizations import (
+    HOME_COLOR,
+    AWAY_COLOR,
+    GOLD,
+    CHART_CONFIG,
+    layout_config,
+    add_pitch_background,
+    PITCH_AXIS_FULL,
+    add_vertical_half_pitch_background,
+    VPITCH_AXIS_HALF,
 )
 
 # ---------------------------------------------------------------------------

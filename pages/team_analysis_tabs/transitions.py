@@ -29,15 +29,17 @@ from utils.data_utils import (
     CURRENT_SEASON,
 )
 from pages.match_analysis_tabs.shared import (
+    section_card,
+    kpi_row,
+)
+from page_utils.visualizations import (
     CHART_LAYOUT_DEFAULTS,
     CHART_CONFIG,
     add_pitch_background,
     PITCH_AXIS_FULL,
     PITCH_AXIS_HALF,
-    section_card,
-    kpi_row,
     empty_fig,
-    render_heatmap_img,
+    render_lsc_heatmap_img,
     GOLD,
     HOME_COLOR,
     AWAY_COLOR,
@@ -211,7 +213,7 @@ def _counterpress_map(bar):
 
     if cp.empty:
         return None
-    return render_heatmap_img(cp['x'].values, cp['y'].values, cmap='YlOrRd', half=False)
+    return render_lsc_heatmap_img(cp['x'].values, cp['y'].values, color_hex=HOME_COLOR, half=False)
 
 
 def _counterpress_scatter(bar):
@@ -304,7 +306,7 @@ def _transition_danger_map(bar):
     own_half = turnovers[turnovers['x'] < 50]
     if own_half.empty:
         return None
-    return render_heatmap_img(own_half['x'].values, own_half['y'].values,
+    return render_lsc_heatmap_img(own_half['x'].values, own_half['y'].values,
                               cmap='RdPu', half=False)
 
 

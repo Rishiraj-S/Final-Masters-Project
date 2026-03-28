@@ -28,10 +28,13 @@ from utils.match_data_adapter import (
 )
 
 
-from .shared import (
-    HOME_COLOR, AWAY_COLOR, GOLD,
-    add_vertical_pitch_background, VPITCH_AXIS,
-    section_header,
+from .shared import section_header
+from page_utils.visualizations import (
+    HOME_COLOR,
+    AWAY_COLOR,
+    GOLD,
+    add_vertical_pitch_background,
+    VPITCH_AXIS,
 )
 
 

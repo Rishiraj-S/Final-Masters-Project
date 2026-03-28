@@ -27,12 +27,14 @@ from utils.data_utils import (
     CURRENT_SEASON,
 )
 from pages.match_analysis_tabs.shared import (
-    CHART_LAYOUT_DEFAULTS,
-    CHART_CONFIG,
     section_card,
     kpi_row,
+)
+from page_utils.visualizations import (
+    CHART_LAYOUT_DEFAULTS,
+    CHART_CONFIG,
     empty_fig,
-    render_heatmap_img,
+    render_lsc_heatmap_img,
     GOLD,
     HOME_COLOR,
     AWAY_COLOR,
@@ -66,7 +68,7 @@ def _phase_scores(bar, opp, results):
 
     # Chance creation: key passes + final third entries per 100 touches
     all_passes = bar[bar['event_type'] == 'Pass']
-    key_p = int(bar[(bar['event_type'] == 'Pass') & (bar.get('Assist', pd.Series(dtype=str)) == 'Si')].shape[0]) \
+    key_p = int(bar[(bar['event_type'] == 'Pass') & bar['Assist'].eq('Si')].shape[0]) \
         if 'Assist' in bar.columns else 0
     ft_entries = int(bar[bar['x'].notna() & (bar['x'] >= 66)].shape[0])
     total_bar  = max(len(bar), 1)
@@ -96,12 +98,13 @@ def _phase_scores(bar, opp, results):
 
     # Set piece threat: set piece shots / total shots
     shot_types = ['Goal', 'Saved Shot', 'Miss']
-    bar_shots  = bar[bar['event_type'].isin(shot_types)]
-    sp_shots   = bar_shots[bar_shots.get('Set piece', pd.Series(dtype=str)) == 'Si'] \
-        if 'Set piece' in bar_shots.columns else bar_shots.head(0)
-    sp_score = round(len(sp_shots) / max(len(bar_shots), 1) * 100, 1) \
-        if not bar_shots.empty else 25.0
-    scores['Set Pieces'] = min(sp_score * 2, 100)  # scale up
+    bar_shots = bar[bar['event_type'].isin(shot_types)]
+    if 'sub_type' in bar_shots.columns:
+        sp_shots = bar_shots[bar_shots['sub_type'].str.lower().str.contains('set piece', na=False)]
+    else:
+        sp_shots = bar_shots.head(0)
+    sp_score = round(len(sp_shots) / max(len(bar_shots), 1) * 100, 1) if not bar_shots.empty else 50.0
+    scores['Set Pieces'] = min(sp_score, 100)
 
     return scores
 
@@ -284,7 +287,7 @@ def _territory_map(bar):
     coords = bar.dropna(subset=['x', 'y'])
     if coords.empty:
         return None
-    return render_heatmap_img(coords['x'].values, coords['y'].values, cmap='Blues', half=False)
+    return render_lsc_heatmap_img(coords['x'].values, coords['y'].values, color_hex=HOME_COLOR, half=False)
 
 
 def _phase_comparison_chart(bar, opp, results):

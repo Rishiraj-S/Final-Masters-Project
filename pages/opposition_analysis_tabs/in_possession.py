@@ -15,15 +15,17 @@ import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
 from pages.match_analysis_tabs.shared import (
-    layout_config,
+    section_card,
+    kpi_row,
+)
+from page_utils.visualizations import (
+    CHART_LAYOUT_DEFAULTS,
     CHART_CONFIG,
     add_pitch_background,
     PITCH_AXIS_FULL,
     PITCH_AXIS_HALF,
-    section_card,
-    kpi_row,
     empty_fig,
-    render_heatmap_img,
+    render_lsc_heatmap_img,
     GOLD,
     HOME_COLOR,
     AWAY_COLOR,
@@ -34,6 +36,13 @@ _SHOT_EVENTS   = {"Miss", "Post", "Saved Shot", "Goal"}
 _LEFT_MAX      = 33
 _RIGHT_MIN     = 67
 
+
+def _draw_opp_possession_heatmap(df):
+    """Where opponent possession occurs."""
+    if df.empty:
+        return ""
+    # Opposition focus -> Garnet color
+    return render_lsc_heatmap_img(df["x"].tolist(), df["y"].tolist(), color_hex=AWAY_COLOR, half=False)
 
 def _has(df: pd.DataFrame, col: str) -> bool:
     return col in df.columns and df[col].notna().any()

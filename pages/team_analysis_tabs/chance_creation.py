@@ -33,13 +33,15 @@ from utils.data_utils import (
 )
 from utils.xg_utils import add_xg_column
 from pages.match_analysis_tabs.shared import (
+    section_card,
+    kpi_row,
+)
+from page_utils.visualizations import (
     CHART_LAYOUT_DEFAULTS,
     CHART_CONFIG,
     add_pitch_background,
     PITCH_AXIS_FULL,
     PITCH_AXIS_HALF,
-    section_card,
-    kpi_row,
     empty_fig,
     GOLD,
     HOME_COLOR,
@@ -255,7 +257,7 @@ def _shot_types_donut(bar):
     if shots.empty:
         return empty_fig("No shot data")
 
-    sp = int(shots[shots.get('Set piece', pd.Series(dtype=str)) == 'Si'].shape[0]) \
+    sp = int(shots[shots['Set piece'].eq('Si')].shape[0]) \
         if 'Set piece' in shots.columns else 0
     op = int(len(shots) - sp)
 
@@ -454,11 +456,11 @@ def build_chance_creation_tab(season, competitions, match_ids=None):
     shots_ot    = int(bar[bar['event_type'].isin(['Saved Shot', 'Goal'])].shape[0])
     goals       = int(filter_own_goals(bar[bar['event_type'] == 'Goal'].copy()).shape[0])
     key_passes  = int(bar[(bar['event_type'] == 'Pass') &
-                          (bar.get('Assist', pd.Series(dtype=str)) == 'Si')].shape[0]) \
+                          bar['Assist'].eq('Si')].shape[0]) \
         if 'Assist' in bar.columns else 0
     crosses_n   = int(bar[bar['event_type'].isin(['Cross', 'Crossed Ball'])].shape[0])
     box_events  = int(bar[bar['x'].notna() & (bar['x'] >= 83)].shape[0])
-    big_chances = int(bar[bar.get('Big Chance', pd.Series(dtype=str)) == 'Si'].shape[0]) \
+    big_chances = int(bar[bar['Big Chance'].eq('Si')].shape[0]) \
         if 'Big Chance' in bar.columns else 0
     xg_total    = round(add_xg_column(shots.dropna(subset=['x', 'y']))['xg'].sum(), 1) if not shots.empty else 0.0
     conversion  = round(goals / max(len(shots), 1) * 100, 1)

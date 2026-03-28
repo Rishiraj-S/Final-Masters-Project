@@ -15,14 +15,16 @@ import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
 from pages.match_analysis_tabs.shared import (
+    section_card,
+    kpi_row,
+)
+from page_utils.visualizations import (
     layout_config,
     CHART_CONFIG,
     add_pitch_background,
     PITCH_AXIS_FULL,
-    section_card,
-    kpi_row,
     empty_fig,
-    render_heatmap_img,
+    render_lsc_heatmap_img,
     GOLD,
     HOME_COLOR,
     AWAY_COLOR,
@@ -65,12 +67,21 @@ def _ppda_card(opp_ev: pd.DataFrame, bar_ev: pd.DataFrame, n_matches: int) -> ht
 
 # ── Press trigger map ─────────────────────────────────────────────────────────
 
+def _draw_opp_press_heatmap(df):
+    """Where opponent presses occur."""
+    press = df[df["event_type"].isin(["Tackle", "Interception", "Challenge"])]
+    if press.empty:
+        return ""
+    # Opposition focus -> Garnet color
+    return render_lsc_heatmap_img(press["x"].tolist(), press["y"].tolist(), color_hex=AWAY_COLOR, half=False)
+
+
 def _press_trigger_map(opp_ev: pd.DataFrame) -> go.Figure:
     """Heatmap of where the opposition's pressing actions occur."""
     press = opp_ev[opp_ev["event_type"].isin(["Tackle", "Interception", "Foul"])].dropna(subset=["x", "y"])
     if press.empty:
         return empty_fig("No pressing data")
-    img = render_heatmap_img(press["x"].tolist(), press["y"].tolist(), cmap="YlOrRd")
+    img = _draw_opp_press_heatmap(opp_ev)
     fig = go.Figure()
     add_pitch_background(fig)
     fig.add_layout_image(dict(

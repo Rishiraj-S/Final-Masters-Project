@@ -29,20 +29,26 @@ from utils.player_analysis import (
     compute_5d_scores,
 )
 from pages.match_analysis_tabs.shared import (
+    section_card,
+    section_header,
+    page_header,
+)
+from page_utils.visualizations import (
     CHART_LAYOUT_DEFAULTS,
     CHART_CONFIG,
     add_pitch_background,
     PITCH_AXIS_HALF,
     PITCH_AXIS_FULL,
-    section_card,
-    section_header,
     empty_fig,
-    page_header,
     render_lsc_heatmap_img,
     GOLD,
     HOME_COLOR,
     AWAY_COLOR,
+    build_radar_fig,
+    build_metric_explanation_card,
 )
+from page_utils.competitions import ALL_COMPETITIONS as _ALL_COMPETITIONS, COMP_SHORT as _COMP_SHORT
+from page_utils.event_filters import DEF_ACTION_TYPES as _DEF_ACTION_TYPES, DEF_COLORS as _DEF_COLORS
 
 
 # ---------------------------------------------------------------------------
@@ -65,23 +71,11 @@ _PLACEHOLDER_IMG  = '/assets/logos/team/FC-Barcelona-v2002.svg'
 
 
 # ---------------------------------------------------------------------------
-# Competition / match label helpers
+# Competition / match label helpers  (constants live in page_utils.competitions)
 # ---------------------------------------------------------------------------
 
-_ALL_COMPETITIONS = [
-    {'label': 'All Competitions', 'value': 'all'},
-    {'label': 'La Liga',          'value': 'La Liga'},
-    {'label': 'Champions League', 'value': 'Champions League'},
-    {'label': 'Copa del Rey',     'value': 'Copa del Rey'},
-    {'label': 'Spanish Super Cup','value': 'Spanish Super Cup'},
-]
-
-_COMP_SHORT = {
-    'La Liga':           'Liga',
-    'Champions League':  'UCL',
-    'Copa del Rey':      'Copa',
-    'Spanish Super Cup': 'SC',
-}
+# Prepend "All Competitions" option for player page's single-select dropdown
+_ALL_COMPETITIONS = [{'label': 'All Competitions', 'value': 'all'}] + _ALL_COMPETITIONS
 
 # Four event maps shown in the dropdown
 _EVENT_TYPE_OPTIONS = [
@@ -91,15 +85,7 @@ _EVENT_TYPE_OPTIONS = [
     {'label': 'Defensive Action Locations', 'value': 'Defensive Action Locations'},
 ]
 
-# Defensive event type → dot colour (matches defensive_structure.py)
-_DEF_ACTION_TYPES = {'Tackle', 'Interception', 'Ball Recovery', 'Clearance', 'Blocked Shot'}
-_DEF_COLORS = {
-    'Tackle':        '#4dabf7',
-    'Interception':  '#51cf66',
-    'Ball Recovery': '#ffd43b',
-    'Clearance':     '#ff922b',
-    'Blocked Shot':  '#cc5de8',
-}
+# Defensive event type → dot colour (imported from page_utils.event_filters)
 
 
 # ---------------------------------------------------------------------------
@@ -137,48 +123,6 @@ _ROLE_LABELS = {
     'ST':     'Striker',
 }
 
-
-# ---------------------------------------------------------------------------
-# 5-Dimension radar definitions (Attack / Defense / Technical / Physical / Overall)
-# ---------------------------------------------------------------------------
-
-_5D_KEYS   = ['attack', 'defense', 'technical', 'physical', 'overall']
-_5D_LABELS = ['Attack', 'Defense', 'Technical', 'Physical', 'Overall']
-
-_5D_INFO: dict[str, tuple[str, str]] = {
-    'Attack':    (
-        'Scoring & Creativity',
-        'Goals, shots, shot accuracy, assists and key passes — '
-        'weighted by position-specific importance',
-    ),
-    'Defense':   (
-        'Defensive Contribution',
-        'Tackles, interceptions, recoveries, clearances and aerial win rate — '
-        'weighted by position-specific importance',
-    ),
-    'Technical': (
-        'Technical Quality',
-        'Pass accuracy, dribble success rate, key passes and shot on target — '
-        'equal weight across positions',
-    ),
-    'Physical':  (
-        'Physical Duels',
-        'Aerial duel win rate and defensive duel frequency — '
-        'proxy for dominance in physical contests',
-    ),
-    'Overall':   (
-        'Composite Score',
-        'Simple average of Attack, Defense, Technical and Physical percentile scores',
-    ),
-}
-
-_5D_COLORS: dict[str, str] = {
-    'Attack':    GOLD,
-    'Defense':   AWAY_COLOR,
-    'Technical': HOME_COLOR,
-    'Physical':  '#51cf66',
-    'Overall':   COLORS['text_primary'],
-}
 
 
 
@@ -334,116 +278,7 @@ def _build_match_options(player_name, competition):
     return options
 
 
-# ---------------------------------------------------------------------------
-# Performance Evaluation radar builders
-# ---------------------------------------------------------------------------
 
-def _build_radar_fig(player_name: str, d5: dict, n_peers: int) -> go.Figure:
-    """Build a 5-axis Plotly polar radar from 5-dimension percentile scores."""
-    r_player = [d5.get(k, 50) for k in _5D_KEYS]
-    r_avg    = [50] * len(_5D_LABELS)
-
-    fig = go.Figure()
-
-    # Average reference ring (dashed Barça blue)
-    fig.add_trace(go.Scatterpolar(
-        r=r_avg + [r_avg[0]],
-        theta=_5D_LABELS + [_5D_LABELS[0]],
-        mode='lines',
-        name=f'Positional Average ({n_peers} peers)',
-        line=dict(color=HOME_COLOR, width=2, dash='dot'),
-        fill='toself',
-        fillcolor='rgba(0, 77, 152, 0.12)',
-        hoverinfo='skip',
-    ))
-
-    # Player filled area (gold)
-    fig.add_trace(go.Scatterpolar(
-        r=r_player + [r_player[0]],
-        theta=_5D_LABELS + [_5D_LABELS[0]],
-        mode='lines+markers',
-        name=player_name,
-        line=dict(color=GOLD, width=2.5),
-        fill='toself',
-        fillcolor='rgba(237, 187, 0, 0.22)',
-        marker=dict(color=GOLD, size=8, line=dict(color='white', width=1)),
-        hovertemplate='<b>%{theta}</b><br>Percentile: <b>%{r}</b><extra></extra>',
-    ))
-
-    fig.update_layout(
-        polar=dict(
-            bgcolor='rgba(0,0,0,0)',
-            radialaxis=dict(
-                range=[0, 100],
-                visible=True,
-                tickvals=[25, 50, 75, 100],
-                tickfont=dict(size=9, color=COLORS['text_secondary']),
-                gridcolor=COLORS['dark_border'],
-                linecolor=COLORS['dark_border'],
-                tickangle=0,
-            ),
-            angularaxis=dict(
-                tickfont=dict(size=13, color=COLORS['text_primary']),
-                gridcolor=COLORS['dark_border'],
-                linecolor=COLORS['dark_border'],
-            ),
-        ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color=COLORS['text_primary'], size=12),
-        showlegend=True,
-        legend=dict(
-            font=dict(color=COLORS['text_primary'], size=10),
-            bgcolor='rgba(0,0,0,0)',
-            x=0.5, y=-0.10, xanchor='center', orientation='h',
-        ),
-        height=450,
-        margin=dict(l=70, r=70, t=40, b=70),
-    )
-    return fig
-
-
-def _build_metric_explanation_card(n_peers: int, role_label: str) -> dbc.Card:
-    """Card explaining each of the 5 radar dimensions."""
-    sections = []
-    for dim, (subtitle, desc) in _5D_INFO.items():
-        color = _5D_COLORS[dim]
-        sections.append(html.Div([
-            html.Div(dim.upper(), style={
-                'color': color, 'fontWeight': '700',
-                'fontSize': '0.65rem', 'letterSpacing': '0.8px',
-                'textTransform': 'uppercase',
-                'marginTop': '12px' if sections else '0',
-                'marginBottom': '3px',
-            }),
-            html.Div(subtitle, style={
-                'color': COLORS['text_primary'], 'fontWeight': '600',
-                'fontSize': '0.76rem', 'marginBottom': '2px',
-                'paddingLeft': '10px', 'borderLeft': f'2px solid {color}',
-            }),
-            html.Div(desc, style={
-                'color': COLORS['text_secondary'], 'fontSize': '0.70rem',
-                'lineHeight': '1.4', 'paddingLeft': '10px',
-            }),
-        ]))
-
-    footer = html.Div([
-        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '12px 0 8px'}),
-        html.Small(
-            f'Percentile rank vs {n_peers} positional peers ({role_label}).  '
-            '100 = top, 50 = average.  Weights are position-specific.',
-            style={'color': COLORS['text_secondary'], 'fontSize': '0.69rem', 'lineHeight': '1.5'},
-        ),
-    ])
-
-    return dbc.Card([
-        dbc.CardHeader(html.H6('Dimension Guide', style={'color': GOLD, 'marginBottom': 0})),
-        dbc.CardBody([*sections, footer]),
-    ], style={
-        'backgroundColor': COLORS['dark_secondary'],
-        'border': f'1px solid {COLORS["dark_border"]}',
-        'height': '100%',
-    })
 
 
 def _build_performance_section(
@@ -455,7 +290,7 @@ def _build_performance_section(
 ) -> html.Div:
     """Assemble the 5-axis radar + dimension guide side-by-side."""
     role_label = role_label_override if role_label_override else _ROLE_LABELS.get(role, role)
-    radar_fig  = _build_radar_fig(player_name, d5, n_peers)
+    radar_fig  = build_radar_fig(player_name, d5, n_peers)
 
     return html.Div([
         section_header(
@@ -464,7 +299,7 @@ def _build_performance_section(
         ),
         dbc.Row([
             dbc.Col(dcc.Graph(figure=radar_fig, config=CHART_CONFIG), md=7),
-            dbc.Col(_build_metric_explanation_card(n_peers, role_label), md=5),
+            dbc.Col(build_metric_explanation_card(n_peers, role_label), md=5),
         ], className='mb-4 g-3'),
     ])
 

@@ -31,13 +31,15 @@ from utils.data_utils import (
     CURRENT_SEASON,
 )
 from pages.match_analysis_tabs.shared import (
+    section_card,
+    kpi_row,
+)
+from page_utils.visualizations import (
     CHART_LAYOUT_DEFAULTS,
     CHART_CONFIG,
     add_pitch_background,
     PITCH_AXIS_FULL,
     PITCH_AXIS_HALF,
-    section_card,
-    kpi_row,
     empty_fig,
     GOLD,
     HOME_COLOR,
@@ -103,7 +105,7 @@ def _corner_delivery_donut(bar):
     # Look for corner-related events
     corners = pd.concat([
         bar[bar['event_type'].isin(_CORNER_TYPES)],
-        bar[(bar['event_type'] == 'Pass') & bar.get('Corner taken', pd.Series(dtype=str)).eq('Si')]
+        bar[(bar['event_type'] == 'Pass') & bar['Corner taken'].eq('Si')]
         if 'Corner taken' in bar.columns else bar.head(0),
     ]).drop_duplicates()
 
@@ -129,7 +131,7 @@ def _corner_delivery_donut(bar):
 
     if 'Inswinging' in corners.columns:
         inswing  = int(corners[corners['Inswinging'] == 'Si'].shape[0])
-        outswing = int(corners[corners.get('Outswinging', pd.Series(dtype=str)) == 'Si'].shape[0])
+        outswing = int(corners[corners['Outswinging'].eq('Si')].shape[0])
         short    = int(len(corners) - inswing - outswing)
     elif 'end_y' in corners.columns and 'end_x' in corners.columns:
         # Approximate: short if end_x close to start, else cross delivery
@@ -220,7 +222,7 @@ def _target_zones_map(bar):
     if sp_shots.empty:
         return empty_fig("No set-piece shot data")
 
-    headed = sp_shots[sp_shots.get('Head', pd.Series(dtype=str)) == 'Si'] \
+    headed = sp_shots[sp_shots['Head'].eq('Si')] \
         if 'Head' in sp_shots.columns else sp_shots
 
     fig = go.Figure()
@@ -501,7 +503,7 @@ def build_set_pieces_tab(season, competitions, match_ids=None):
     corners_bar = pd.concat([
         bar[bar['event_type'].isin(_CORNER_TYPES)],
         bar[(bar['event_type'] == 'Pass') &
-            bar.get('Corner taken', pd.Series(dtype=str)).eq('Si')]
+            bar['Corner taken'].eq('Si')]
         if 'Corner taken' in bar.columns else bar.head(0),
     ]).drop_duplicates()
 

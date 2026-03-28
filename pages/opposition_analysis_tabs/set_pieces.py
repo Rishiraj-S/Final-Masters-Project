@@ -16,12 +16,14 @@ import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
 from pages.match_analysis_tabs.shared import (
+    section_card,
+    kpi_row,
+)
+from page_utils.visualizations import (
     layout_config,
     CHART_CONFIG,
     add_pitch_background,
     PITCH_AXIS_FULL,
-    section_card,
-    kpi_row,
     empty_fig,
     GOLD,
     HOME_COLOR,

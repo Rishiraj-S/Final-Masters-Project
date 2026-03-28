@@ -22,15 +22,22 @@ from utils.data_utils import get_match_events
 from page_utils.pitch_zones import get_zone, PitchZone
 
 from .shared import (
-    HOME_COLOR, AWAY_COLOR, GOLD,
-    CHART_CONFIG, layout_config,
-    add_pitch_background, PITCH_AXIS_FULL,
     build_info_box,
     build_team_stats_table,
     build_legend_box,
-    CARD_STYLE, section_header,
+    CARD_STYLE,
+    section_header,
     HALF_BTN_ACTIVE as _BTN_ACTIVE,
     HALF_BTN_IDLE   as _BTN_IDLE,
+)
+from page_utils.visualizations import (
+    HOME_COLOR,
+    AWAY_COLOR,
+    GOLD,
+    CHART_CONFIG,
+    layout_config,
+    add_pitch_background,
+    PITCH_AXIS_FULL,
 )
 
 _WIN_TYPES      = {'Ball Recovery', 'Interception', 'Tackle'}

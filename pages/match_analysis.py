@@ -54,7 +54,7 @@ RESULT_COLORS = {'W': '#28a745', 'D': '#ffc107', 'L': '#dc3545'}
 # Calendar builder
 # =============================================================================
 
-def _build_calendar_grid(year, month, matches):
+def _build_calendar_grid(year, month, matches, selected_match_id=None):
     """Build a calendar grid for the given month with match markers."""
     # Index matches by day
     matches_by_day = {}
@@ -99,6 +99,8 @@ def _build_calendar_grid(year, month, matches):
                 ]
 
                 for m in day_matches:
+                    match_id = m.get('match_id')
+                    is_selected = str(match_id) == str(selected_match_id) if selected_match_id else False
                     result_color = RESULT_COLORS.get(m.get('result', ''), COLORS['text_secondary'])
                     is_home = m.get('is_home', True)
                     opponent = m.get('opponent', '???')
@@ -144,18 +146,26 @@ def _build_calendar_grid(year, month, matches):
                         'fontSize': '0.65rem', 'color': COLORS['text_primary'],
                     }))
 
+                    # Optional checkmark for selected state
+                    check_span = html.Span(
+                        '✓ ', style={
+                            'color': GOLD, 'fontSize': '0.7rem',
+                            'fontWeight': '700', 'marginRight': '2px',
+                        }
+                    ) if is_selected else None
+
                     cell_children.append(
                         html.Button(
                             html.Div([
                                 # Opponent logo + name
-                                html.Div(logo_children, style={
+                                html.Div(([check_span] if check_span else []) + logo_children, style={
                                     'display': 'flex', 'alignItems': 'center',
                                     'overflow': 'hidden',
                                 }),
                                 # Score + venue + tournament
                                 html.Div([
                                     html.Span(f"{score} ({venue_marker})", style={
-                                        'fontSize': '0.7rem', 'color': result_color,
+                                        'fontSize': '0.7rem', 'color': GOLD if is_selected else result_color,
                                         'fontWeight': 'bold', 'marginRight': '6px',
                                     }),
                                     html.Span(tourn_children, style={
@@ -171,8 +181,9 @@ def _build_calendar_grid(year, month, matches):
                             id={'type': 'cal-match-btn', 'match_id': m['match_id']},
                             n_clicks=0,
                             style={
-                                'background': 'none', 'border': 'none',
-                                'borderLeft': f'3px solid {result_color}',
+                                'background': 'rgba(237, 187, 0, 0.15)' if is_selected else 'none',
+                                'border': 'none',
+                                'borderLeft': f'3px solid {GOLD if is_selected else result_color}',
                                 'padding': '4px 6px', 'cursor': 'pointer',
                                 'width': '100%', 'textAlign': 'left',
                                 'borderRadius': '0 4px 4px 0',
@@ -238,14 +249,15 @@ def create_match_analysis_layout():
         })
 
     if match_data:
-        latest = match_data[-1]['date']
+        latest_match = max(match_data, key=lambda m: str(m['date']))
+        default_match_id = latest_match['match_id']
+        latest = latest_match['date']
         init_year = int(latest[:4])
         init_month = int(latest[5:7])
     else:
         now = datetime.now()
         init_year, init_month = now.year, now.month
-
-    default_match_id = match_data[-1]['match_id'] if match_data else None
+        default_match_id = None
 
     tab_style = {'backgroundColor': COLORS['dark_secondary']}
     active_style = {'backgroundColor': COLORS['dark_tertiary'],
@@ -394,8 +406,9 @@ def register_match_analysis_callbacks(app):
         Input('pma-calendar-month', 'data'),
         Input('pma-tournament-selector', 'value'),
         Input('pma-match-data', 'data'),
+        Input('pma-selected-match', 'data'),
     )
-    def render_calendar(cal_month, tournament, match_data):
+    def render_calendar(cal_month, tournament, match_data, selected_match_id):
         if not match_data:
             return html.P("No match data available.",
                           style={'color': COLORS['text_secondary']})
@@ -407,7 +420,7 @@ def register_match_analysis_callbacks(app):
         else:
             filtered = match_data
 
-        return _build_calendar_grid(year, month, filtered)
+        return _build_calendar_grid(year, month, filtered, selected_match_id)
 
     # --- Match selection from calendar click ---
     @app.callback(
@@ -417,7 +430,7 @@ def register_match_analysis_callbacks(app):
         prevent_initial_call=True,
     )
     def select_match_from_calendar(n_clicks_list, current_match):
-        if not ctx.triggered_id:
+        if not ctx.triggered_id or not any(n_clicks_list):
             return current_match
         return ctx.triggered_id['match_id']
 

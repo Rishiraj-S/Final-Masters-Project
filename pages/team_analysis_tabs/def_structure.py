@@ -32,15 +32,17 @@ from utils.data_utils import (
     CURRENT_SEASON,
 )
 from pages.match_analysis_tabs.shared import (
+    section_card,
+    kpi_row,
+)
+from page_utils.visualizations import (
     CHART_LAYOUT_DEFAULTS,
     CHART_CONFIG,
     add_pitch_background,
     PITCH_AXIS_FULL,
     PITCH_AXIS_HALF,
-    section_card,
-    kpi_row,
     empty_fig,
-    render_heatmap_img,
+    render_lsc_heatmap_img,
     GOLD,
     HOME_COLOR,
     AWAY_COLOR,
@@ -119,7 +121,7 @@ def _press_triggers_heatmap(bar):
     da = bar[bar['event_type'].isin(['Tackle', 'Interception'])].dropna(subset=['x', 'y'])
     if da.empty:
         return None
-    return render_heatmap_img(da['x'].values, da['y'].values, cmap='Reds', half=False)
+    return render_lsc_heatmap_img(da['x'].values, da['y'].values, color_hex=AWAY_COLOR, half=False)
 
 
 def _high_recoveries_bar(bar):
@@ -245,12 +247,30 @@ def _defensive_scatter(bar):
     return fig
 
 
+def _draw_opp_shot_heatmap(df):
+    """Where opponent shots originate from."""
+    coords = df[['x', 'y']].dropna()
+    if coords.empty:
+        return ""
+    # Defense focus -> Garnet color
+    return render_lsc_heatmap_img(coords['x'].values, coords['y'].values, color_hex=AWAY_COLOR, half=False)
+
+
+def _draw_def_action_heatmap(df):
+    """Where defensive actions (tackles, ints) occur."""
+    coords = df[['x', 'y']].dropna()
+    if coords.empty:
+        return ""
+    # Defense focus -> Garnet color
+    return render_lsc_heatmap_img(coords['x'].values, coords['y'].values, color_hex=AWAY_COLOR, half=False)
+
+
 def _opp_allowed_zones(opp):
     """Heatmap of all opponent events — shows which zones Barca concedes territory."""
     coords = opp.dropna(subset=['x', 'y'])
     if coords.empty:
         return None
-    return render_heatmap_img(coords['x'].values, coords['y'].values,
+    return render_lsc_heatmap_img(coords['x'].values, coords['y'].values,
                               cmap='Oranges', half=False)
 
 

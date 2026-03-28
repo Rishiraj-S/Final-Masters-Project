@@ -22,10 +22,10 @@ from utils.opposition_data_utils import (
     SETUP_TYPE_ID,
     _normalize,
 )
-from pages.match_analysis_tabs.shared import (
+from pages.match_analysis_tabs.shared import section_card
+from page_utils.visualizations import (
     layout_config,
     CHART_CONFIG,
-    section_card,
     empty_fig,
     GOLD,
     HOME_COLOR,
@@ -140,8 +140,8 @@ def _style_radar(opp_ev: pd.DataFrame, all_results: list[dict]) -> go.Figure:
 
     shots    = opp_ev[opp_ev["event_type_id" if "event_type_id" in opp_ev.columns else "type_id"].isin(SHOT_TYPE_IDS)]
     goals    = opp_ev[opp_ev["event_type"] == "Goal"] if "Goal" in opp_ev["event_type"].values else \
-               opp_ev[opp_ev.get("type_id", opp_ev.get("event_type_id", pd.Series())).eq(GOAL_TYPE_ID)] \
-               if not opp_ev.empty else pd.DataFrame()
+               (opp_ev[opp_ev["type_id"] == GOAL_TYPE_ID] if "type_id" in opp_ev.columns else \
+                (opp_ev[opp_ev["event_type_id"] == GOAL_TYPE_ID] if "event_type_id" in opp_ev.columns else pd.DataFrame()))
     tackles  = opp_ev[opp_ev["event_type"] == "Tackle"]
     intercpt = opp_ev[opp_ev["event_type"] == "Interception"]
 

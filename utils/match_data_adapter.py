@@ -464,7 +464,7 @@ def get_build_up_stats(tagged_events: pd.DataFrame) -> Dict[str, Any]:
         Build-up measures how the team constructs play from the back:
         pass count, pass accuracy, progressive passes (end x > start x + 10).
     """
-    bu = tagged_events[tagged_events.get('possession_phase', pd.Series()) == 'build_up'] \
+    bu = tagged_events[tagged_events['possession_phase'].eq('build_up')] \
         if 'possession_phase' in tagged_events.columns else tagged_events.iloc[0:0]
 
     passes = bu[bu['event_type'] == 'Pass'] if not bu.empty else bu
@@ -495,7 +495,7 @@ def get_progression_stats(tagged_events: pd.DataFrame) -> Dict[str, Any]:
         Progression measures how the team advances into dangerous areas:
         carries into final third, through balls, switches of play.
     """
-    prog = tagged_events[tagged_events.get('possession_phase', pd.Series()) == 'progression'] \
+    prog = tagged_events[tagged_events['possession_phase'].eq('progression')] \
         if 'possession_phase' in tagged_events.columns else tagged_events.iloc[0:0]
 
     passes = prog[prog['event_type'] == 'Pass'] if not prog.empty else prog
@@ -528,7 +528,7 @@ def get_fast_break_stats(tagged_events: pd.DataFrame) -> Dict[str, Any]:
         Fast breaks are rapid counter-attacking moves tagged by Opta's
         'Fast break' qualifier. We count events, shots produced, and goals.
     """
-    fb = tagged_events[tagged_events.get('possession_phase', pd.Series()) == 'fast_break'] \
+    fb = tagged_events[tagged_events['possession_phase'].eq('fast_break')] \
         if 'possession_phase' in tagged_events.columns else tagged_events.iloc[0:0]
 
     shots = fb[fb['event_type'].isin(['Miss', 'Saved Shot', 'Goal'])] if not fb.empty else fb
@@ -548,7 +548,7 @@ def get_finishing_stats(tagged_events: pd.DataFrame) -> Dict[str, Any]:
     Football Logic:
         All shot-related events: shot locations, body part, whether assisted.
     """
-    fin = tagged_events[tagged_events.get('possession_phase', pd.Series()) == 'finishing'] \
+    fin = tagged_events[tagged_events['possession_phase'].eq('finishing')] \
         if 'possession_phase' in tagged_events.columns else tagged_events.iloc[0:0]
 
     if fin.empty:

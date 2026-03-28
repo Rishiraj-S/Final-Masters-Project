@@ -17,11 +17,19 @@ from utils.xg_utils import add_xg_column
 from page_utils.pitch_zones import is_in_penalty_box
 
 from .shared import (
-    HOME_COLOR, AWAY_COLOR, GOLD,
-    CHART_CONFIG, layout_config,
-    add_vertical_half_pitch_background, VPITCH_AXIS_HALF,
-    build_legend_box, build_info_box,
-    CARD_STYLE, section_header,
+    build_legend_box,
+    build_info_box,
+    CARD_STYLE,
+    section_header,
+)
+from page_utils.visualizations import (
+    HOME_COLOR,
+    AWAY_COLOR,
+    GOLD,
+    CHART_CONFIG,
+    layout_config,
+    add_vertical_half_pitch_background,
+    VPITCH_AXIS_HALF,
 )
 
 _SHOT_TYPES    = {'Miss', 'Saved Shot', 'Goal', 'Post', 'Blocked Shot'}
