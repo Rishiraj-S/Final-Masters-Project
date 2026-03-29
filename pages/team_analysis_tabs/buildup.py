@@ -65,6 +65,25 @@ _ZONE14_COLORS = {
     'Right Half Space': '#ffd700',
 }
 
+# Empty base64 src — used as placeholder before callback fires
+_SKEL_SRC = 'data:image/png;base64,'
+
+# Render caches for the two matplotlib images — avoids re-rendering when the
+# same data (same player/half/filter state) produces the same image.
+# Keys are tuples derived from the data; values are base64 PNG strings.
+_ZONE_IMG_CACHE: dict = {}
+_TOUCH_MAP_CACHE: dict = {}
+
+
+def _skel_fig(height: int = 520) -> go.Figure:
+    """Lightweight empty Plotly figure used as a skeleton placeholder."""
+    fig = go.Figure()
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor=PITCH_BG,
+        height=height, margin=dict(l=0, r=0, t=36, b=0),
+    )
+    return fig
+
 
 def _generate_pitch_image() -> str:
     """Generate a full grass pitch PNG via mplsoccer and return as base64."""
@@ -284,6 +303,9 @@ def _build_zone_pitch_image(passes: pd.DataFrame, n_total: int) -> str:
     """3×3 zone pitch: gold = % passes sent from zone, white = % received.
     n_total is the denominator (total passes in selected matches, pre-filter).
     """
+    if passes.empty:
+        return ''
+
     pitch = Pitch(
         pitch_type='opta', pitch_color=PITCH_BG, line_color=PITCH_LINE_COLOR,
         linewidth=1.5, stripe=False, goal_type='box',
@@ -349,7 +371,29 @@ def _build_zone_pitch_image(passes: pd.DataFrame, n_total: int) -> str:
     return result
 
 
-def _stats_numbers_children(passes: pd.DataFrame) -> list:
+def _count_key_passes(bar_events: pd.DataFrame) -> int:
+    """Count BAR passes immediately followed by a shot in the same match (vectorised)."""
+    if bar_events.empty:
+        return 0
+    sort_cols = [c for c in ['match_id', 'period_id', 'time_min', 'time_sec']
+                 if c in bar_events.columns]
+    te = bar_events.sort_values(sort_cols).reset_index(drop=True)
+    is_shot = te['event_type'].isin(_SHOT_TYPES)
+    same_match = (
+        (te['match_id'] == te['match_id'].shift(-1))
+        if 'match_id' in te.columns
+        else pd.Series(True, index=te.index)
+    )
+    kp = (
+        (te['event_type'] == 'Pass') &
+        is_shot.shift(-1, fill_value=False) &
+        same_match
+    )
+    return int(kp.sum())
+
+
+def _stats_numbers_children(passes: pd.DataFrame,
+                            bar_events: pd.DataFrame | None = None) -> list:
     """2×2 stat cards — returned as a list for use as div children."""
     n_total = len(passes)
     n_suc   = int(passes['outcome'].eq(1).sum()) if 'outcome' in passes.columns else 0
@@ -363,9 +407,12 @@ def _stats_numbers_children(passes: pd.DataFrame) -> list:
     else:
         n_prog = 0
 
-    # Key passes: qualifier column 'Key Pass' == 1
-    n_key = int(pd.to_numeric(passes['Key Pass'], errors='coerce').eq(1).sum()) \
-            if 'Key Pass' in passes.columns else 0
+    # Key passes: pass immediately followed by a shot in the same match
+    if bar_events is not None and not bar_events.empty:
+        n_key = _count_key_passes(bar_events)
+    else:
+        n_key = int(pd.to_numeric(passes['Key Pass'], errors='coerce').eq(1).sum()) \
+                if 'Key Pass' in passes.columns else 0
 
     def _card(value, label, color):
         return html.Div([
@@ -516,27 +563,55 @@ def _top5_poss_children(touches: pd.DataFrame) -> list:
 # Pass-network helpers
 # =============================================================================
 
-def _build_network_bar(bar_events: pd.DataFrame):
-    """Pass-network nodes + edges from (already filtered) BAR events."""
-    cols = ['player_name', 'event_type', 'outcome', 'x', 'y',
-            'period_id', 'time_min', 'time_sec']
+def _count_pass_pairs(bar_events: pd.DataFrame) -> dict:
+    """Count sequential successful pass pairs → {(passer, receiver): count}.
+
+    Vectorised with pandas shift — ~100× faster than a Python for-loop over
+    tens of thousands of rows.  Shared by the pass network and pass matrix.
+    """
+    if bar_events.empty:
+        return {}
+
+    cols = ['player_name', 'event_type', 'outcome', 'period_id', 'time_min', 'time_sec']
     ev = bar_events[[c for c in cols if c in bar_events.columns]].copy()
-    ev = ev.dropna(subset=['player_name', 'x', 'y'])
+    ev = ev.dropna(subset=['player_name'])
     ev = ev.sort_values(['period_id', 'time_min', 'time_sec']).reset_index(drop=True)
 
-    edges: dict = {}
-    for i in range(len(ev) - 1):
-        row = ev.iloc[i]
-        nxt = ev.iloc[i + 1]
-        if (row['event_type'] == 'Pass' and row.get('outcome') == 1
-                and pd.notna(nxt.get('player_name'))):
-            a, b = str(row['player_name']), str(nxt['player_name'])
-            if a != b:
-                edges[(a, b)] = edges.get((a, b), 0) + 1
+    if ev.empty:
+        return {}
 
-    edges = {k: v for k, v in edges.items() if v >= 2}
+    is_pass = ev['event_type'] == 'Pass'
+    is_suc  = (ev['outcome'] == 1) if 'outcome' in ev.columns \
+               else pd.Series(True, index=ev.index)
 
-    pass_ev = ev[ev['event_type'] == 'Pass']
+    # Vectorised: receiver is the player in the very next row
+    next_player = ev['player_name'].shift(-1)
+    valid = is_pass & is_suc & next_player.notna() & (ev['player_name'] != next_player)
+
+    if not valid.any():
+        return {}
+
+    pairs = pd.DataFrame({
+        'passer':   ev.loc[valid, 'player_name'].values,
+        'receiver': next_player.loc[valid].values,
+    })
+    result = pairs.groupby(['passer', 'receiver'], sort=False).size()
+    return {(a, b): int(c) for (a, b), c in result.items()}
+
+
+def _build_network_bar(bar_events: pd.DataFrame, pass_pairs: dict | None = None):
+    """Pass-network nodes + edges from (already filtered) BAR events.
+
+    pass_pairs: pre-computed {(passer, receiver): count} from _count_pass_pairs.
+    If None, the pairs are computed here (single-call path).
+    """
+    if pass_pairs is None:
+        pass_pairs = _count_pass_pairs(bar_events)
+
+    edges = {k: v for k, v in pass_pairs.items() if v >= 2}
+
+    # Node positions: mean x/y of each player's pass events
+    pass_ev = bar_events[bar_events['event_type'] == 'Pass'].dropna(subset=['player_name', 'x', 'y'])
     if pass_ev.empty:
         return pd.DataFrame(), {}
 
@@ -639,25 +714,13 @@ def _network_fig_bar(nodes: pd.DataFrame, edges: dict) -> go.Figure:
     return fig
 
 
-def _pass_matrix_fig(bar_events: pd.DataFrame) -> go.Figure:
-    """Square pass-count heatmap between top-11 Barça players (incl. GK)."""
-    ev = bar_events[
-        [c for c in ['player_name', 'event_type', 'outcome',
-                     'period_id', 'time_min', 'time_sec']
-         if c in bar_events.columns]
-    ].copy()
-    ev = ev.dropna(subset=['player_name'])
-    ev = ev.sort_values(['period_id', 'time_min', 'time_sec']).reset_index(drop=True)
+def _pass_matrix_fig(bar_events: pd.DataFrame, pass_pairs: dict | None = None) -> go.Figure:
+    """Square pass-count heatmap between top-11 Barça players (incl. GK).
 
-    counts: dict = {}
-    for i in range(len(ev) - 1):
-        row = ev.iloc[i]
-        nxt = ev.iloc[i + 1]
-        if (row['event_type'] == 'Pass' and row.get('outcome') == 1
-                and pd.notna(nxt.get('player_name'))):
-            a, b = str(row['player_name']), str(nxt['player_name'])
-            if a != b:
-                counts[(a, b)] = counts.get((a, b), 0) + 1
+    pass_pairs: pre-computed {(passer, receiver): count} from _count_pass_pairs.
+    If None, the pairs are computed here (single-call path).
+    """
+    counts = pass_pairs if pass_pairs is not None else _count_pass_pairs(bar_events)
 
     empty_fig = go.Figure()
     empty_fig.update_layout(paper_bgcolor='rgba(0,0,0,0)',
@@ -798,87 +861,103 @@ def _top5_progressive_children(passes: pd.DataFrame) -> list:
 # =============================================================================
 
 def _build_entries_bar(bar_events: pd.DataFrame, zone: str = 'final_third') -> pd.DataFrame:
-    """Entries into final third or Zone 14/Half Spaces from BAR team events."""
+    """Entries into final third or Zone 14/Half Spaces from BAR team events.
+
+    Fully vectorised — no Python-level for-loop over rows.
+    Shot/goal lookahead uses five shift operations instead of per-row slicing.
+    """
+    _EMPTY_COLS = [
+        'player_name', 'event_label', 'x', 'y', 'end_x', 'end_y',
+        'outcome', 'time_min', 'time_sec', 'period_id',
+        'dest_zone', 'led_to_shot', 'led_to_goal', 'receiver_name',
+    ]
+    if bar_events.empty:
+        return pd.DataFrame(columns=_EMPTY_COLS)
+
     relevant_types = ['Pass', 'Take On', 'Ball touch']
-    te_full = bar_events.sort_values(
+
+    # ── 1. Sort all events once ───────────────────────────────────────────────
+    te = bar_events.sort_values(
         ['period_id', 'time_min', 'time_sec']).reset_index(drop=True)
-    ev = (te_full[te_full['event_type'].isin(relevant_types)]
-          .dropna(subset=['x', 'y'])
-          .reset_index())  # 'index' col = row position in te_full
 
-    entries = []
-    for i in range(len(ev)):
-        row   = ev.iloc[i]
-        etype = row['event_type']
-        start_x = float(row['x'])
+    # ── 2. Pre-compute lookahead columns on the full sorted frame ─────────────
+    is_shot_te = te['event_type'].isin(_SHOT_TYPES)
+    is_goal_te = te['event_type'] == 'Goal'
 
-        if etype == 'Pass':
-            if pd.notna(row.get('Pass End X')):
-                end_x = float(row['Pass End X'])
-                end_y = float(row['Pass End Y'])
-            else:
-                continue
-        else:
-            if i + 1 < len(ev):
-                nxt   = ev.iloc[i + 1]
-                end_x = float(nxt['x'])
-                end_y = float(nxt['y'])
-            else:
-                continue
+    led_shot = pd.Series(False, index=te.index)
+    led_goal = pd.Series(False, index=te.index)
+    for _off in range(1, 6):
+        led_shot |= is_shot_te.shift(-_off, fill_value=False)
+        led_goal |= is_goal_te.shift(-_off, fill_value=False)
 
-        start_y   = float(row['y'])
-        dest_zone = None
+    te['_led_to_shot'] = led_shot
+    te['_led_to_goal'] = led_goal
+    te['_next_x']      = te['x'].shift(-1)
+    te['_next_y']      = te['y'].shift(-1)
+    te['_next_player'] = te['player_name'].shift(-1)
 
-        if zone == 'final_third':
-            if not (start_x < 66.67 and end_x >= 66.67):
-                continue
-        elif zone == 'zone14':
-            in_z14 = (66.67 <= end_x <= 83.33) and (37 <= end_y <= 63)
-            in_lhs = (end_x > 66.67) and (63 < end_y <= 79)
-            in_rhs = (end_x > 66.67) and (21 <= end_y < 37)
-            if not (in_z14 or in_lhs or in_rhs):
-                continue
-            dest_zone = ('Zone 14' if in_z14
-                         else 'Left Half Space' if in_lhs
-                         else 'Right Half Space')
+    # ── 3. Filter to relevant event types ────────────────────────────────────
+    ev = te[te['event_type'].isin(relevant_types) &
+            te['x'].notna() & te['y'].notna()].copy()
+    if ev.empty:
+        return pd.DataFrame(columns=_EMPTY_COLS)
 
-        label_map = {'Pass': 'Pass', 'Take On': 'Dribble', 'Ball touch': 'Carry'}
-        outcome  = row.get('outcome', None)
-        te_idx   = int(row['index'])
-        next_5   = te_full.iloc[te_idx + 1: te_idx + 6]
-        led_to_shot = bool(next_5['event_type'].isin(_SHOT_TYPES).any()) if not next_5.empty else False
-        led_to_goal = bool((next_5['event_type'] == 'Goal').any())       if not next_5.empty else False
+    # ── 4. Determine end coordinates ─────────────────────────────────────────
+    is_pass = ev['event_type'] == 'Pass'
 
-        receiver_name = ''
-        if etype == 'Pass' and outcome == 1 and te_idx + 1 < len(te_full):
-            nxt_full = te_full.iloc[te_idx + 1]
-            if pd.notna(nxt_full.get('player_name')):
-                receiver_name = str(nxt_full['player_name'])
+    has_end = 'Pass End X' in ev.columns and 'Pass End Y' in ev.columns
+    if has_end:
+        px = pd.to_numeric(ev['Pass End X'], errors='coerce')
+        py = pd.to_numeric(ev['Pass End Y'], errors='coerce')
+    else:
+        px = pd.Series(np.nan, index=ev.index)
+        py = pd.Series(np.nan, index=ev.index)
 
-        entries.append({
-            'player_name':   row.get('player_name', ''),
-            'event_label':   label_map.get(etype, etype),
-            'x':             start_x,
-            'y':             start_y,
-            'end_x':         end_x,
-            'end_y':         end_y,
-            'outcome':       outcome,
-            'time_min':      row.get('time_min', 0),
-            'time_sec':      row.get('time_sec', 0),
-            'period_id':     row.get('period_id', 0),
-            'dest_zone':     dest_zone,
-            'led_to_shot':   led_to_shot,
-            'led_to_goal':   led_to_goal,
-            'receiver_name': receiver_name,
-        })
+    ev['end_x'] = np.where(is_pass, px, ev['_next_x'])
+    ev['end_y'] = np.where(is_pass, py, ev['_next_y'])
+    ev = ev.dropna(subset=['end_x', 'end_y'])
+    if ev.empty:
+        return pd.DataFrame(columns=_EMPTY_COLS)
 
-    if not entries:
-        return pd.DataFrame(columns=[
-            'player_name', 'event_label', 'x', 'y', 'end_x', 'end_y',
-            'outcome', 'time_min', 'time_sec', 'period_id',
-            'dest_zone', 'led_to_shot', 'led_to_goal', 'receiver_name',
-        ])
-    return pd.DataFrame(entries)
+    # ── 5. Zone boundary filter (vectorised) ─────────────────────────────────
+    sx = ev['x'].astype(float)
+    ex = ev['end_x'].astype(float)
+    ey = ev['end_y'].astype(float)
+
+    if zone == 'final_third':
+        ev = ev[(sx < 66.67) & (ex >= 66.67)].copy()
+        ev['dest_zone'] = None
+
+    elif zone == 'zone14':
+        in_z14 = ex.between(66.67, 83.33) & ey.between(37, 63)
+        in_lhs = (ex > 66.67) & (ey > 63)  & (ey <= 79)
+        in_rhs = (ex > 66.67) & (ey >= 21) & (ey < 37)
+        entry_mask = in_z14 | in_lhs | in_rhs
+        ev = ev[entry_mask].copy()
+        ev['dest_zone'] = np.select(
+            [in_z14.loc[ev.index], in_lhs.loc[ev.index]],
+            ['Zone 14', 'Left Half Space'],
+            default='Right Half Space',
+        )
+
+    if ev.empty:
+        return pd.DataFrame(columns=_EMPTY_COLS)
+
+    # ── 6. Derived columns ────────────────────────────────────────────────────
+    ev['event_label'] = ev['event_type'].map(
+        {'Pass': 'Pass', 'Take On': 'Dribble', 'Ball touch': 'Carry'})
+
+    suc_pass = (ev['event_type'] == 'Pass') & (
+        pd.to_numeric(ev['outcome'], errors='coerce').eq(1)
+        if 'outcome' in ev.columns
+        else pd.Series(False, index=ev.index)
+    )
+    ev['receiver_name'] = np.where(suc_pass, ev['_next_player'].fillna(''), '')
+
+    return ev.rename(columns={
+        '_led_to_shot': 'led_to_shot',
+        '_led_to_goal': 'led_to_goal',
+    })[_EMPTY_COLS].reset_index(drop=True)
 
 
 def _entries_fig_bar(entries_df: pd.DataFrame, zone: str) -> go.Figure:
@@ -888,14 +967,19 @@ def _entries_fig_bar(entries_df: pd.DataFrame, zone: str) -> go.Figure:
 
     if not entries_df.empty:
         entries_df = entries_df.copy()
-        entries_df['time_display'] = entries_df.apply(
-            lambda r: f"{int(r['time_min'])}:{int(r['time_sec']):02d}", axis=1)
+
+        # Vectorised derived columns (no apply / iterrows)
+        mins = entries_df['time_min'].fillna(0).astype(int)
+        secs = entries_df['time_sec'].fillna(0).astype(int)
+        entries_df['time_display'] = (
+            mins.astype(str) + ':' +
+            (secs // 10).astype(str) + (secs % 10).astype(str)
+        )
         entries_df['outcome_label'] = entries_df['outcome'].map(
             {1: '✓ Successful', 0: '✗ Unsuccessful'}).fillna('—')
-        entries_df['shot_label'] = entries_df.apply(
-            lambda r: '<br>⚽ Led to Goal' if r.get('led_to_goal', False)
-                      else ('<br>🎯 Led to Shot' if r.get('led_to_shot', False) else ''),
-            axis=1)
+        entries_df['shot_label'] = np.where(
+            entries_df['led_to_goal'].fillna(False), '<br>⚽ Led to Goal',
+            np.where(entries_df['led_to_shot'].fillna(False), '<br>🎯 Led to Shot', ''))
         if 'receiver_name' not in entries_df.columns:
             entries_df['receiver_name'] = ''
 
@@ -906,6 +990,10 @@ def _entries_fig_bar(entries_df: pd.DataFrame, zone: str) -> go.Figure:
             color_iter = _ENTRY_COLORS.items()
             group_col  = 'event_label'
 
+        # Batch-collect annotations so we set them all at once (avoids O(N²)
+        # tuple-append inside Plotly's add_annotation).
+        new_annotations: list = []
+
         for group_name, ecolor in color_iter:
             subset = entries_df[entries_df[group_col] == group_name]
             if subset.empty:
@@ -915,29 +1003,33 @@ def _entries_fig_bar(entries_df: pd.DataFrame, zone: str) -> go.Figure:
             nonpasses_sub = subset[subset['event_label'] != 'Pass']
 
             # Arrows / lines
-            if zone == 'zone14':
-                for _, r in passes_sub.iterrows():
-                    fig.add_annotation(
-                        x=r['end_x'], y=r['end_y'], ax=r['x'], ay=r['y'],
-                        xref='x', yref='y', axref='x', ayref='y',
+            _ann = dict(xref='x', yref='y', axref='x', ayref='y',
                         showarrow=True, arrowhead=2, arrowsize=1.5,
                         arrowwidth=2, arrowcolor=ecolor, opacity=0.65)
+            if zone == 'zone14':
+                for _, r in passes_sub.iterrows():
+                    new_annotations.append({**_ann,
+                        'x': r['end_x'], 'y': r['end_y'],
+                        'ax': r['x'], 'ay': r['y']})
                 if not nonpasses_sub.empty:
-                    xs, ys = [], []
-                    for _, r in nonpasses_sub.iterrows():
-                        xs.extend([r['x'], r['end_x'], None])
-                        ys.extend([r['y'], r['end_y'], None])
+                    # Vectorised segment builder
+                    _x = nonpasses_sub['x'].values
+                    _ex = nonpasses_sub['end_x'].values
+                    _y = nonpasses_sub['y'].values
+                    _ey = nonpasses_sub['end_y'].values
+                    seg = np.empty(len(_x) * 3, dtype=object)
+                    sgy = np.empty(len(_y) * 3, dtype=object)
+                    seg[0::3] = _x; seg[1::3] = _ex; seg[2::3] = None
+                    sgy[0::3] = _y; sgy[1::3] = _ey; sgy[2::3] = None
                     fig.add_trace(go.Scatter(
-                        x=xs, y=ys, mode='lines',
+                        x=seg.tolist(), y=sgy.tolist(), mode='lines',
                         line=dict(color=ecolor, width=2, dash='dash'),
                         showlegend=False, hoverinfo='skip'))
             else:
                 for _, r in subset.iterrows():
-                    fig.add_annotation(
-                        x=r['end_x'], y=r['end_y'], ax=r['x'], ay=r['y'],
-                        xref='x', yref='y', axref='x', ayref='y',
-                        showarrow=True, arrowhead=2, arrowsize=1.5,
-                        arrowwidth=2, arrowcolor=ecolor, opacity=0.65)
+                    new_annotations.append({**_ann,
+                        'x': r['end_x'], 'y': r['end_y'],
+                        'ax': r['x'], 'ay': r['y']})
 
             legend_name  = f'{group_name} ({len(subset)})'
             legend_shown = False
@@ -987,6 +1079,10 @@ def _entries_fig_bar(entries_df: pd.DataFrame, zone: str) -> go.Figure:
                     customdata=cd, hovertemplate=ht,
                     name=legend_name if not legend_shown else '',
                     showlegend=not legend_shown, legendgroup=group_name))
+
+        # Apply all arrow annotations in a single layout update
+        if new_annotations:
+            fig.update_layout(annotations=list(fig.layout.annotations) + new_annotations)
 
     # Zone boundaries
     if zone == 'final_third':
@@ -1061,11 +1157,15 @@ def _entries_table_children(entries_df: pd.DataFrame, top_n: int = 5) -> list:
         right  = int((grp['_band'] == 'Right').sum())
         suc    = int(grp['outcome'].eq(1).sum())
         fail   = int(grp['outcome'].eq(0).sum())
+        shot_n = int(grp['led_to_shot'].fillna(False).sum()) if 'led_to_shot' in grp.columns else 0
+        goal_n = int(grp['led_to_goal'].fillna(False).sum()) if 'led_to_goal' in grp.columns else 0
         rows_data.append({
             'player': player, 'total': total,
             'left': left, 'centre': centre, 'right': right,
             'suc': suc, 'fail': fail,
             'succ_pct': round(suc / max(total, 1) * 100),
+            'shot_pct': round(shot_n / max(total, 1) * 100),
+            'goal_pct': round(goal_n / max(total, 1) * 100),
         })
 
     rows_data.sort(key=lambda x: x['total'], reverse=True)
@@ -1095,6 +1195,8 @@ def _entries_table_children(entries_df: pd.DataFrame, top_n: int = 5) -> list:
         html.Th('Suc',    style=_TH),
         html.Th('Fail',   style=_TH),
         html.Th('Succ%',  style=_TH),
+        html.Th('Shot%',  style=_TH),
+        html.Th('Goal%',  style=_TH),
     ])
 
     table_rows = []
@@ -1106,15 +1208,21 @@ def _entries_table_children(entries_df: pd.DataFrame, top_n: int = 5) -> list:
         pct_color = (COLORS['gold'] if pct >= 70
                      else COLORS['garnet'] if pct < 40
                      else COLORS['text_primary'])
+        shot_pct_color = (COLORS['gold'] if s['shot_pct'] >= 40
+                         else COLORS['text_primary'])
+        goal_pct_color = (COLORS['gold'] if s['goal_pct'] >= 15
+                         else COLORS['text_primary'])
         table_rows.append(html.Tr([
-            html.Td(short,            style=_NAME),
-            html.Td(str(s['total']),  style=_TD),
-            html.Td(str(s['left']),   style=_TD),
-            html.Td(str(s['centre']), style=_TD),
-            html.Td(str(s['right']),  style=_TD),
-            html.Td(str(s['suc']),    style={**_TD, 'color': COLORS['gold']}),
-            html.Td(str(s['fail']),   style={**_TD, 'color': COLORS['garnet']}),
-            html.Td(f"{pct}%",        style={**_TD, 'color': pct_color, 'fontWeight': '700'}),
+            html.Td(short,                  style=_NAME),
+            html.Td(str(s['total']),        style=_TD),
+            html.Td(str(s['left']),         style=_TD),
+            html.Td(str(s['centre']),       style=_TD),
+            html.Td(str(s['right']),        style=_TD),
+            html.Td(str(s['suc']),          style={**_TD, 'color': COLORS['gold']}),
+            html.Td(str(s['fail']),         style={**_TD, 'color': COLORS['garnet']}),
+            html.Td(f"{pct}%",             style={**_TD, 'color': pct_color, 'fontWeight': '700'}),
+            html.Td(f"{s['shot_pct']}%",   style={**_TD, 'color': shot_pct_color, 'fontWeight': '700'}),
+            html.Td(f"{s['goal_pct']}%",   style={**_TD, 'color': goal_pct_color, 'fontWeight': '700'}),
         ], style={'backgroundColor': bg}))
 
     return [
@@ -1157,19 +1265,10 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
         player_opts = sorted([{'label': n, 'value': n} for n in names],
                              key=lambda d: d['label'])
 
-    initial = _apply_filters(
-        passes,
-        outcomes=[0, 1], start_thirds=None, end_thirds=None,
-        bands=None, players=None,
-        h1_range=(0, 50), h2_range=(45, 100),
-    )
-
-    # Possession touch map — initial render (no player/half filter applied yet)
-    bar_events  = events[events['team_code'] == 'BAR']
-    init_touches = _filter_touches(bar_events, players=None,
-                                   h1_range=(0, 50), h2_range=(45, 100))
-
-    init_nodes, init_edges = _build_network_bar(bar_events)
+    # Skeleton: all heavy computation is deferred to the callback.
+    # The callback fires immediately on render (prevent_initial_call=False)
+    # and fills every graph/image/table with real data.
+    init_nodes, init_edges = pd.DataFrame(), {}
 
     pass_map_children = [
         html.Div([
@@ -1195,7 +1294,7 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
             type='circle', color=COLORS['gold'],
             children=dcc.Graph(
                 id='buildup-pitch-graph',
-                figure=_build_pass_fig(initial),
+                figure=_skel_fig(520),
                 config=CHART_CONFIG,
                 style={'width': '100%'},
             ),
@@ -1207,7 +1306,7 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
             type='circle', color=COLORS['gold'],
             children=html.Img(
                 id='buildup-touch-map-img',
-                src=_touch_map_src(init_touches),
+                src=_SKEL_SRC,
                 style={'width': '100%', 'borderRadius': '6px'},
             ),
         ),
@@ -1218,7 +1317,7 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
         dbc.Row([
             dbc.Col(pass_map_children, md=8),
             dbc.Col(
-                _stats_col_children(initial, len(passes), init_touches),
+                _stats_col_children(pd.DataFrame(), 0, pd.DataFrame()),
                 md=4,
                 style={
                     'borderLeft': f'1px solid {COLORS["dark_border"]}',
@@ -1247,7 +1346,7 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
                     type='circle', color=COLORS['gold'],
                     children=dcc.Graph(
                         id='buildup-matrix-fig',
-                        figure=_pass_matrix_fig(bar_events),
+                        figure=_skel_fig(520),
                         config=CHART_CONFIG,
                         style={'width': '100%'},
                     ),
@@ -1260,6 +1359,24 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
         html.Div(style={'marginBottom': '8px'}),
         dbc.Row([
             dbc.Col([
+                dcc.Checklist(
+                    id='buildup-z3-filters',
+                    options=[
+                        {'label': ' Led to shot', 'value': 'shot'},
+                        {'label': ' Led to goal', 'value': 'goal'},
+                    ],
+                    value=[],
+                    inline=True,
+                    inputStyle={'cursor': 'pointer', 'accentColor': COLORS['gold'],
+                                'marginRight': '4px'},
+                    labelStyle={'color': COLORS['text_secondary'],
+                                'fontSize': '0.65rem', 'cursor': 'pointer',
+                                'marginRight': '16px'},
+                ),
+            ], md=12),
+        ], style={'marginBottom': '10px'}),
+        dbc.Row([
+            dbc.Col([
                 html.Div("Entries into Final Third",
                          style={**_SECTION_TITLE, 'borderBottom': 'none',
                                 'paddingBottom': '4px', 'fontSize': '0.72rem'}),
@@ -1267,16 +1384,14 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
                     type='circle', color=COLORS['gold'],
                     children=dcc.Graph(
                         id='buildup-ft-fig',
-                        figure=_entries_fig_bar(
-                            _build_entries_bar(bar_events, 'final_third'), 'final_third'),
+                        figure=_skel_fig(480),
                         config=CHART_CONFIG,
                         style={'width': '100%'},
                     ),
                 ),
                 html.Div(
                     id='buildup-ft-table',
-                    children=_entries_table_children(
-                        _build_entries_bar(bar_events, 'final_third')),
+                    children=[],
                     style={'marginTop': '8px'},
                 ),
             ], md=6),
@@ -1288,16 +1403,14 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
                     type='circle', color=COLORS['gold'],
                     children=dcc.Graph(
                         id='buildup-z14-fig',
-                        figure=_entries_fig_bar(
-                            _build_entries_bar(bar_events, 'zone14'), 'zone14'),
+                        figure=_skel_fig(480),
                         config=CHART_CONFIG,
                         style={'width': '100%'},
                     ),
                 ),
                 html.Div(
                     id='buildup-z14-table',
-                    children=_entries_table_children(
-                        _build_entries_bar(bar_events, 'zone14')),
+                    children=[],
                     style={'marginTop': '8px'},
                 ),
             ], md=6),
@@ -1318,8 +1431,6 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
 
 def register_buildup_callbacks(app) -> None:
     """Wire all filter controls to the interactive pass map and stats panel."""
-
-    _EMPTY_SRC = 'data:image/png;base64,'
 
     @app.callback(
         Output('buildup-pitch-graph',    'figure'),
@@ -1343,20 +1454,20 @@ def register_buildup_callbacks(app) -> None:
         Input('buildup-player-filter',   'value'),
         Input('buildup-dist-total',      'value'),
         Input('buildup-prog-only',       'value'),
+        Input('buildup-z3-filters',      'value'),
         State('ta-competition-selector', 'value'),
         State('ta-venue-selector',       'value'),
         State('ta-selected-matches',     'data'),
         State('ta-match-data',           'data'),
-        prevent_initial_call=True,
     )
     def _update(outcomes, start_thirds, end_thirds, bands,
-                h1_range, h2_range, players, dist_total, prog_only,
+                h1_range, h2_range, players, dist_total, prog_only, z3_filters,
                 competition, venue, match_ids, match_data):
 
         empty = pd.DataFrame()
         def _empty():
             return (_build_pass_fig(empty), _stats_numbers_children(empty),
-                    _EMPTY_SRC, _EMPTY_SRC,
+                    _SKEL_SRC, _SKEL_SRC,
                     go.Figure(), go.Figure(), [], [],
                     go.Figure(), go.Figure(), [], [])
 
@@ -1412,14 +1523,44 @@ def register_buildup_callbacks(app) -> None:
 
         use_total  = bool(dist_total)
         n_for_zone = n_all if use_total else len(filtered)
-        zone_src   = f'data:image/png;base64,{_build_zone_pitch_image(filtered, n_for_zone)}'
+
+        # Zone pitch image — cached by (match fingerprint, filter state)
+        _zone_key = (
+            tuple(sorted(effective_ids or [])),
+            tuple(sorted(outcomes or [])),
+            tuple(sorted(start_thirds or [])),
+            tuple(sorted(end_thirds or [])),
+            tuple(sorted(bands or [])),
+            _h1, _h2,
+            tuple(sorted(players or [])),
+            use_total,
+        )
+        if _zone_key in _ZONE_IMG_CACHE:
+            zone_src = _ZONE_IMG_CACHE[_zone_key]
+        else:
+            _img = _build_zone_pitch_image(filtered, n_for_zone)
+            zone_src = f'data:image/png;base64,{_img}' if _img else _SKEL_SRC
+            _ZONE_IMG_CACHE[_zone_key] = zone_src
 
         bar_events = events[events['team_code'] == 'BAR']
 
         # Touch map / top-5 possession: player + half filters only
-        touches   = _filter_touches(bar_events, players=players or None,
-                                    h1_range=_h1, h2_range=_h2)
-        touch_src = _touch_map_src(touches) if not touches.empty else _EMPTY_SRC
+        touches = _filter_touches(bar_events, players=players or None,
+                                  h1_range=_h1, h2_range=_h2)
+
+        # Touch heatmap — cached by (match fingerprint, player, half)
+        _touch_key = (
+            tuple(sorted(effective_ids or [])),
+            tuple(sorted(players or [])),
+            _h1, _h2,
+        )
+        if _touch_key in _TOUCH_MAP_CACHE:
+            touch_src = _TOUCH_MAP_CACHE[_touch_key]
+        elif not touches.empty:
+            touch_src = _touch_map_src(touches)
+            _TOUCH_MAP_CACHE[_touch_key] = touch_src
+        else:
+            touch_src = _SKEL_SRC
 
         # Network / matrix / Zone-3: apply ALL pass filters to pass events
         # so that outcome, start-third, end-third and band selectors affect
@@ -1445,9 +1586,11 @@ def register_buildup_callbacks(app) -> None:
         else:
             filtered_bar = pd.DataFrame()
 
-        net_nodes, net_edges = _build_network_bar(filtered_bar)
+        # Compute pass pairs once — shared by network and matrix
+        pairs = _count_pass_pairs(filtered_bar)
+        net_nodes, net_edges = _build_network_bar(filtered_bar, pairs)
         net_fig = _network_fig_bar(net_nodes, net_edges)
-        mat_fig = _pass_matrix_fig(filtered_bar)
+        mat_fig = _pass_matrix_fig(filtered_bar, pairs)
 
         top5_prog = _top5_progressive_children(filtered)
         top5_poss = _top5_poss_children(touches)
@@ -1455,11 +1598,24 @@ def register_buildup_callbacks(app) -> None:
         # Zone 3 entry plots — all pass filters + player/half for non-passes
         entries_ft  = _build_entries_bar(filtered_bar, 'final_third')
         entries_z14 = _build_entries_bar(filtered_bar, 'zone14')
+
+        # Apply shot/goal checkbox filters
+        if z3_filters:
+            def _z3_mask(df):
+                m = pd.Series(False, index=df.index)
+                if 'shot' in z3_filters and 'led_to_shot' in df.columns:
+                    m |= df['led_to_shot'].fillna(False)
+                if 'goal' in z3_filters and 'led_to_goal' in df.columns:
+                    m |= df['led_to_goal'].fillna(False)
+                return m
+            entries_ft  = entries_ft[_z3_mask(entries_ft)]
+            entries_z14 = entries_z14[_z3_mask(entries_z14)]
+
         ft_fig  = _entries_fig_bar(entries_ft,  'final_third')
         z14_fig = _entries_fig_bar(entries_z14, 'zone14')
         ft_table  = _entries_table_children(entries_ft)
         z14_table = _entries_table_children(entries_z14)
 
-        return (_build_pass_fig(plot_passes), _stats_numbers_children(filtered),
+        return (_build_pass_fig(plot_passes), _stats_numbers_children(filtered, filtered_bar),
                 zone_src, touch_src, net_fig, mat_fig, top5_prog, top5_poss,
                 ft_fig, z14_fig, ft_table, z14_table)

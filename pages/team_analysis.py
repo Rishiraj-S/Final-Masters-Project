@@ -22,7 +22,7 @@ from page_utils.competitions import ALL_COMPETITIONS as _ALL_COMPETITIONS, norma
 
 from pages.team_analysis_tabs.overview import build_overview_tab
 from pages.team_analysis_tabs.buildup import build_buildup_tab, register_buildup_callbacks
-from pages.team_analysis_tabs.chance_creation import build_chance_creation_tab
+from pages.team_analysis_tabs.chance_creation import build_chance_creation_tab, register_chance_creation_callbacks
 from pages.team_analysis_tabs.def_structure import build_def_structure_tab
 from pages.team_analysis_tabs.transitions import build_transitions_tab
 from pages.team_analysis_tabs.set_pieces import build_set_pieces_tab
@@ -316,6 +316,7 @@ def create_team_analysis_layout():
 def register_team_analysis_callbacks(app):
     """Register all Team Analysis callbacks."""
     register_buildup_callbacks(app)
+    register_chance_creation_callbacks(app)
 
     @app.callback(
         Output('ta-calendar-month', 'data'),

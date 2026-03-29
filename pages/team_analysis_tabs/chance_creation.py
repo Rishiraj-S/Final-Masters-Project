@@ -1,442 +1,719 @@
 """
-Team Analysis — Tab 2: Chance Creation and Finishing
+Team Analysis — Tab 2: Chance Creation & Finishing
 
-Answers: How do we create and convert chances?
+Layout (4 equal vertical parts):
+  Filter panel (md=3) | Shot Map (md=6) | Scorers + Assisters tables (md=3)
 
-Sections:
-  Creation
-    - Key passes map          (origin + end zones of key passes)
-    - Box entries             (pass vs carry vs cross into penalty area)
-    - Crossing patterns       (zones + success rate)
-  Finishing
-    - Shot map                (xG proxy by location, sized by danger)
-    - Shot types              (open play vs set piece donut)
-    - Pre-shot sequences      (last event type before each shot)
-  Performance
-    - xG timeline             (cumulative goals per match)
-    - Goals vs xG             (over / under performance bar)
+KPI bar spans the full content area above the main columns.
+Filters: player, shot outcome, shot origin (open-play / set-piece), half-time sliders.
+All heavy computation is deferred to the callback (skeleton pattern, same as buildup.py).
 """
 
-from dash import html, dcc
-import dash_bootstrap_components as dbc
-import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
+from dash import html, dcc, Input, Output, State
+import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
-from utils.data_utils import (
-    get_all_events,
-    get_match_results,
-    filter_own_goals,
-    exclude_own_goals,
-    CURRENT_SEASON,
-)
+from utils.data_utils import get_all_events, exclude_own_goals, CURRENT_SEASON
 from utils.xg_utils import add_xg_column
-from pages.match_analysis_tabs.shared import (
-    section_card,
-    kpi_row,
-)
+from page_utils import PassMap, GOLD, HOME_COLOR
+from page_utils.competitions import normalize_competitions as _normalize_competitions
 from page_utils.visualizations import (
-    CHART_LAYOUT_DEFAULTS,
-    CHART_CONFIG,
-    add_pitch_background,
-    PITCH_AXIS_FULL,
-    PITCH_AXIS_HALF,
-    empty_fig,
-    GOLD,
-    HOME_COLOR,
-    AWAY_COLOR,
+    add_vertical_half_pitch_background,
+    VPITCH_AXIS_HALF,
 )
 
 
-_COMP_SHORT = {
-    'La Liga': 'Liga',
-    'Champions League': 'UCL',
-    'Copa del Rey': 'Copa',
-    'Spanish Super Cup': 'SC',
+# =============================================================================
+# Constants
+# =============================================================================
+
+_SHOT_TYPES = ['Goal', 'Saved Shot', 'Miss', 'Post', 'Blocked Shot']
+
+_OUTCOME_COLOR = {
+    'Goal':         '#51cf66',
+    'Saved Shot':   '#339af0',
+    'Miss':         '#ff6b6b',
+    'Post':         '#ffd43b',
+    'Blocked Shot': '#cc5de8',
+}
+_OUTCOME_SYMBOL = {
+    'Goal':         'star',
+    'Saved Shot':   'circle',
+    'Miss':         'x',
+    'Post':         'diamond',
+    'Blocked Shot': 'square',
 }
 
-_SHOT_STYLE = {
-    'Goal':       ('star',   GOLD,       18),
-    'Saved Shot': ('circle', HOME_COLOR, 11),
-    'Miss':       ('x',      AWAY_COLOR, 10),
+PITCH_BG = '#151932'
+
+_LABEL_STYLE = {
+    'color': GOLD,
+    'fontSize': '0.70rem',
+    'fontWeight': '700',
+    'letterSpacing': '0.8px',
+    'textTransform': 'uppercase',
+    'marginBottom': '5px',
+    'marginTop': '14px',
 }
+_PANEL_STYLE = {
+    'backgroundColor': COLORS['dark_secondary'],
+    'border': f'1px solid {COLORS["dark_border"]}',
+    'borderRadius': '6px',
+    'padding': '14px 12px',
+    'overflowY': 'auto',
+    'maxHeight': '80vh',
+}
+_SECTION_TITLE = {
+    'color': GOLD,
+    'fontWeight': '700',
+    'fontSize': '0.82rem',
+    'letterSpacing': '1px',
+    'textTransform': 'uppercase',
+    'paddingBottom': '8px',
+    'borderBottom': f'1px solid {COLORS["dark_border"]}',
+}
+_TH = {
+    'textAlign': 'center', 'padding': '4px 6px',
+    'fontSize': '0.58rem', 'fontWeight': '700',
+    'color': COLORS['text_secondary'], 'textTransform': 'uppercase',
+    'letterSpacing': '0.05em', 'whiteSpace': 'nowrap',
+    'borderBottom': f'1px solid {COLORS["dark_border"]}',
+}
+_TD = {
+    'textAlign': 'center', 'padding': '4px 6px',
+    'fontSize': '0.68rem', 'fontWeight': '600',
+    'color': COLORS['text_primary'], 'whiteSpace': 'nowrap',
+}
+_NAME = {**_TD, 'textAlign': 'left', 'color': GOLD,
+         'maxWidth': '90px', 'overflow': 'hidden', 'textOverflow': 'ellipsis'}
+
+CHART_CFG = {'displayModeBar': False}
 
 
-# ---------------------------------------------------------------------------
-# Creation
-# ---------------------------------------------------------------------------
+# =============================================================================
+# Skeleton
+# =============================================================================
 
-def _key_passes_map(bar):
-    """Full-pitch scatter: origin of key passes (Assist qualifier), coloured by outcome."""
-    if 'Assist' not in bar.columns:
-        return empty_fig("No key pass qualifier (Assist) in data")
-
-    kp = bar[
-        (bar['event_type'] == 'Pass') &
-        (bar['Assist'] == 'Si')
-    ].dropna(subset=['x', 'y'])
-
-    if kp.empty:
-        return empty_fig("No key passes found")
-
-    # Colour by outcome: accurate (1) vs inaccurate (0)
-    colors = kp['outcome'].map(lambda o: HOME_COLOR if o == 1 else AWAY_COLOR)
-
+def _skel_fig(height: int = 520) -> go.Figure:
+    """Empty placeholder figure shown before the callback fires."""
     fig = go.Figure()
-    add_pitch_background(fig, half=False)
-
-    # Draw arrow lines if end_x/end_y available
-    if 'end_x' in kp.columns and 'end_y' in kp.columns:
-        for _, row in kp.head(200).iterrows():
-            if pd.notna(row.get('end_x')) and pd.notna(row.get('end_y')):
-                fig.add_annotation(
-                    x=row['end_x'], y=row['end_y'],
-                    ax=row['x'], ay=row['y'],
-                    axref='x', ayref='y',
-                    arrowhead=2, arrowwidth=1.5,
-                    arrowcolor='rgba(255,255,255,0.25)',
-                    showarrow=True,
-                )
-
-    fig.add_trace(go.Scatter(
-        x=kp['x'], y=kp['y'],
-        mode='markers',
-        name='Key Pass Origin',
-        marker=dict(color=colors, size=8, opacity=0.85,
-                    line=dict(color='white', width=1)),
-        text=kp['player_name'].fillna('') if 'player_name' in kp.columns else [''] * len(kp),
-        hovertemplate='<b>%{text}</b><extra>Key Pass</extra>',
-    ))
-
-    for label, col in [('Accurate', HOME_COLOR), ('Inaccurate', AWAY_COLOR)]:
-        fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers',
-                                 marker=dict(color=col, size=8), name=label))
-
-    fig.update_layout(**CHART_LAYOUT_DEFAULTS, height=400, **PITCH_AXIS_FULL)
-    fig.update_layout(legend=dict(orientation='h', y=-0.05, x=0.5, xanchor='center'))
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor=PITCH_BG,
+        height=height, margin=dict(l=0, r=0, t=36, b=0),
+    )
     return fig
 
 
-def _box_entries(bar):
-    """Grouped bar: how does Barca enter the penalty area (pass / carry / cross)?"""
-    # Box = x ≥ 83, y between 21.1 and 78.9
-    box = bar[bar['x'].notna() & (bar['x'] >= 83) & bar['y'].notna() &
-              (bar['y'] >= 21) & (bar['y'] <= 79)]
+# =============================================================================
+# Data helpers
+# =============================================================================
 
-    if box.empty:
-        return empty_fig("No penalty-area entries")
-
-    crosses = int(box[box['event_type'].isin(['Cross', 'Crossed Ball'])].shape[0])
-    carries = int(box[box['event_type'] == 'Take On'].shape[0])   # dribble into box
-    passes_ = int(box[box['event_type'] == 'Pass'].shape[0])
-    other   = int(box.shape[0] - crosses - carries - passes_)
-
-    labels = ['Pass', 'Cross/Crossed Ball', 'Take On / Carry', 'Other']
-    values = [passes_, crosses, carries, other]
-    colors = [HOME_COLOR, GOLD, AWAY_COLOR, '#888888']
-
-    fig = go.Figure(go.Pie(
-        labels=labels, values=values,
-        marker_colors=colors,
-        hole=0.45,
-        textinfo='label+percent',
-        textfont=dict(color='white', size=11),
-        hovertemplate='%{label}: %{value} entries<extra></extra>',
-    ))
-    fig.update_layout(**CHART_LAYOUT_DEFAULTS, height=280, showlegend=False)
-    fig.update_layout(margin=dict(l=0, r=0, t=20, b=0))
-    fig.update_layout(title_text='Box Entry Types', title_font_color=GOLD,
-                      title_font_size=12)
-    return fig
+# Qualifiers on the SHOT row that identify set-piece-derived shots
+_SP_SHOT_COLS = ['From corner', 'Free kick', 'Set piece', 'Throw In set piece', 'Corner situation']
+# Qualifiers on the PASS row that identify set-piece passes (corner/FK/throw-in taken)
+_SP_PASS_COLS = ['Corner taken', 'Free kick taken', 'Throw In']
 
 
-def _crossing_patterns(bar):
-    """Bar: cross attempts by zone (left flank / right flank) + accuracy rate."""
-    cross_types = ['Cross', 'Crossed Ball']
-    crosses = bar[bar['event_type'].isin(cross_types) & bar['y'].notna()]
+def _add_sp_flag(shots: pd.DataFrame, bar: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add _is_sp_shot boolean column to shots.
 
-    if crosses.empty:
-        return empty_fig("No cross data")
+    A shot is flagged True when EITHER:
+      (a) Direct qualifier on the shot row:
+          'From corner', 'Free kick', 'Set piece', 'Throw In set piece',
+          or 'Corner situation' == 'Si'
+      (b) Indirect: the immediately preceding BAR event (same match) is a
+          set-piece pass ('Corner taken', 'Free kick taken', or 'Throw In' == 'Si')
 
-    left_crosses  = crosses[crosses['y'] < 33]
-    right_crosses = crosses[crosses['y'] > 67]
+    Penalties are left unchanged (they don't carry the above qualifiers).
+    """
+    shots = shots.copy()
 
-    def _acc(df):
-        if df.empty:
-            return 0.0, 0
-        return round(df['outcome'].eq(1).sum() / max(len(df), 1) * 100, 1), len(df)
+    # (a) Direct flags on shot rows
+    direct = pd.Series(False, index=shots.index)
+    for col in _SP_SHOT_COLS:
+        if col in shots.columns:
+            direct |= shots[col].eq('Si')
+    shots['_is_sp_shot'] = direct
 
-    la, ln = _acc(left_crosses)
-    ra, rn = _acc(right_crosses)
+    # (b) Indirect: shot preceded by a set-piece pass in the same match
+    present_sp_pass = [c for c in _SP_PASS_COLS if c in bar.columns]
+    if not present_sp_pass:
+        return shots
 
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=['Left Flank', 'Right Flank'],
-        y=[ln, rn],
-        name='Total Crosses',
-        marker_color='rgba(255,255,255,0.15)',
-    ))
-    fig.add_trace(go.Bar(
-        x=['Left Flank', 'Right Flank'],
-        y=[int(left_crosses['outcome'].eq(1).sum()), int(right_crosses['outcome'].eq(1).sum())],
-        name='Accurate',
-        marker_color=HOME_COLOR,
-    ))
+    sort_cols = [c for c in ['match_id', 'period_id', 'time_min', 'time_sec']
+                 if c in bar.columns]
+    # reset_index() keeps a column 'index' = original bar index
+    te = bar.sort_values(sort_cols).reset_index()
 
-    for x_pos, acc in [('Left Flank', la), ('Right Flank', ra)]:
-        fig.add_annotation(
-            x=x_pos, y=max(ln, rn) + 2,
-            text=f"{acc}% acc.",
-            showarrow=False,
-            font=dict(color=GOLD, size=11, family='Arial Black'),
+    sp_pass = pd.Series(False, index=te.index)
+    for col in present_sp_pass:
+        sp_pass |= te[col].eq('Si')
+    sp_pass = sp_pass & (te['event_type'] == 'Pass')
+
+    is_shot_te = te['event_type'].isin(_SHOT_TYPES)
+    same_match = (
+        (te['match_id'] == te['match_id'].shift(1, fill_value=''))
+        if 'match_id' in te.columns
+        else pd.Series(True, index=te.index)
+    )
+    # Row i is a shot that immediately follows a SP pass in the same match
+    indirect = is_shot_te & sp_pass.shift(1, fill_value=False) & same_match
+
+    orig_indirect_idx = set(te.loc[indirect, 'index'].tolist())
+    shots['_is_sp_shot'] = shots['_is_sp_shot'] | shots.index.isin(orig_indirect_idx)
+    return shots
+
+
+def _get_bar_shots(bar: pd.DataFrame) -> pd.DataFrame:
+    """Return BAR shot rows with xG and _is_sp_shot columns, excluding own goals."""
+    shots = exclude_own_goals(
+        bar[bar['event_type'].isin(_SHOT_TYPES)].copy()
+    ).dropna(subset=['x', 'y'])
+    if shots.empty:
+        return shots
+    shots = add_xg_column(shots)
+    shots = _add_sp_flag(shots, bar)
+    return shots
+
+
+def _compute_key_pass_stats(bar: pd.DataFrame) -> pd.DataFrame:
+    """
+    Vectorised: for each BAR pass immediately followed by a shot (same match),
+    record the player, whether it led to a goal, and the shot's xG (= xA credit).
+
+    Returns DataFrame columns: player_name, is_goal_assist, shot_xg
+    """
+    _empty = pd.DataFrame(columns=['player_name', 'is_goal_assist', 'shot_xg'])
+    if bar.empty:
+        return _empty
+
+    sort_cols = [c for c in ['match_id', 'period_id', 'time_min', 'time_sec']
+                 if c in bar.columns]
+    te = bar.sort_values(sort_cols).reset_index(drop=True)
+
+    # Compute xG for shot rows
+    is_shot = te['event_type'].isin(_SHOT_TYPES) & te['x'].notna() & te['y'].notna()
+    te['_xg'] = 0.0
+    if is_shot.any():
+        shot_rows = add_xg_column(te[is_shot].copy())
+        te.loc[shot_rows.index, '_xg'] = shot_rows['xg']
+    te['_xg'] = te['_xg'].fillna(0.0)
+
+    # Shift: look at what follows each event
+    te['_next_etype'] = te['event_type'].shift(-1)
+    te['_next_xg']    = te['_xg'].shift(-1, fill_value=0.0)
+    te['_same_match'] = (
+        te['match_id'] == te['match_id'].shift(-1)
+        if 'match_id' in te.columns
+        else pd.Series(True, index=te.index)
+    )
+
+    kp_mask = (
+        (te['event_type'] == 'Pass') &
+        te['_next_etype'].isin(_SHOT_TYPES) &
+        te['_same_match'] &
+        te['player_name'].notna()
+    )
+    if not kp_mask.any():
+        return _empty
+
+    kp = te[kp_mask][['player_name', '_next_etype', '_next_xg']].copy()
+    kp.columns = ['player_name', 'next_type', 'shot_xg']
+    kp['is_goal_assist'] = kp['next_type'] == 'Goal'
+    return kp[['player_name', 'is_goal_assist', 'shot_xg']].reset_index(drop=True)
+
+
+def _get_key_passes_for_map(bar: pd.DataFrame, map_shots: pd.DataFrame) -> pd.DataFrame:
+    """
+    Return BAR passes that are key passes for shots in map_shots.
+
+    Two types:
+      1. Standard KP  — pass immediately before (shift -1) any shot in map_shots.
+      2. SP KP        — set-piece pass (Corner taken / Free kick taken / Throw In)
+                        within 6 events before a shot that carries a SP qualifier
+                        (From corner / Free kick / Set piece / Throw In set piece /
+                        Corner situation). Catches multi-touch sequences such as
+                        corner → header → shot where the corner kick itself is the
+                        originating key pass.
+
+    led_to_goal: True when any of the next 6 events in the same match is a Goal
+    that is also present in map_shots.
+
+    Returns DataFrame columns: x, y, end_x, end_y, player_name, led_to_goal
+    """
+    if bar.empty or map_shots.empty:
+        return pd.DataFrame()
+
+    sort_cols = [c for c in ['match_id', 'period_id', 'time_min', 'time_sec']
+                 if c in bar.columns]
+    te = bar.sort_values(sort_cols).reset_index()   # 'index' col = original bar index
+
+    map_orig_idx   = set(map_shots.index.tolist())
+    is_shot_in_map = te['event_type'].isin(_SHOT_TYPES) & te['index'].isin(map_orig_idx)
+
+    same_match_fwd = (
+        (te['match_id'] == te['match_id'].shift(-1, fill_value=''))
+        if 'match_id' in te.columns else pd.Series(True, index=te.index)
+    )
+    te['_next_in_map'] = is_shot_in_map.shift(-1, fill_value=False)
+    te['_next_etype']  = te['event_type'].shift(-1, fill_value='')
+
+    # 1. Standard KP: pass directly before any shot in map_shots
+    kp_mask = (te['event_type'] == 'Pass') & te['_next_in_map'] & same_match_fwd
+
+    # 2. SP KP: set-piece pass within 6 events before a SP-qualified shot in map_shots
+    _SP_PASS_PRESENT = [c for c in _SP_PASS_COLS if c in te.columns]
+    _SP_SHOT_PRESENT = [c for c in _SP_SHOT_COLS if c in te.columns]
+
+    if _SP_PASS_PRESENT and _SP_SHOT_PRESENT:
+        sp_qual = pd.Series(False, index=te.index)
+        for col in _SP_SHOT_PRESENT:
+            sp_qual |= te[col].eq('Si')
+        is_sp_shot_in_map = is_shot_in_map & sp_qual
+
+        is_sp_pass = pd.Series(False, index=te.index)
+        for col in _SP_PASS_PRESENT:
+            is_sp_pass |= te[col].eq('Si')
+        is_sp_pass = is_sp_pass & (te['event_type'] == 'Pass')
+
+        for offset in range(1, 7):
+            same_match_back = (
+                (te['match_id'] == te['match_id'].shift(offset, fill_value=''))
+                if 'match_id' in te.columns else pd.Series(True, index=te.index)
+            )
+            kp_mask = kp_mask | (
+                is_sp_pass &
+                is_sp_shot_in_map.shift(-offset, fill_value=False) &
+                same_match_back
+            )
+
+    if not kp_mask.any():
+        return pd.DataFrame()
+
+    # led_to_goal: any of the next 6 events (same match) is a Goal in map_shots
+    goal_orig_idx = set(
+        map_shots[map_shots['event_type'] == 'Goal'].index.tolist()
+        if 'event_type' in map_shots.columns else []
+    )
+    te['_led_to_goal'] = False
+    for offset in range(1, 7):
+        same_match_off = (
+            (te['match_id'] == te['match_id'].shift(-offset, fill_value=''))
+            if 'match_id' in te.columns else pd.Series(True, index=te.index)
+        )
+        te['_led_to_goal'] = te['_led_to_goal'] | (
+            te['index'].shift(-offset, fill_value=-1).isin(goal_orig_idx) &
+            same_match_off
         )
 
-    fig.update_layout(
-        **CHART_LAYOUT_DEFAULTS,
-        height=280,
-        barmode='overlay',
-        yaxis_title='Crosses',
+    kp = te[kp_mask].copy()
+
+    end_x = (pd.to_numeric(kp['Pass End X'], errors='coerce')
+             if 'Pass End X' in kp.columns else pd.Series(np.nan, index=kp.index))
+    end_y = (pd.to_numeric(kp['Pass End Y'], errors='coerce')
+             if 'Pass End Y' in kp.columns else pd.Series(np.nan, index=kp.index))
+
+    result = pd.DataFrame({
+        'x':           pd.to_numeric(kp['x'], errors='coerce').values,
+        'y':           pd.to_numeric(kp['y'], errors='coerce').values,
+        'end_x':       end_x.values,
+        'end_y':       end_y.values,
+        'player_name': kp['player_name'].values if 'player_name' in kp.columns else [None] * len(kp),
+        'led_to_goal': kp['_led_to_goal'].values,
+    })
+    return result.dropna(subset=['x', 'y', 'end_x', 'end_y']).reset_index(drop=True)
+
+
+def _apply_shot_filters(shots: pd.DataFrame, *,
+                        outcomes, method, players,
+                        h1_range, h2_range) -> pd.DataFrame:
+    """Apply all active filters to a shots DataFrame."""
+    if outcomes:
+        shots = shots[shots['event_type'].isin(outcomes)]
+
+    if method is not None:
+        show_op = 'open_play' in method
+        show_sp = 'set_piece' in method
+        if show_op and not show_sp and 'Set piece' in shots.columns:
+            shots = shots[~shots['Set piece'].eq('Si')]
+        elif show_sp and not show_op and 'Set piece' in shots.columns:
+            shots = shots[shots['Set piece'].eq('Si')]
+        # both checked → show all; neither checked → empty
+
+    if players and 'player_name' in shots.columns:
+        shots = shots[shots['player_name'].isin(players)]
+
+    if 'period_id' in shots.columns and 'time_min' in shots.columns:
+        h1_lo, h1_hi = h1_range
+        h2_lo, h2_hi = h2_range
+        m1 = (shots['period_id'] == 1) & (shots['time_min'] >= h1_lo) & (shots['time_min'] <= h1_hi)
+        m2 = (shots['period_id'] == 2) & (shots['time_min'] >= h2_lo) & (shots['time_min'] <= h2_hi)
+        shots = shots[m1 | m2]
+
+    return shots
+
+
+# =============================================================================
+# KPI bar
+# =============================================================================
+
+def _kpi_children(shots: pd.DataFrame, kp_stats: pd.DataFrame) -> list:
+    """Row of KPI stat cards spanning the full content width."""
+    def _card(value, label, color=COLORS['text_primary']):
+        return html.Div([
+            html.Div(str(value), style={
+                'color': color, 'fontWeight': '800',
+                'fontSize': '1.35rem', 'lineHeight': '1.1',
+            }),
+            html.Div(label, style={
+                'color': COLORS['text_secondary'],
+                'fontSize': '0.60rem', 'fontWeight': '600',
+                'letterSpacing': '0.6px', 'textTransform': 'uppercase',
+                'marginTop': '3px',
+            }),
+        ], style={
+            'backgroundColor': COLORS['dark_secondary'],
+            'border': f'1px solid {COLORS["dark_border"]}',
+            'borderRadius': '6px',
+            'padding': '8px 10px',
+            'flex': '1',
+            'minWidth': '0',
+        })
+
+    total_shots = len(shots)
+    shots_ot    = int(shots['event_type'].isin(['Goal', 'Saved Shot']).sum())
+    goals_total = int((shots['event_type'] == 'Goal').sum())
+
+    pen_goals = (
+        int(shots[(shots['event_type'] == 'Goal') & shots['Penalty'].eq('Si')].shape[0])
+        if 'Penalty' in shots.columns else 0
     )
-    fig.update_layout(legend=dict(orientation='h', y=1.05, x=0.5, xanchor='center'))
-    return fig
+    np_goals = goals_total - pen_goals
 
-
-# ---------------------------------------------------------------------------
-# Finishing
-# ---------------------------------------------------------------------------
-
-def _shot_map_xg(bar):
-    """Half-pitch shot map with xG (bubble size = xG)."""
-    shot_types = ['Goal', 'Saved Shot', 'Miss']
-    shots = exclude_own_goals(
-        bar[bar['event_type'].isin(shot_types)].copy()
-    ).dropna(subset=['x', 'y'])
-
-    if shots.empty:
-        return empty_fig("No shot data")
-
-    shots = add_xg_column(shots)
-
-    fig = go.Figure()
-    add_pitch_background(fig, half=True)
-
-    for etype, (symbol, color, base_size) in _SHOT_STYLE.items():
-        subset = shots[shots['event_type'] == etype]
-        if subset.empty:
-            continue
-        fig.add_trace(go.Scatter(
-            x=subset['x'], y=subset['y'],
-            mode='markers',
-            name=etype,
-            marker=dict(
-                color=color,
-                size=(subset['xg'] * 40 + 8).clip(upper=28),
-                symbol=symbol,
-                opacity=0.85,
-                line=dict(color='white', width=1.2),
-            ),
-            customdata=list(zip(
-                subset['player_name'].fillna('') if 'player_name' in subset.columns else [''] * len(subset),
-                subset['xg'],
-            )),
-            hovertemplate='<b>%{customdata[0]}</b><br>xG: %{customdata[1]:.2f}'
-                          '<extra>' + etype + '</extra>',
-        ))
-
-    fig.update_layout(**CHART_LAYOUT_DEFAULTS, height=440, **PITCH_AXIS_HALF)
-    fig.update_layout(legend=dict(orientation='h', y=-0.05, x=0.5, xanchor='center'))
-    return fig
-
-
-def _shot_types_donut(bar):
-    """Donut: open play vs set piece shots."""
-    shot_types = ['Goal', 'Saved Shot', 'Miss']
-    shots = exclude_own_goals(bar[bar['event_type'].isin(shot_types)].copy())
-
-    if shots.empty:
-        return empty_fig("No shot data")
-
-    sp = int(shots[shots['Set piece'].eq('Si')].shape[0]) \
-        if 'Set piece' in shots.columns else 0
-    op = int(len(shots) - sp)
-
-    fig = go.Figure(go.Pie(
-        labels=['Open Play', 'Set Piece'],
-        values=[op, sp],
-        marker_colors=[HOME_COLOR, GOLD],
-        hole=0.45,
-        textinfo='label+percent',
-        textfont=dict(color='white', size=12),
-    ))
-    fig.update_layout(**CHART_LAYOUT_DEFAULTS, height=260, showlegend=False)
-    fig.update_layout(margin=dict(l=0, r=0, t=20, b=0))
-    fig.update_layout(title_text='Shot Origin', title_font_color=GOLD, title_font_size=12)
-    return fig
-
-
-def _pre_shot_sequences(bar):
-    """Bar: most common event type immediately preceding a shot."""
-    shot_types = ['Goal', 'Saved Shot', 'Miss']
-    shots = exclude_own_goals(bar[bar['event_type'].isin(shot_types)].copy())
-
-    if shots.empty or 'match_id' not in bar.columns:
-        return empty_fig("No pre-shot sequence data")
-
-    pre_events = []
-    shots_sorted = shots.sort_values(['match_id', 'period_id', 'time_min', 'time_sec']
-                                     if all(c in shots.columns for c in ['period_id', 'time_sec'])
-                                     else ['match_id', 'time_min']) if 'time_min' in shots.columns else shots
-
-    bar_sorted = bar.sort_values(['match_id', 'time_min']
-                                 if 'time_min' in bar.columns else ['match_id'])
-
-    for _, shot in shots_sorted.iterrows():
-        match_ev = bar_sorted[bar_sorted['match_id'] == shot['match_id']] \
-            if 'match_id' in bar_sorted.columns else bar_sorted
-        if 'time_min' in shot.index and 'time_min' in match_ev.columns:
-            prior = match_ev[match_ev['time_min'] < shot['time_min']]
-            if not prior.empty:
-                pre_events.append(prior.iloc[-1]['event_type'])
-
-    if not pre_events:
-        return empty_fig("Could not extract pre-shot sequences")
-
-    counts = pd.Series(pre_events).value_counts().head(8)
-    fig = go.Figure(go.Bar(
-        y=counts.index, x=counts.values,
-        orientation='h',
-        marker_color=GOLD,
-        hovertemplate='%{y}: %{x} times<extra></extra>',
-    ))
-    fig.update_layout(
-        **CHART_LAYOUT_DEFAULTS, height=300,
-        xaxis_title='Count',
-        yaxis=dict(autorange='reversed'),
+    sp_goals = (
+        int(shots[(shots['event_type'] == 'Goal') &
+                  shots['_is_sp_shot'].fillna(False)].shape[0])
+        if '_is_sp_shot' in shots.columns else 0
     )
-    fig.update_layout(margin=dict(l=10, r=10, t=10, b=30))
-    return fig
 
-
-# ---------------------------------------------------------------------------
-# Performance
-# ---------------------------------------------------------------------------
-
-def _xg_timeline(results, bar, events):
-    """Cumulative actual goals vs xG proxy per match."""
-    sorted_r = sorted(results, key=lambda r: r['date'])
-    if not sorted_r:
-        return empty_fig("No match data")
-
-    cum_goals, cum_xg, labels = [], [], []
-    g_total = xg_total = 0.0
-
-    for r in sorted_r:
-        me = bar[bar['match_id'] == r['match_id']] if 'match_id' in bar.columns else bar.head(0)
-        goals = int(filter_own_goals(me[me['event_type'] == 'Goal'].copy()).shape[0]) \
-            if not me.empty else r['barca_goals']
-        shots = exclude_own_goals(
-            me[me['event_type'].isin(['Goal', 'Saved Shot', 'Miss'])].copy()
-        ).dropna(subset=['x', 'y'])
-        xg = add_xg_column(shots)['xg'].sum() if not shots.empty else 0.0
-
-        g_total  += goals
-        xg_total += xg
-        cum_goals.append(g_total)
-        cum_xg.append(round(xg_total, 2))
-
-        comp = _COMP_SHORT.get(r['competition'], r['competition'][:4])
-        labels.append(f"{r['opponent']} · {comp}")
-
-    x = list(range(1, len(cum_goals) + 1))
-    result_colors = {'W': HOME_COLOR, 'D': GOLD, 'L': AWAY_COLOR}
-    marker_colors = [result_colors.get(r['result'], GOLD) for r in sorted_r]
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=x, y=cum_goals, name='Goals Scored',
-        mode='lines+markers',
-        line=dict(color=GOLD, width=2),
-        marker=dict(size=8, color=marker_colors, line=dict(color='white', width=1)),
-        text=labels,
-        hovertemplate='Match %{x}: %{text}<br>Goals: %{y}<extra></extra>',
-    ))
-    fig.add_trace(go.Scatter(
-        x=x, y=cum_xg, name='xG',
-        mode='lines',
-        line=dict(color=HOME_COLOR, width=1.5, dash='dot'),
-        hovertemplate='Match %{x}<br>xG: %{y:.2f}<extra></extra>',
-    ))
-    fig.update_layout(
-        **CHART_LAYOUT_DEFAULTS,
-        height=300,
-        xaxis_title='Match',
-        yaxis_title='Cumulative',
+    xg_total    = round(shots['xg'].sum(), 2) if 'xg' in shots.columns else 0.0
+    box_shots   = int((shots['x'] >= 83).sum()) if 'x' in shots.columns else 0
+    big_chances = (
+        int(shots['Big Chance'].eq('Si').sum())
+        if 'Big Chance' in shots.columns else 0
     )
-    fig.update_layout(legend=dict(orientation='h', y=1.05, x=0.5, xanchor='center'))
-    return fig
+
+    assists  = int(kp_stats['is_goal_assist'].sum()) if not kp_stats.empty else 0
+    xa_total = round(kp_stats['shot_xg'].sum(), 2)   if not kp_stats.empty else 0.0
+    kp_total = len(kp_stats)
+
+    cards = [
+        _card(total_shots,          'Shots',        COLORS['text_primary']),
+        _card(shots_ot,             'On Target',     HOME_COLOR),
+        _card(np_goals,             'NP Goals',      GOLD),
+        _card(sp_goals,             'Set Piece G',   COLORS['text_primary']),
+        _card(f'{xg_total:.2f}',    'xG',            HOME_COLOR),
+        _card(assists,              'Assists',        GOLD),
+        _card(kp_total,             'Key Passes',    COLORS['text_primary']),
+        _card(f'{xa_total:.2f}',    'xA',            HOME_COLOR),
+        _card(box_shots,            'Box Shots',     COLORS['text_primary']),
+        _card(big_chances,          'Big Chances',   GOLD),
+    ]
+    return [html.Div(cards, style={
+        'display': 'flex', 'gap': '6px', 'flexWrap': 'wrap',
+    })]
 
 
-def _goals_vs_xg_bar(results, bar):
-    """Per-match Goals scored vs xG proxy — deviation bars."""
-    sorted_r = sorted(results, key=lambda r: r['date'])
-    if not sorted_r:
-        return empty_fig("No match data")
+# =============================================================================
+# Shot map
+# =============================================================================
 
-    labels, goals_list, xg_list, diff_list = [], [], [], []
+def _shot_map_fig(shots: pd.DataFrame,
+                  key_passes: pd.DataFrame | None = None) -> go.Figure:
+    """Vertical half-pitch shot map. Dot size proportional to xG; goals are stars.
 
-    for r in sorted_r:
-        me = bar[bar['match_id'] == r['match_id']] if 'match_id' in bar.columns else bar.head(0)
-        goals = r['barca_goals']
-        shots = exclude_own_goals(
-            me[me['event_type'].isin(['Goal', 'Saved Shot', 'Miss'])].copy()
-        ).dropna(subset=['x', 'y']) if not me.empty else me
-        xg = round(add_xg_column(shots)['xg'].sum(), 2) if not shots.empty else 0.0
-        diff = round(goals - xg, 2)
-
-        comp = _COMP_SHORT.get(r['competition'], r['competition'][:4])
-        labels.append(f"{r['opponent'][:12]} · {comp}")
-        goals_list.append(goals)
-        xg_list.append(xg)
-        diff_list.append(diff)
-
+    key_passes: optional DataFrame (x, y, end_x, end_y, led_to_goal) —
+                when provided, draws pass lines behind the shot markers.
+                Gold thick line = pass led to goal; dim white = other key pass.
+    """
     fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=labels, y=xg_list,
-        name='xG',
-        marker_color='rgba(255,255,255,0.2)',
-        hovertemplate='%{x}<br>xG: %{y:.2f}<extra></extra>',
-    ))
-    fig.add_trace(go.Scatter(
-        x=labels, y=goals_list,
-        name='Goals Scored',
-        mode='lines+markers',
-        line=dict(color=GOLD, width=2),
-        marker=dict(
-            size=9,
-            color=[HOME_COLOR if d >= 0 else AWAY_COLOR for d in diff_list],
-            line=dict(color='white', width=1),
+    add_vertical_half_pitch_background(fig)
+
+    _base = dict(
+        **VPITCH_AXIS_HALF,
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor=PITCH_BG,
+        height=520, margin=dict(l=0, r=0, t=8, b=0),
+        hoverlabel=dict(bgcolor='#1A1D2E', font_color='white', font_size=12),
+        legend=dict(
+            x=0.01, y=0.01, xanchor='left', yanchor='bottom',
+            orientation='v',
+            font=dict(color=COLORS['text_primary'], size=10),
+            bgcolor='rgba(26,29,46,0.80)',
+            bordercolor=COLORS.get('dark_border', 'rgba(255,255,255,0.15)'),
+            borderwidth=1,
         ),
-        hovertemplate='%{x}<br>Goals: %{y}<extra></extra>',
-    ))
-
-    fig.update_layout(
-        **CHART_LAYOUT_DEFAULTS,
-        height=320,
-        barmode='overlay',
-        xaxis_tickangle=-45,
-        yaxis_title='Goals / xG',
     )
-    fig.update_layout(legend=dict(orientation='h', y=1.05, x=0.5, xanchor='center'))
+
+    # ── Pass lines (drawn first so shot markers render on top) ─────────────
+    if key_passes is not None and not key_passes.empty:
+        for is_goal_flag, color, lwidth, opacity, legend_label in [
+            (False, 'rgba(210,210,210,0.35)', 1.2, 0.55, None),
+            (True,  GOLD,                     2.4, 0.90, 'Goal Assist Pass'),
+        ]:
+            grp = key_passes[key_passes['led_to_goal'] == is_goal_flag]
+            if grp.empty:
+                continue
+
+            # Vectorised segment builder: [x_start, x_end, NaN, ...]
+            n = len(grp)
+            xs = np.empty(n * 3); xs[:] = np.nan
+            ys = np.empty(n * 3); ys[:] = np.nan
+            # Vertical pitch: fig_x = 100 − Opta_y,  fig_y = Opta_x
+            xs[0::3] = 100 - grp['y'].values
+            xs[1::3] = 100 - grp['end_y'].values
+            ys[0::3] = grp['x'].values
+            ys[1::3] = grp['end_x'].values
+
+            fig.add_trace(go.Scatter(
+                x=xs.tolist(), y=ys.tolist(),
+                mode='lines',
+                line=dict(color=color, width=lwidth),
+                opacity=opacity,
+                showlegend=False,
+                hoverinfo='skip',
+            ))
+
+            # Filled circle at the pass endpoint (arrowhead substitute)
+            fig.add_trace(go.Scatter(
+                x=(100 - grp['end_y']).tolist(),
+                y=grp['end_x'].tolist(),
+                mode='markers',
+                name=legend_label or '',
+                showlegend=bool(legend_label),
+                marker=dict(
+                    color=color, size=6 if not is_goal_flag else 8,
+                    symbol='circle', opacity=opacity,
+                    line=dict(color='white', width=0.8),
+                ),
+                hoverinfo='skip',
+            ))
+
+    # ── Shot markers ───────────────────────────────────────────────────────
+    if not shots.empty and 'x' in shots.columns:
+        for etype in _SHOT_TYPES:
+            grp = shots[shots['event_type'] == etype].copy()
+            if grp.empty:
+                continue
+
+            # Vertical pitch mapping: fig_x = 100 − Opta_y, fig_y = Opta_x
+            fig_x = (100 - grp['y']).tolist()
+            fig_y = grp['x'].tolist()
+
+            xg_vals = (grp['xg'].fillna(0.0).tolist()
+                       if 'xg' in grp.columns else [0.0] * len(grp))
+            sizes = ([16] * len(grp) if etype == 'Goal'
+                     else [max(8, min(20, int(v * 60 + 8))) for v in xg_vals])
+
+            player_names = (grp['player_name'].fillna('Unknown').tolist()
+                            if 'player_name' in grp.columns else ['Unknown'] * len(grp))
+            times = (grp['time_min'].fillna(0).astype(int).tolist()
+                     if 'time_min' in grp.columns else [0] * len(grp))
+
+            fig.add_trace(go.Scatter(
+                x=fig_x, y=fig_y,
+                mode='markers', name=etype,
+                marker=dict(
+                    color=_OUTCOME_COLOR.get(etype, GOLD),
+                    symbol=_OUTCOME_SYMBOL.get(etype, 'circle'),
+                    size=sizes, opacity=0.88,
+                    line=dict(color='white', width=1),
+                ),
+                customdata=list(zip(player_names, times, xg_vals)),
+                hovertemplate=(
+                    '<b>%{customdata[0]}</b><br>'
+                    "%{customdata[1]}' | xG: %{customdata[2]:.2f}"
+                    '<extra>' + etype + '</extra>'
+                ),
+            ))
+
+    fig.update_layout(**_base)
     return fig
 
 
-# ---------------------------------------------------------------------------
-# Public builder
-# ---------------------------------------------------------------------------
+# =============================================================================
+# Tables
+# =============================================================================
 
-def build_chance_creation_tab(season, competitions, match_ids=None):
-    """Build the Chance Creation and Finishing tab content."""
+def _scorers_table_children(shots: pd.DataFrame, top_n: int = 8) -> list:
+    """Top-N goalscorer table: Player | G | NP-G | Sh | xG | Conv%"""
+    _no_data = [html.P("No data", style={
+        'color': COLORS['text_secondary'], 'fontSize': '0.75rem', 'textAlign': 'center',
+    })]
+    if shots.empty or 'player_name' not in shots.columns:
+        return _no_data
+
+    rows_data = []
+    for player, grp in shots.groupby('player_name'):
+        g  = int((grp['event_type'] == 'Goal').sum())
+        if 'Penalty' in grp.columns:
+            np_g = int(grp[(grp['event_type'] == 'Goal') &
+                           ~grp['Penalty'].eq('Si')].shape[0])
+        else:
+            np_g = g
+        sh   = len(grp)
+        xg   = round(grp['xg'].sum(), 2) if 'xg' in grp.columns else 0.0
+        conv = round(g / max(sh, 1) * 100)
+        rows_data.append({'player': player, 'g': g, 'np_g': np_g,
+                          'sh': sh, 'xg': xg, 'conv': conv})
+
+    rows_data.sort(key=lambda x: (x['g'], x['xg']), reverse=True)
+    rows_data = rows_data[:top_n]
+
+    if not rows_data:
+        return _no_data
+
+    header = html.Tr([
+        html.Th('Player', style={**_TH, 'textAlign': 'left'}),
+        html.Th('G',      style=_TH),
+        html.Th('NP-G',   style=_TH),
+        html.Th('Sh',     style=_TH),
+        html.Th('xG',     style=_TH),
+        html.Th('Conv%',  style=_TH),
+    ])
+    table_rows = []
+    for i, s in enumerate(rows_data):
+        bg = (COLORS.get('dark_tertiary', 'rgba(255,255,255,0.03)')
+              if i % 2 == 0 else 'transparent')
+        short = s['player'].split()[-1] if s['player'] else '—'
+        conv_color = (GOLD if s['conv'] >= 25
+                      else COLORS['garnet'] if s['conv'] < 10
+                      else COLORS['text_primary'])
+        table_rows.append(html.Tr([
+            html.Td(short,             style=_NAME),
+            html.Td(str(s['g']),       style={**_TD, 'color': GOLD}),
+            html.Td(str(s['np_g']),    style=_TD),
+            html.Td(str(s['sh']),      style=_TD),
+            html.Td(f"{s['xg']:.1f}",  style={**_TD, 'color': HOME_COLOR}),
+            html.Td(f"{s['conv']}%",   style={**_TD, 'color': conv_color}),
+        ], style={'backgroundColor': bg}))
+
+    return [html.Div(
+        html.Table([html.Thead(header), html.Tbody(table_rows)],
+                   style={'width': '100%', 'borderCollapse': 'collapse'}),
+        style={'overflowX': 'auto'},
+    )]
+
+
+def _assisters_table_children(kp_stats: pd.DataFrame, top_n: int = 8) -> list:
+    """Top-N assister table: Player | A | KP | xA"""
+    _no_data = [html.P("No data", style={
+        'color': COLORS['text_secondary'], 'fontSize': '0.75rem', 'textAlign': 'center',
+    })]
+    if kp_stats.empty or 'player_name' not in kp_stats.columns:
+        return _no_data
+
+    rows_data = []
+    for player, grp in kp_stats.groupby('player_name'):
+        a  = int(grp['is_goal_assist'].sum())
+        kp = len(grp)
+        xa = round(grp['shot_xg'].sum(), 2)
+        rows_data.append({'player': player, 'a': a, 'kp': kp, 'xa': xa})
+
+    rows_data.sort(key=lambda x: (x['a'], x['xa']), reverse=True)
+    rows_data = rows_data[:top_n]
+
+    if not rows_data:
+        return _no_data
+
+    header = html.Tr([
+        html.Th('Player', style={**_TH, 'textAlign': 'left'}),
+        html.Th('A',      style=_TH),
+        html.Th('KP',     style=_TH),
+        html.Th('xA',     style=_TH),
+    ])
+    table_rows = []
+    for i, s in enumerate(rows_data):
+        bg = (COLORS.get('dark_tertiary', 'rgba(255,255,255,0.03)')
+              if i % 2 == 0 else 'transparent')
+        short = s['player'].split()[-1] if s['player'] else '—'
+        table_rows.append(html.Tr([
+            html.Td(short,            style=_NAME),
+            html.Td(str(s['a']),      style={**_TD, 'color': GOLD}),
+            html.Td(str(s['kp']),     style=_TD),
+            html.Td(f"{s['xa']:.2f}", style={**_TD, 'color': HOME_COLOR}),
+        ], style={'backgroundColor': bg}))
+
+    return [html.Div(
+        html.Table([html.Thead(header), html.Tbody(table_rows)],
+                   style={'width': '100%', 'borderCollapse': 'collapse'}),
+        style={'overflowX': 'auto'},
+    )]
+
+
+# =============================================================================
+# Filter panel
+# =============================================================================
+
+def _filter_panel(player_options=None) -> html.Div:
+    return html.Div([
+        html.Div("Filters", style=_SECTION_TITLE),
+
+        html.Div("Player", style=_LABEL_STYLE),
+        dcc.Dropdown(
+            id='cc-player-filter',
+            options=player_options or [],
+            value=None,
+            multi=True,
+            placeholder="All players…",
+            style={'fontSize': '0.75rem'},
+        ),
+
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 4px'}),
+        html.Div("Shot Outcome", style=_LABEL_STYLE),
+        dcc.Checklist(
+            id='cc-shot-outcome',
+            options=[
+                {'label': ' Goal',         'value': 'Goal'},
+                {'label': ' Saved Shot',   'value': 'Saved Shot'},
+                {'label': ' Miss',         'value': 'Miss'},
+                {'label': ' Post',         'value': 'Post'},
+                {'label': ' Blocked Shot', 'value': 'Blocked Shot'},
+            ],
+            value=['Goal', 'Saved Shot', 'Miss', 'Post', 'Blocked Shot'],
+            inputStyle={'cursor': 'pointer', 'accentColor': GOLD},
+            labelStyle={'color': COLORS['text_secondary'], 'fontSize': '0.75rem',
+                        'display': 'block', 'marginBottom': '4px'},
+        ),
+
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 4px'}),
+        html.Div("Shot Origin", style=_LABEL_STYLE),
+        dcc.Checklist(
+            id='cc-shot-method',
+            options=[
+                {'label': ' Open Play', 'value': 'open_play'},
+                {'label': ' Set Piece', 'value': 'set_piece'},
+            ],
+            value=['open_play', 'set_piece'],
+            inline=True,
+            inputStyle={'cursor': 'pointer', 'accentColor': GOLD, 'marginRight': '4px'},
+            labelStyle={'color': COLORS['text_secondary'], 'fontSize': '0.75rem',
+                        'marginRight': '10px'},
+        ),
+
+        *PassMap.dash_controls(show=['h1_time', 'h2_time'], id_prefix='cc'),
+    ], style=_PANEL_STYLE)
+
+
+# =============================================================================
+# Public builder
+# =============================================================================
+
+def build_chance_creation_tab(season, competitions, match_ids=None) -> html.Div:
+    """Skeleton layout — all data filled by register_chance_creation_callbacks."""
     events = get_all_events(season)
     if events.empty:
         return html.P("No data available.", style={'color': COLORS['text_secondary']})
@@ -450,125 +727,172 @@ def build_chance_creation_tab(season, competitions, match_ids=None):
     if bar.empty:
         return html.P("No Barcelona event data.", style={'color': COLORS['text_secondary']})
 
-    # ── KPIs ─────────────────────────────────────────────────────────────────
-    shot_types  = ['Goal', 'Saved Shot', 'Miss']
-    shots       = exclude_own_goals(bar[bar['event_type'].isin(shot_types)].copy())
-    shots_ot    = int(bar[bar['event_type'].isin(['Saved Shot', 'Goal'])].shape[0])
-    goals       = int(filter_own_goals(bar[bar['event_type'] == 'Goal'].copy()).shape[0])
-    key_passes  = int(bar[(bar['event_type'] == 'Pass') &
-                          bar['Assist'].eq('Si')].shape[0]) \
-        if 'Assist' in bar.columns else 0
-    crosses_n   = int(bar[bar['event_type'].isin(['Cross', 'Crossed Ball'])].shape[0])
-    box_events  = int(bar[bar['x'].notna() & (bar['x'] >= 83)].shape[0])
-    big_chances = int(bar[bar['Big Chance'].eq('Si')].shape[0]) \
-        if 'Big Chance' in bar.columns else 0
-    xg_total    = round(add_xg_column(shots.dropna(subset=['x', 'y']))['xg'].sum(), 1) if not shots.empty else 0.0
-    conversion  = round(goals / max(len(shots), 1) * 100, 1)
+    # Player options seeded from all available shots
+    shots = exclude_own_goals(
+        bar[bar['event_type'].isin(_SHOT_TYPES)].copy()
+    )
+    player_opts = []
+    if 'player_name' in shots.columns:
+        names = shots['player_name'].dropna().unique()
+        player_opts = sorted([{'label': n, 'value': n} for n in names],
+                             key=lambda d: d['label'])
 
-    kpi = kpi_row(
-        {
-            'goals':       goals,
-            'xg':          xg_total,
-            'shots':       len(shots),
-            'shots_ot':    shots_ot,
-            'conversion':  f"{conversion}%",
-            'key_passes':  key_passes,
-            'big_chances': big_chances,
-            'crosses':     crosses_n,
-            'box_events':  box_events,
-        },
-        [
-            ('goals',       'Goals'),
-            ('xg',          'xG'),
-            ('shots',       'Shots'),
-            ('shots_ot',    'On Target'),
-            ('conversion',  'Conversion'),
-            ('key_passes',  'Key Passes'),
-            ('big_chances', 'Big Chances'),
-            ('crosses',     'Crosses'),
-            ('box_events',  'Box Entries'),
-        ],
-        colors={
-            'goals':       GOLD,
-            'xg':          HOME_COLOR,
-            'shots_ot':    HOME_COLOR,
-            'conversion':  GOLD,
-            'big_chances': HOME_COLOR,
-        },
-    )
+    # --- Main content panel (right of filter) ---
+    main_content = html.Div([
+        # KPI bar — full width of content area
+        html.Div(id='cc-kpi-bar', children=[]),
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 14px'}),
 
-    # ── Results for timeline ──────────────────────────────────────────────────
-    all_results = get_match_results()
-    results = [r for r in all_results
-               if str(r['date'])[:4] in [season.split('-')[0], season.split('-')[1]]]
-    if competitions:
-        results = [r for r in results if r['competition'] in competitions]
-    if match_ids:
-        id_set  = set(match_ids)
-        results = [r for r in results if r['match_id'] in id_set]
-
-    # ── Creation cards ────────────────────────────────────────────────────────
-    kp_map_card = section_card(
-        "Key Passes Map — Origin & Direction",
-        dcc.Graph(figure=_key_passes_map(bar), config=CHART_CONFIG),
-    )
-    box_card = section_card(
-        "Box Entries — Pass vs Cross vs Take-On",
-        dcc.Graph(figure=_box_entries(bar), config=CHART_CONFIG),
-    )
-    cross_card = section_card(
-        "Crossing Patterns — Zone & Accuracy",
-        dcc.Graph(figure=_crossing_patterns(bar), config=CHART_CONFIG),
-    )
-
-    # ── Finishing cards ───────────────────────────────────────────────────────
-    shot_map_card = section_card(
-        "Shot Map — xG (bubble size = danger)",
-        dcc.Graph(figure=_shot_map_xg(bar), config=CHART_CONFIG),
-    )
-    shot_type_card = section_card(
-        "Shot Origin — Open Play vs Set Piece",
-        dcc.Graph(figure=_shot_types_donut(bar), config=CHART_CONFIG),
-    )
-    preshot_card = section_card(
-        "Pre-Shot Sequences — Last Event Before Shot",
-        dcc.Graph(figure=_pre_shot_sequences(bar), config=CHART_CONFIG),
-    )
-
-    # ── Performance cards ─────────────────────────────────────────────────────
-    timeline_card = section_card(
-        "xG Timeline — Cumulative Goals vs xG",
-        dcc.Graph(figure=_xg_timeline(results, bar, events), config=CHART_CONFIG),
-    )
-    gvxg_card = section_card(
-        "Goals vs xG per Match — Over / Under Performance",
-        dcc.Graph(figure=_goals_vs_xg_bar(results, bar), config=CHART_CONFIG),
-    )
-
-    return html.Div([
-        kpi,
-        html.P("Creation", style={
-            'color': COLORS['text_secondary'], 'fontSize': '0.78rem',
-            'fontStyle': 'italic', 'marginTop': '8px', 'marginBottom': '4px',
-        }),
+        # Shot map (md=8 of the 9-col content) | Tables (md=4 of 9)
         dbc.Row([
-            dbc.Col(kp_map_card, md=6),
-            dbc.Col([box_card, cross_card], md=6),
-        ], className='mb-3'),
-        html.P("Finishing", style={
-            'color': COLORS['text_secondary'], 'fontSize': '0.78rem',
-            'fontStyle': 'italic', 'marginBottom': '4px',
-        }),
+            dbc.Col([
+                html.Div([
+                    html.Div("Shot Map",
+                             style={**_SECTION_TITLE, 'borderBottom': 'none',
+                                    'paddingBottom': '0', 'flex': '1'}),
+                    dcc.Checklist(
+                        id='cc-show-kp',
+                        options=[{'label': ' Key passes', 'value': 'show'}],
+                        value=[],
+                        inputStyle={'cursor': 'pointer', 'accentColor': GOLD},
+                        labelStyle={'color': COLORS['text_secondary'],
+                                    'fontSize': '0.60rem', 'cursor': 'pointer'},
+                    ),
+                ], style={
+                    'display': 'flex', 'alignItems': 'center', 'gap': '8px',
+                    'borderBottom': f'1px solid {COLORS["dark_border"]}',
+                    'paddingBottom': '8px', 'marginBottom': '8px',
+                }),
+                dcc.Loading(
+                    type='circle', color=GOLD,
+                    children=dcc.Graph(
+                        id='cc-shot-map',
+                        figure=_skel_fig(520),
+                        config=CHART_CFG,
+                        style={'width': '100%'},
+                    ),
+                ),
+            ], md=8),
+
+            dbc.Col([
+                html.Div("Top Scorers",
+                         style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
+                html.Div(style={'marginBottom': '6px'}),
+                html.Div(id='cc-scorers-table', children=[]),
+
+                html.Hr(style={'borderColor': COLORS['dark_border'],
+                               'margin': '16px 0 12px'}),
+
+                html.Div("Top Assisters",
+                         style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
+                html.Div(style={'marginBottom': '6px'}),
+                html.Div(id='cc-assisters-table', children=[]),
+            ], md=4, style={
+                'borderLeft': f'1px solid {COLORS["dark_border"]}',
+                'paddingLeft': '14px',
+            }),
+        ], align='start', className='g-0'),
+    ], style=_PANEL_STYLE)
+
+    return html.Div(
         dbc.Row([
-            dbc.Col(shot_map_card,  md=6),
-            dbc.Col([shot_type_card, preshot_card], md=6),
-        ], className='mb-3'),
-        html.P("Performance", style={
-            'color': COLORS['text_secondary'], 'fontSize': '0.78rem',
-            'fontStyle': 'italic', 'marginBottom': '4px',
-        }),
-        dbc.Row([
-            dbc.Col(timeline_card, md=6),
-            dbc.Col(gvxg_card,     md=6),
-        ], className='mb-3'),
-    ])
+            dbc.Col(_filter_panel(player_opts), md=3),
+            dbc.Col(main_content,               md=9),
+        ], align='start', className='g-3'),
+    )
+
+
+# =============================================================================
+# Callbacks
+# =============================================================================
+
+def register_chance_creation_callbacks(app) -> None:
+    """Wire filter controls to the shot map, KPI bar, and stat tables."""
+
+    @app.callback(
+        Output('cc-kpi-bar',         'children'),
+        Output('cc-shot-map',        'figure'),
+        Output('cc-scorers-table',   'children'),
+        Output('cc-assisters-table', 'children'),
+        Input('cc-player-filter',    'value'),
+        Input('cc-shot-outcome',     'value'),
+        Input('cc-shot-method',      'value'),
+        Input('cc-h1-time',          'value'),
+        Input('cc-h2-time',          'value'),
+        Input('cc-show-kp',          'value'),
+        State('ta-competition-selector', 'value'),
+        State('ta-venue-selector',       'value'),
+        State('ta-selected-matches',     'data'),
+        State('ta-match-data',           'data'),
+    )
+    def _update(players, outcomes, method, h1_range, h2_range, show_kp,
+                competition, venue, match_ids, match_data):
+
+        def _empty():
+            return [], _skel_fig(520), [], []
+
+        events = get_all_events(CURRENT_SEASON)
+        if events.empty:
+            return _empty()
+
+        comps = _normalize_competitions(competition)
+        if comps and 'competition' in events.columns:
+            events = events[events['competition'].isin(comps)]
+
+        effective_ids = match_ids if match_ids else None
+        if effective_ids == []:
+            effective_ids = None
+
+        if venue and venue != 'All' and match_data:
+            is_home   = (venue == 'Home')
+            venue_ids = [m['match_id'] for m in match_data if m.get('is_home') == is_home]
+            effective_ids = (
+                venue_ids if effective_ids is None
+                else list(set(effective_ids) & set(venue_ids))
+            )
+
+        if effective_ids:
+            events = events[events['match_id'].isin(effective_ids)]
+
+        bar = events[events['team_code'] == 'BAR']
+        if bar.empty:
+            return _empty()
+
+        _h1 = tuple(h1_range) if h1_range else (0,  50)
+        _h2 = tuple(h2_range) if h2_range else (45, 100)
+
+        # All shots for KPIs and tables (outcome/method filters don't affect stats)
+        all_shots = _get_bar_shots(bar)
+        kpi_shots = _apply_shot_filters(
+            all_shots.copy(),
+            outcomes=_SHOT_TYPES,
+            method=['open_play', 'set_piece'],
+            players=players or None,
+            h1_range=_h1, h2_range=_h2,
+        )
+
+        # Shot map respects all filters including outcome and method
+        map_shots = _apply_shot_filters(
+            all_shots.copy(),
+            outcomes=outcomes  or _SHOT_TYPES,
+            method=method      or ['open_play', 'set_piece'],
+            players=players    or None,
+            h1_range=_h1, h2_range=_h2,
+        )
+
+        # Key pass stats for KPIs and assister table (player + time filter only)
+        kp_stats = _compute_key_pass_stats(bar)
+        if players and 'player_name' in kp_stats.columns:
+            kp_stats = kp_stats[kp_stats['player_name'].isin(players)]
+
+        kpi   = _kpi_children(kpi_shots, kp_stats)
+
+        kp_for_map = (
+            _get_key_passes_for_map(bar, map_shots)
+            if show_kp else None
+        )
+        fig   = _shot_map_fig(map_shots, kp_for_map)
+        scors = _scorers_table_children(kpi_shots)
+        assts = _assisters_table_children(kp_stats)
+
+        return kpi, fig, scors, assts

@@ -34,14 +34,21 @@ CURRENT_SEASON = '2025-2026'
 # Python server process, so the cache would otherwise serve stale data.
 _events_cache: dict = {}
 
+# Cached result of get_match_results() — same lifetime as _events_cache.
+# get_match_results() runs a full groupby over the entire events DataFrame;
+# caching it avoids repeating that work on every tab build.
+_results_cache: list | None = None
+
 
 def clear_events_cache() -> None:
-    """Clear the in-process events cache.
+    """Clear the in-process events and results caches.
 
     Call this after the data pipeline finishes so the next request reads
     fresh parquet files from disk instead of returning cached data.
     """
+    global _results_cache
     _events_cache.clear()
+    _results_cache = None
 
 
 # ── Centralised own-goal helpers ─────────────────────────────────────────────
@@ -194,7 +201,15 @@ def calculate_match_result(events_df):
 
 
 def get_match_results():
-    """Get all match results with scores calculated from events."""
+    """Get all match results with scores calculated from events.
+
+    Results are cached for the lifetime of the events cache so that
+    multiple tab builders don't each re-run the same groupby over 100k+ rows.
+    """
+    global _results_cache
+    if _results_cache is not None:
+        return _results_cache
+
     events = get_all_events()
     if events.empty:
         return []
@@ -235,7 +250,8 @@ def get_match_results():
 
         results.append(match_info)
 
-    return sorted(results, key=lambda x: x['date'], reverse=True)
+    _results_cache = sorted(results, key=lambda x: x['date'], reverse=True)
+    return _results_cache
 
 
 def count_assists(events_df):
