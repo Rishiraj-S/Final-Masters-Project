@@ -1034,6 +1034,104 @@ def _entries_fig_bar(entries_df: pd.DataFrame, zone: str) -> go.Figure:
     return fig
 
 
+def _entries_table_children(entries_df: pd.DataFrame, top_n: int = 5) -> list:
+    """Top-N player summary table for zone entries.
+
+    Columns: Player | # | L | C | R | Suc | Fail | Succ%
+    Bands based on start y-coordinate: Left y>66.67, Centre 33.33-66.67, Right y<33.33.
+    Suc = outcome==1, Fail = outcome==0 (carries with NaN outcome not counted in either).
+    """
+    if entries_df.empty or 'player_name' not in entries_df.columns:
+        return [html.P("No data", style={'color': COLORS['text_secondary'],
+                                        'fontSize': '0.75rem', 'textAlign': 'center',
+                                        'marginTop': '8px'})]
+
+    df = entries_df.copy()
+    df['_band'] = pd.cut(
+        pd.to_numeric(df['y'], errors='coerce').fillna(50),
+        bins=[-0.1, 33.33, 66.67, 100.1],
+        labels=['Right', 'Centre', 'Left'],
+    )
+
+    rows_data = []
+    for player, grp in df.groupby('player_name'):
+        total  = len(grp)
+        left   = int((grp['_band'] == 'Left').sum())
+        centre = int((grp['_band'] == 'Centre').sum())
+        right  = int((grp['_band'] == 'Right').sum())
+        suc    = int(grp['outcome'].eq(1).sum())
+        fail   = int(grp['outcome'].eq(0).sum())
+        rows_data.append({
+            'player': player, 'total': total,
+            'left': left, 'centre': centre, 'right': right,
+            'suc': suc, 'fail': fail,
+            'succ_pct': round(suc / max(total, 1) * 100),
+        })
+
+    rows_data.sort(key=lambda x: x['total'], reverse=True)
+    rows_data = rows_data[:top_n]
+
+    _TH = {
+        'textAlign': 'center', 'padding': '4px 5px',
+        'fontSize': '0.58rem', 'fontWeight': '700',
+        'color': COLORS['text_secondary'], 'textTransform': 'uppercase',
+        'letterSpacing': '0.05em', 'whiteSpace': 'nowrap',
+        'borderBottom': f'1px solid {COLORS["dark_border"]}',
+    }
+    _TD = {
+        'textAlign': 'center', 'padding': '4px 5px',
+        'fontSize': '0.68rem', 'fontWeight': '600',
+        'color': COLORS['text_primary'], 'whiteSpace': 'nowrap',
+    }
+    _NAME = {**_TD, 'textAlign': 'left', 'color': COLORS['gold'],
+             'maxWidth': '90px', 'overflow': 'hidden', 'textOverflow': 'ellipsis'}
+
+    header = html.Tr([
+        html.Th('Player', style={**_TH, 'textAlign': 'left'}),
+        html.Th('#',      style=_TH),
+        html.Th('L',      style=_TH),
+        html.Th('C',      style=_TH),
+        html.Th('R',      style=_TH),
+        html.Th('Suc',    style=_TH),
+        html.Th('Fail',   style=_TH),
+        html.Th('Succ%',  style=_TH),
+    ])
+
+    table_rows = []
+    for i, s in enumerate(rows_data):
+        bg = (COLORS.get('dark_tertiary', 'rgba(255,255,255,0.03)')
+              if i % 2 == 0 else 'transparent')
+        short = s['player'].split()[-1] if s['player'] else '—'
+        pct   = s['succ_pct']
+        pct_color = (COLORS['gold'] if pct >= 70
+                     else COLORS['garnet'] if pct < 40
+                     else COLORS['text_primary'])
+        table_rows.append(html.Tr([
+            html.Td(short,            style=_NAME),
+            html.Td(str(s['total']),  style=_TD),
+            html.Td(str(s['left']),   style=_TD),
+            html.Td(str(s['centre']), style=_TD),
+            html.Td(str(s['right']),  style=_TD),
+            html.Td(str(s['suc']),    style={**_TD, 'color': COLORS['gold']}),
+            html.Td(str(s['fail']),   style={**_TD, 'color': COLORS['garnet']}),
+            html.Td(f"{pct}%",        style={**_TD, 'color': pct_color, 'fontWeight': '700'}),
+        ], style={'backgroundColor': bg}))
+
+    return [
+        html.Div("L = left flank (y>67)  ·  C = centre  ·  R = right flank (y<33)", style={
+            'color': COLORS['text_secondary'], 'fontSize': '0.55rem',
+            'fontStyle': 'italic', 'marginBottom': '4px',
+        }),
+        html.Div(
+            html.Table(
+                [html.Thead(header), html.Tbody(table_rows)],
+                style={'width': '100%', 'borderCollapse': 'collapse'},
+            ),
+            style={'overflowX': 'auto'},
+        ),
+    ]
+
+
 # =============================================================================
 # Public builder
 # =============================================================================
@@ -1175,6 +1273,12 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
                         style={'width': '100%'},
                     ),
                 ),
+                html.Div(
+                    id='buildup-ft-table',
+                    children=_entries_table_children(
+                        _build_entries_bar(bar_events, 'final_third')),
+                    style={'marginTop': '8px'},
+                ),
             ], md=6),
             dbc.Col([
                 html.Div("Zone 14 & Half Spaces",
@@ -1189,6 +1293,12 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
                         config=CHART_CONFIG,
                         style={'width': '100%'},
                     ),
+                ),
+                html.Div(
+                    id='buildup-z14-table',
+                    children=_entries_table_children(
+                        _build_entries_bar(bar_events, 'zone14')),
+                    style={'marginTop': '8px'},
                 ),
             ], md=6),
         ], align='start', className='g-3'),
@@ -1222,6 +1332,8 @@ def register_buildup_callbacks(app) -> None:
         Output('buildup-top5-poss',      'children'),
         Output('buildup-ft-fig',         'figure'),
         Output('buildup-z14-fig',        'figure'),
+        Output('buildup-ft-table',       'children'),
+        Output('buildup-z14-table',      'children'),
         Input('buildup-outcome',         'value'),
         Input('buildup-start-third',     'value'),
         Input('buildup-end-third',       'value'),
@@ -1246,7 +1358,7 @@ def register_buildup_callbacks(app) -> None:
             return (_build_pass_fig(empty), _stats_numbers_children(empty),
                     _EMPTY_SRC, _EMPTY_SRC,
                     go.Figure(), go.Figure(), [], [],
-                    go.Figure(), go.Figure())
+                    go.Figure(), go.Figure(), [], [])
 
         events = get_all_events(CURRENT_SEASON)
         if events.empty:
@@ -1341,9 +1453,13 @@ def register_buildup_callbacks(app) -> None:
         top5_poss = _top5_poss_children(touches)
 
         # Zone 3 entry plots — all pass filters + player/half for non-passes
-        ft_fig  = _entries_fig_bar(_build_entries_bar(filtered_bar, 'final_third'), 'final_third')
-        z14_fig = _entries_fig_bar(_build_entries_bar(filtered_bar, 'zone14'),      'zone14')
+        entries_ft  = _build_entries_bar(filtered_bar, 'final_third')
+        entries_z14 = _build_entries_bar(filtered_bar, 'zone14')
+        ft_fig  = _entries_fig_bar(entries_ft,  'final_third')
+        z14_fig = _entries_fig_bar(entries_z14, 'zone14')
+        ft_table  = _entries_table_children(entries_ft)
+        z14_table = _entries_table_children(entries_z14)
 
         return (_build_pass_fig(plot_passes), _stats_numbers_children(filtered),
                 zone_src, touch_src, net_fig, mat_fig, top5_prog, top5_poss,
-                ft_fig, z14_fig)
+                ft_fig, z14_fig, ft_table, z14_table)
