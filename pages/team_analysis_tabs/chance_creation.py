@@ -82,6 +82,8 @@ _TH = {
     'letterSpacing': '0.05em', 'whiteSpace': 'nowrap',
     'borderBottom': f'1px solid {COLORS["dark_border"]}',
 }
+# For headers whose text must not be uppercased (e.g. xG, xA)
+_TH_NOCASE = {**_TH, 'textTransform': 'none', 'letterSpacing': '0'}
 _TD = {
     'textAlign': 'center', 'padding': '4px 6px',
     'fontSize': '0.68rem', 'fontWeight': '600',
@@ -328,8 +330,122 @@ def _get_key_passes_for_map(bar: pd.DataFrame, map_shots: pd.DataFrame) -> pd.Da
     return result.dropna(subset=['x', 'y', 'end_x', 'end_y']).reset_index(drop=True)
 
 
+_PRE_SHOT_TOUCH_TYPES = {'Pass', 'Take On', 'Ball touch', 'Carry'}
+
+
+def _get_pre_shot_touches(events: pd.DataFrame,
+                          map_shots: pd.DataFrame,
+                          window: int = 20) -> pd.DataFrame:
+    """
+    For each shot in map_shots, walk backwards through the sorted event
+    sequence (all teams) and collect BAR touch events belonging to the
+    unbroken possession chain that ended in that shot.
+
+    Stops at:
+      - the first non-BAR event (possession lost), or
+      - `window` BAR touches collected (whichever comes first).
+
+    Touches from multiple shot sequences accumulate: zones that contribute
+    to many shots receive proportionally more weight in the heatmap.
+
+    Returns DataFrame with columns: x, y
+    """
+    if events.empty or map_shots.empty:
+        return pd.DataFrame()
+
+    sort_cols = [c for c in ['match_id', 'period_id', 'time_min', 'time_sec']
+                 if c in events.columns]
+    te = events.sort_values(sort_cols).reset_index()  # 'index' = original events index
+
+    # Fast NumPy arrays for the inner loop
+    is_bar        = (te['team_code'] == 'BAR').values if 'team_code' in te.columns \
+                    else np.ones(len(te), dtype=bool)
+    etype_arr     = te['event_type'].values
+    match_arr     = te['match_id'].values if 'match_id' in te.columns \
+                    else np.zeros(len(te))
+    x_arr         = pd.to_numeric(te['x'], errors='coerce').values
+    y_arr         = pd.to_numeric(te['y'], errors='coerce').values
+    orig_idx_arr  = te['index'].values
+
+    map_orig_idx  = set(map_shots.index.tolist())
+    shot_set      = set(_SHOT_TYPES)
+    touch_set     = _PRE_SHOT_TOUCH_TYPES
+
+    # Positions of shots in map_shots within the sorted sequence
+    shot_positions = [
+        i for i, (et, oi) in enumerate(zip(etype_arr, orig_idx_arr))
+        if et in shot_set and oi in map_orig_idx
+    ]
+
+    collected_x, collected_y = [], []
+
+    for shot_pos in shot_positions:
+        shot_match = match_arr[shot_pos]
+        count = 0
+        lo = max(shot_pos - window - 5, 0)   # small extra buffer
+        for back in range(shot_pos - 1, lo - 1, -1):
+            if match_arr[back] != shot_match:
+                break
+            if not is_bar[back]:
+                break                         # possession lost — stop sequence
+            if etype_arr[back] in touch_set:
+                xv, yv = x_arr[back], y_arr[back]
+                if not (np.isnan(xv) or np.isnan(yv)):
+                    collected_x.append(xv)
+                    collected_y.append(yv)
+                    count += 1
+                    if count >= window:
+                        break
+
+    if not collected_x:
+        return pd.DataFrame()
+    return pd.DataFrame({'x': collected_x, 'y': collected_y})
+
+
+def _pre_shot_heatmap_fig(touches: pd.DataFrame) -> go.Figure:
+    """
+    Vertical half-pitch density heatmap of pre-shot possession touches.
+    Uses the same coordinate mapping as the shot map:
+      fig_x = 100 − Opta_y,  fig_y = Opta_x
+    """
+    fig = go.Figure()
+    add_vertical_half_pitch_background(fig)
+
+    _layout = dict(
+        **VPITCH_AXIS_HALF,
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor=PITCH_BG,
+        height=400, margin=dict(l=0, r=0, t=8, b=0),
+    )
+
+    if not touches.empty and len(touches) >= 2:
+        # Clamp to the attacking half visible in the plot (Opta x ≥ 50)
+        half = touches[touches['x'] >= 50].copy()
+        if not half.empty:
+            fig.add_trace(go.Histogram2dContour(
+                x=(100 - half['y']).tolist(),
+                y=half['x'].tolist(),
+                colorscale=[
+                    [0.00, 'rgba(80,  0,  25, 0.00)'],
+                    [0.20, 'rgba(120, 0,  40, 0.30)'],
+                    [0.50, 'rgba(165, 0,  68, 0.60)'],
+                    [0.80, 'rgba(210, 30, 90, 0.82)'],
+                    [1.00, 'rgba(255, 90, 150, 0.95)'],
+                ],
+                ncontours=14,
+                contours=dict(coloring='fill', showlines=False),
+                showscale=False,
+                hoverinfo='skip',
+                line=dict(width=0),
+                xbins=dict(size=6),
+                ybins=dict(size=6),
+            ))
+
+    fig.update_layout(**_layout)
+    return fig
+
+
 def _apply_shot_filters(shots: pd.DataFrame, *,
-                        outcomes, method, players,
+                        outcomes, method, bands, players,
                         h1_range, h2_range) -> pd.DataFrame:
     """Apply all active filters to a shots DataFrame."""
     if outcomes:
@@ -343,6 +459,14 @@ def _apply_shot_filters(shots: pd.DataFrame, *,
         elif show_sp and not show_op and 'Set piece' in shots.columns:
             shots = shots[shots['Set piece'].eq('Si')]
         # both checked → show all; neither checked → empty
+
+    if bands and len(bands) < 3 and 'y' in shots.columns:
+        y = pd.to_numeric(shots['y'], errors='coerce')
+        band_mask = pd.Series(False, index=shots.index)
+        if 'left'   in bands: band_mask |= y > 66.67
+        if 'centre' in bands: band_mask |= (y >= 33.33) & (y <= 66.67)
+        if 'right'  in bands: band_mask |= y < 33.33
+        shots = shots[band_mask]
 
     if players and 'player_name' in shots.columns:
         shots = shots[shots['player_name'].isin(players)]
@@ -363,7 +487,7 @@ def _apply_shot_filters(shots: pd.DataFrame, *,
 
 def _kpi_children(shots: pd.DataFrame, kp_stats: pd.DataFrame) -> list:
     """Row of KPI stat cards spanning the full content width."""
-    def _card(value, label, color=COLORS['text_primary']):
+    def _card(value, label, color=COLORS['text_primary'], preserve_case=False):
         return html.Div([
             html.Div(str(value), style={
                 'color': color, 'fontWeight': '800',
@@ -372,7 +496,8 @@ def _kpi_children(shots: pd.DataFrame, kp_stats: pd.DataFrame) -> list:
             html.Div(label, style={
                 'color': COLORS['text_secondary'],
                 'fontSize': '0.60rem', 'fontWeight': '600',
-                'letterSpacing': '0.6px', 'textTransform': 'uppercase',
+                'letterSpacing': '0' if preserve_case else '0.6px',
+                'textTransform': 'none' if preserve_case else 'uppercase',
                 'marginTop': '3px',
             }),
         ], style={
@@ -416,10 +541,10 @@ def _kpi_children(shots: pd.DataFrame, kp_stats: pd.DataFrame) -> list:
         _card(shots_ot,             'On Target',     HOME_COLOR),
         _card(np_goals,             'NP Goals',      GOLD),
         _card(sp_goals,             'Set Piece G',   COLORS['text_primary']),
-        _card(f'{xg_total:.2f}',    'xG',            HOME_COLOR),
+        _card(f'{xg_total:.2f}',    'xG',            HOME_COLOR,             preserve_case=True),
         _card(assists,              'Assists',        GOLD),
         _card(kp_total,             'Key Passes',    COLORS['text_primary']),
-        _card(f'{xa_total:.2f}',    'xA',            HOME_COLOR),
+        _card(f'{xa_total:.2f}',    'xA',            HOME_COLOR,             preserve_case=True),
         _card(box_shots,            'Box Shots',     COLORS['text_primary']),
         _card(big_chances,          'Big Chances',   GOLD),
     ]
@@ -581,7 +706,7 @@ def _scorers_table_children(shots: pd.DataFrame, top_n: int = 8) -> list:
         html.Th('G',      style=_TH),
         html.Th('NP-G',   style=_TH),
         html.Th('Sh',     style=_TH),
-        html.Th('xG',     style=_TH),
+        html.Th('xG',     style=_TH_NOCASE),
         html.Th('Conv%',  style=_TH),
     ])
     table_rows = []
@@ -633,7 +758,7 @@ def _assisters_table_children(kp_stats: pd.DataFrame, top_n: int = 8) -> list:
         html.Th('Player', style={**_TH, 'textAlign': 'left'}),
         html.Th('A',      style=_TH),
         html.Th('KP',     style=_TH),
-        html.Th('xA',     style=_TH),
+        html.Th('xA',     style=_TH_NOCASE),
     ])
     table_rows = []
     for i, s in enumerate(rows_data):
@@ -687,6 +812,22 @@ def _filter_panel(player_options=None) -> html.Div:
             inputStyle={'cursor': 'pointer', 'accentColor': GOLD},
             labelStyle={'color': COLORS['text_secondary'], 'fontSize': '0.75rem',
                         'display': 'block', 'marginBottom': '4px'},
+        ),
+
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 4px'}),
+        html.Div("Band", style=_LABEL_STYLE),
+        dcc.Checklist(
+            id='cc-bands',
+            options=[
+                {'label': ' Left',   'value': 'left'},
+                {'label': ' Centre', 'value': 'centre'},
+                {'label': ' Right',  'value': 'right'},
+            ],
+            value=['left', 'centre', 'right'],
+            inline=True,
+            inputStyle={'cursor': 'pointer', 'accentColor': GOLD, 'marginRight': '4px'},
+            labelStyle={'color': COLORS['text_secondary'], 'fontSize': '0.75rem',
+                        'marginRight': '10px'},
         ),
 
         html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 4px'}),
@@ -772,6 +913,23 @@ def build_chance_creation_tab(season, competitions, match_ids=None) -> html.Div:
                         style={'width': '100%'},
                     ),
                 ),
+                html.Hr(style={'borderColor': COLORS['dark_border'],
+                               'margin': '14px 0 10px'}),
+                html.Div("Pre-Shot Possession",
+                         style={**_SECTION_TITLE, 'fontSize': '0.75rem',
+                                'borderBottom': 'none', 'paddingBottom': '4px'}),
+                html.Div("Touches in the possession sequence leading to each shot",
+                         style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
+                                'fontStyle': 'italic', 'marginBottom': '6px'}),
+                dcc.Loading(
+                    type='circle', color=GOLD,
+                    children=dcc.Graph(
+                        id='cc-pre-shot-heatmap',
+                        figure=_skel_fig(400),
+                        config=CHART_CFG,
+                        style={'width': '100%'},
+                    ),
+                ),
             ], md=8),
 
             dbc.Col([
@@ -810,13 +968,15 @@ def register_chance_creation_callbacks(app) -> None:
     """Wire filter controls to the shot map, KPI bar, and stat tables."""
 
     @app.callback(
-        Output('cc-kpi-bar',         'children'),
-        Output('cc-shot-map',        'figure'),
-        Output('cc-scorers-table',   'children'),
-        Output('cc-assisters-table', 'children'),
+        Output('cc-kpi-bar',            'children'),
+        Output('cc-shot-map',           'figure'),
+        Output('cc-pre-shot-heatmap',   'figure'),
+        Output('cc-scorers-table',      'children'),
+        Output('cc-assisters-table',    'children'),
         Input('cc-player-filter',    'value'),
         Input('cc-shot-outcome',     'value'),
         Input('cc-shot-method',      'value'),
+        Input('cc-bands',            'value'),
         Input('cc-h1-time',          'value'),
         Input('cc-h2-time',          'value'),
         Input('cc-show-kp',          'value'),
@@ -825,11 +985,11 @@ def register_chance_creation_callbacks(app) -> None:
         State('ta-selected-matches',     'data'),
         State('ta-match-data',           'data'),
     )
-    def _update(players, outcomes, method, h1_range, h2_range, show_kp,
+    def _update(players, outcomes, method, bands, h1_range, h2_range, show_kp,
                 competition, venue, match_ids, match_data):
 
         def _empty():
-            return [], _skel_fig(520), [], []
+            return [], _skel_fig(520), _skel_fig(400), [], []
 
         events = get_all_events(CURRENT_SEASON)
         if events.empty:
@@ -867,15 +1027,17 @@ def register_chance_creation_callbacks(app) -> None:
             all_shots.copy(),
             outcomes=_SHOT_TYPES,
             method=['open_play', 'set_piece'],
+            bands=bands or ['left', 'centre', 'right'],
             players=players or None,
             h1_range=_h1, h2_range=_h2,
         )
 
-        # Shot map respects all filters including outcome and method
+        # Shot map respects all filters including outcome, method, and bands
         map_shots = _apply_shot_filters(
             all_shots.copy(),
             outcomes=outcomes  or _SHOT_TYPES,
             method=method      or ['open_play', 'set_piece'],
+            bands=bands        or ['left', 'centre', 'right'],
             players=players    or None,
             h1_range=_h1, h2_range=_h2,
         )
@@ -891,8 +1053,10 @@ def register_chance_creation_callbacks(app) -> None:
             _get_key_passes_for_map(bar, map_shots)
             if show_kp else None
         )
-        fig   = _shot_map_fig(map_shots, kp_for_map)
-        scors = _scorers_table_children(kpi_shots)
-        assts = _assisters_table_children(kp_stats)
+        fig        = _shot_map_fig(map_shots, kp_for_map)
+        pre_touches = _get_pre_shot_touches(events, map_shots)
+        heatmap    = _pre_shot_heatmap_fig(pre_touches)
+        scors      = _scorers_table_children(kpi_shots)
+        assts      = _assisters_table_children(kp_stats)
 
-        return kpi, fig, scors, assts
+        return kpi, fig, heatmap, scors, assts

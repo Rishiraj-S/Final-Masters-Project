@@ -23,8 +23,10 @@ from page_utils.competitions import ALL_COMPETITIONS as _ALL_COMPETITIONS, norma
 from pages.team_analysis_tabs.overview import build_overview_tab
 from pages.team_analysis_tabs.buildup import build_buildup_tab, register_buildup_callbacks
 from pages.team_analysis_tabs.chance_creation import build_chance_creation_tab, register_chance_creation_callbacks
-from pages.team_analysis_tabs.def_structure import build_def_structure_tab
+from pages.team_analysis_tabs.def_structure import build_def_structure_tab, register_def_structure_callbacks
 from pages.team_analysis_tabs.transitions import build_transitions_tab
+from pages.team_analysis_tabs.attacking_transition import register_attacking_transition_callbacks
+from pages.team_analysis_tabs.defending_transition import register_defending_transition_callbacks
 from pages.team_analysis_tabs.set_pieces import build_set_pieces_tab
 
 # UI components from shared, and GOLD from visualizations
@@ -292,8 +294,8 @@ def create_team_analysis_layout():
                 dbc.Tab(label='Overview',        tab_id='ta-tab-overview'),
                 dbc.Tab(label='Build-up',        tab_id='ta-tab-buildup'),
                 dbc.Tab(label='Chance Creation', tab_id='ta-tab-chance'),
-                dbc.Tab(label='Def. Structure',  tab_id='ta-tab-def-struct'),
                 dbc.Tab(label='Transitions',     tab_id='ta-tab-transitions'),
+                dbc.Tab(label='Def. Structure',  tab_id='ta-tab-def-struct'),
                 dbc.Tab(label='Set Pieces',      tab_id='ta-tab-setpieces'),
             ],
             className="mb-3",
@@ -317,6 +319,9 @@ def register_team_analysis_callbacks(app):
     """Register all Team Analysis callbacks."""
     register_buildup_callbacks(app)
     register_chance_creation_callbacks(app)
+    register_def_structure_callbacks(app)
+    register_attacking_transition_callbacks(app)
+    register_defending_transition_callbacks(app)
 
     @app.callback(
         Output('ta-calendar-month', 'data'),

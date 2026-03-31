@@ -287,7 +287,7 @@ def _territory_map(bar):
     coords = bar.dropna(subset=['x', 'y'])
     if coords.empty:
         return None
-    return render_lsc_heatmap_img(coords['x'].values, coords['y'].values, color_hex=HOME_COLOR, half=False)
+    return render_lsc_heatmap_img(coords['x'].values, coords['y'].values, color_hex=AWAY_COLOR, half=False)
 
 
 def _phase_comparison_chart(bar, opp, results):

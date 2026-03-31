@@ -507,7 +507,7 @@ def _touch_map_src(touches: pd.DataFrame) -> str:
     return render_lsc_heatmap_img(
         touches['x'].tolist(),
         touches['y'].tolist(),
-        COLORS['primary_blue'],
+        COLORS['garnet'],
         show_zone_pcts=True,
         text_color=COLORS['gold'],
     )

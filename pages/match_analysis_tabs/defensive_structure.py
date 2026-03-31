@@ -174,7 +174,8 @@ def _compute(events: pd.DataFrame) -> dict:
         fouls_df = te[te['event_type'] == 'Foul'].copy()
         if 'outcome' in fouls_df.columns:
             fouls_df = fouls_df[fouls_df['outcome'] == 1]
-        offsides_df = te[te['event_type'] == 'Offside Pass'].copy()
+        # Offsides caught = opponent played the ball and their player was offside
+        offsides_df = opp[opp['event_type'] == 'Offside Pass'].copy()
 
         out[pos] = {
             'team':            team,
