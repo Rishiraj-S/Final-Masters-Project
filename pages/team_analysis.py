@@ -26,8 +26,8 @@ from pages.team_analysis_tabs.chance_creation import build_chance_creation_tab, 
 from pages.team_analysis_tabs.def_structure import build_def_structure_tab, register_def_structure_callbacks
 from pages.team_analysis_tabs.transitions import build_transitions_tab
 from pages.team_analysis_tabs.attacking_transition import register_attacking_transition_callbacks
-from pages.team_analysis_tabs.defending_transition import register_defending_transition_callbacks
-from pages.team_analysis_tabs.set_pieces import build_set_pieces_tab
+from pages.team_analysis_tabs.defensive_transition import register_defending_transition_callbacks
+from pages.team_analysis_tabs.set_pieces import build_set_pieces_tab, register_set_pieces_callbacks
 
 # UI components from shared, and GOLD from visualizations
 from pages.match_analysis_tabs.shared import page_header
@@ -322,6 +322,7 @@ def register_team_analysis_callbacks(app):
     register_def_structure_callbacks(app)
     register_attacking_transition_callbacks(app)
     register_defending_transition_callbacks(app)
+    register_set_pieces_callbacks(app)
 
     @app.callback(
         Output('ta-calendar-month', 'data'),

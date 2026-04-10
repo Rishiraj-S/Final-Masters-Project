@@ -954,8 +954,8 @@ def build_chance_creation_tab(season, competitions, match_ids=None) -> html.Div:
 
     return html.Div(
         dbc.Row([
-            dbc.Col(_filter_panel(player_opts), md=3),
-            dbc.Col(main_content,               md=9),
+            dbc.Col(_filter_panel(player_opts), md=2),
+            dbc.Col(main_content,               md=10),
         ], align='start', className='g-3'),
     )
 

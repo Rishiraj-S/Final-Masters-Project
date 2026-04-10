@@ -280,12 +280,18 @@ class MatchDownloader:
                 subdirectory="matchdata",
             )
         )
-        # Permanent skip marker written when all retries fail with a structural error
+        # Permanent skip markers written after all retries fail
         no_coverage_marker = matchdata_path.with_suffix(".no_coverage")
+        no_data_marker     = matchdata_path.with_suffix(".no_data")
 
         if no_coverage_marker.exists():
             self.logger.info(f"   ⏭️  No coverage (permanent skip): {match_id}")
             print(f"   ⏭️  SKIP   {match_id}  (no PerformFeeds coverage)")
+            return False, None
+
+        if no_data_marker.exists():
+            self.logger.info(f"   ⏭️  No API data (permanent skip): {match_id}")
+            print(f"   ⏭️  SKIP   {match_id}  (no API data on Scoresway page)")
             return False, None
 
         already_exists = (
@@ -337,4 +343,16 @@ class MatchDownloader:
 
         self.logger.error(f"   ❌ Failed after {max_retries} attempts: {match_id}")
         print(f"   ❌ FAILED after {max_retries} attempts: {match_id}")
+        # "no_data" means the Scoresway page never fired the matchevent API request.
+        # This is a permanent condition (match not covered by the API token).
+        if last_reason == "no_data":
+            self.logger.warning(
+                f"   ⚠️  Permanent skip (no_data): {match_id} — writing .no_data marker"
+            )
+            print(f"   ⚠️  No API data for {match_id} — skipping permanently")
+            try:
+                no_data_marker.parent.mkdir(parents=True, exist_ok=True)
+                no_data_marker.write_text("no_data", encoding="utf-8")
+            except Exception:
+                pass
         return False, None

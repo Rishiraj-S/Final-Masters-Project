@@ -1,307 +1,1213 @@
 """
-Opposition Analysis — Tab 2: Their Defence
+Opposition Analysis — Tab 4: Their Defence
 
-How they press, block, and where they are vulnerable.
-Mirrors Team Analysis Tab 3 but framed as 'how to break them down'.
+Mirrors team_analysis_tabs/def_structure.py for the selected opposition team.
+
+Sections:
+  • Their Defensive Actions  — tackle, interception, clearance, ball recovery,
+                               blocked shot map + heatmap + player table
+  • Barcelona's Attack       — entries into zones, shot map, shot zones
+
+Skeleton + callback pattern. ID prefix: ods-
 """
 
-from __future__ import annotations
+import io
+import base64
 
-import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from mplsoccer import Pitch
+
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
-from dash import html, dcc
+from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
-from pages.match_analysis_tabs.shared import (
-    section_card,
-    kpi_row,
-)
+from utils.opposition_data_utils import load_opp_events, SEASON
+from utils.xg_utils import add_xg_column
+from page_utils import PassMap, GOLD, HOME_COLOR, AWAY_COLOR
+from page_utils.pitch_zones import BOX_X_MIN, BOX_Y_MIN, BOX_Y_MAX
 from page_utils.visualizations import (
-    layout_config,
-    CHART_CONFIG,
     add_pitch_background,
     PITCH_AXIS_FULL,
-    empty_fig,
+    PITCH_AXIS_HALF,
     render_lsc_heatmap_img,
-    GOLD,
-    HOME_COLOR,
-    AWAY_COLOR,
 )
-from .helpers import no_data
-
-_DEF_ACTIONS = {"Tackle", "Interception", "Clearance"}
-_SHOT_EVENTS  = {"Miss", "Post", "Saved Shot", "Goal"}
 
 
-def _has(df: pd.DataFrame, col: str) -> bool:
-    return col in df.columns and df[col].notna().any()
+# =============================================================================
+# Constants
+# =============================================================================
+
+PITCH_BG          = '#151932'
+_PITCH_LINE_COLOR = '#8899CC'
+_SKEL_SRC         = 'data:image/png;base64,'
+
+_DEF_COLORS = {
+    'Tackle':        '#4dabf7',
+    'Interception':  '#51cf66',
+    'Ball Recovery': '#ffd43b',
+    'Clearance':     '#ff922b',
+    'Blocked Shot':  '#cc5de8',
+}
+_ALL_DEF_TYPES = list(_DEF_COLORS.keys())
+
+_SHOT_TYPES = ['Goal', 'Saved Shot', 'Miss', 'Post', 'Blocked Shot']
+_SHOT_COLORS = {
+    'Goal':         '#51cf66',
+    'Saved Shot':   '#339af0',
+    'Miss':         '#ff6b6b',
+    'Post':         '#ffd43b',
+    'Blocked Shot': '#cc5de8',
+}
+_SHOT_SYMBOLS = {
+    'Goal':         'star',
+    'Saved Shot':   'circle',
+    'Miss':         'x',
+    'Post':         'diamond',
+    'Blocked Shot': 'square',
+}
+
+_ENTRY_COLORS = {
+    'Pass':    '#32cd32',
+    'Dribble': '#ffa500',
+    'Carry':   '#00bfff',
+}
+_ZONE14_COLORS = {
+    'Zone 14':          '#ff1493',
+    'Left Half Space':  '#00ffff',
+    'Right Half Space': '#ffd700',
+}
+
+_SHOT_ZONE_DEFS = [
+    ('long_range',   'Long\nRange',         50.0,  66.7,  0.0,        100.0),
+    ('right_wing',   'Right\nWing',         66.7, 100.0,  0.0,        BOX_Y_MIN),
+    ('r_halfspace',  'Right\nHalf-Space',   66.7,  83.0,  BOX_Y_MIN,  37.0),
+    ('outside_cen',  'Outside\nBox',        66.7,  83.0,  37.0,       63.0),
+    ('l_halfspace',  'Left\nHalf-Space',    66.7,  83.0,  63.0,       BOX_Y_MAX),
+    ('left_wing',    'Left\nWing',          66.7, 100.0,  BOX_Y_MAX, 100.0),
+    ('right_box',    'Right\nBox',          83.0, 100.0,  BOX_Y_MIN,  37.0),
+    ('cen_penalty',  'Central\nBox',        83.0,  94.2,  37.0,       63.0),
+    ('six_yard',     '6-Yard\nBox',         94.2, 100.0,  37.0,       63.0),
+    ('left_box',     'Left\nBox',           83.0, 100.0,  63.0,       BOX_Y_MAX),
+]
 
 
-# ── PPDA ──────────────────────────────────────────────────────────────────────
+# =============================================================================
+# Shared style constants
+# =============================================================================
 
-def _ppda_card(opp_ev: pd.DataFrame, bar_ev: pd.DataFrame, n_matches: int) -> html.Div:
-    """
-    PPDA from the opposition's perspective:
-      numerator   = Barcelona passes in their own defensive half (bar_ev x < 40)
-      denominator = opposition tackles + interceptions in high block (opp_ev x > 50)
-    Lower PPDA = more aggressive press.
-    """
-    bar_passes = bar_ev[(bar_ev["event_type"] == "Pass") & bar_ev["x"].notna() & (bar_ev["x"] < 40)]
-    opp_press  = opp_ev[opp_ev["event_type"].isin(["Tackle", "Interception"]) &
-                         opp_ev["x"].notna() & (opp_ev["x"] > 50)]
-    ppda = round(len(bar_passes) / max(len(opp_press), 1), 1)
+_LABEL_STYLE = {
+    'color': GOLD,
+    'fontSize': '0.70rem',
+    'fontWeight': '700',
+    'letterSpacing': '0.8px',
+    'textTransform': 'uppercase',
+    'marginBottom': '5px',
+    'marginTop': '14px',
+}
+_PANEL_STYLE = {
+    'backgroundColor': COLORS['dark_secondary'],
+    'border': f'1px solid {COLORS["dark_border"]}',
+    'borderRadius': '6px',
+    'padding': '14px 12px',
+    'overflowY': 'auto',
+    'maxHeight': '80vh',
+}
+_SECTION_TITLE = {
+    'color': GOLD,
+    'fontWeight': '700',
+    'fontSize': '0.82rem',
+    'letterSpacing': '1px',
+    'textTransform': 'uppercase',
+    'paddingBottom': '8px',
+    'borderBottom': f'1px solid {COLORS["dark_border"]}',
+}
+_TH = {
+    'textAlign': 'center', 'padding': '4px 6px',
+    'fontSize': '0.58rem', 'fontWeight': '700',
+    'color': COLORS['text_secondary'], 'textTransform': 'uppercase',
+    'letterSpacing': '0.05em', 'whiteSpace': 'nowrap',
+    'borderBottom': f'1px solid {COLORS["dark_border"]}',
+}
+_TD = {
+    'textAlign': 'center', 'padding': '4px 6px',
+    'fontSize': '0.68rem', 'fontWeight': '600',
+    'color': COLORS['text_primary'], 'whiteSpace': 'nowrap',
+}
+_NAME_TD = {
+    **_TD, 'textAlign': 'left', 'color': GOLD,
+    'maxWidth': '100px', 'overflow': 'hidden', 'textOverflow': 'ellipsis',
+}
 
-    label = "Aggressive" if ppda < 8 else ("Moderate" if ppda < 14 else "Low")
-    color = "#4caf50" if ppda < 8 else ("#ffc107" if ppda < 14 else "#ef5350")
-
-    return section_card("PPDA (Pressing Intensity)", html.Div([
-        html.H2(str(ppda), style={"color": color, "marginBottom": "0"}),
-        html.P(f"Passes allowed per defensive action  •  {label} press",
-               style={"color": COLORS["text_secondary"], "fontSize": "0.85rem"}),
-        html.P(f"Based on {n_matches} match(es)",
-               style={"color": COLORS["text_secondary"], "fontSize": "0.78rem"}),
-    ]))
+CHART_CFG = {'displayModeBar': False}
 
 
-# ── Press trigger map ─────────────────────────────────────────────────────────
+# =============================================================================
+# Shared helpers
+# =============================================================================
 
-def _draw_opp_press_heatmap(df):
-    """Where opponent presses occur."""
-    press = df[df["event_type"].isin(["Tackle", "Interception", "Challenge"])]
-    if press.empty:
-        return ""
-    # Opposition focus -> Garnet color
-    return render_lsc_heatmap_img(press["x"].tolist(), press["y"].tolist(), color_hex=AWAY_COLOR, half=False)
-
-
-def _press_trigger_map(opp_ev: pd.DataFrame) -> go.Figure:
-    """Heatmap of where the opposition's pressing actions occur."""
-    press = opp_ev[opp_ev["event_type"].isin(["Tackle", "Interception", "Foul"])].dropna(subset=["x", "y"])
-    if press.empty:
-        return empty_fig("No pressing data")
-    img = _draw_opp_press_heatmap(opp_ev)
+def _skel_fig(height: int = 520) -> go.Figure:
     fig = go.Figure()
-    add_pitch_background(fig)
-    fig.add_layout_image(dict(
-        source=img, x=0, y=100, xref="x", yref="y",
-        sizex=100, sizey=100, sizing="stretch", opacity=0.7, layer="above",
-    ))
-    fig.update_layout(layout_config(height=380, **PITCH_AXIS_FULL,
-                                    margin=dict(l=20, r=20, t=30, b=20)))
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor=PITCH_BG,
+        height=height, margin=dict(l=0, r=0, t=36, b=0),
+    )
     return fig
 
 
-# ── Defensive line height ─────────────────────────────────────────────────────
-
-def _defensive_line_height(opp_ev: pd.DataFrame) -> go.Figure:
-    """Distribution of x-coordinates of defensive actions — indicates line height."""
-    def_ev = opp_ev[opp_ev["event_type"].isin(_DEF_ACTIONS)].dropna(subset=["x"])
-    if def_ev.empty:
-        return empty_fig("No defensive action data")
-
-    fig = go.Figure(go.Histogram(
-        x=def_ev["x"], nbinsx=20,
-        marker_color=AWAY_COLOR, opacity=0.8,
-        name="Defensive actions",
-    ))
-    mean_x = def_ev["x"].mean()
-    fig.add_vline(x=mean_x, line_dash="dash", line_color=GOLD,
-                  annotation_text=f"Avg: {mean_x:.1f}", annotation_font_color=GOLD)
-    fig.update_layout(layout_config(
-        height=280, margin=dict(l=40, r=30, t=40, b=40),
-        xaxis_title="x (own goal=0, opp goal=100)",
-        yaxis_title="Count",
-        xaxis_range=[0, 100],
-    ))
-    return fig
+def _apply_time_filter(df, h1_range, h2_range):
+    if 'period_id' not in df.columns or 'time_min' not in df.columns:
+        return df
+    h1_lo, h1_hi = h1_range
+    h2_lo, h2_hi = h2_range
+    m1 = (df['period_id'] == 1) & (df['time_min'] >= h1_lo) & (df['time_min'] <= h1_hi)
+    m2 = (df['period_id'] == 2) & (df['time_min'] >= h2_lo) & (df['time_min'] <= h2_hi)
+    return df[m1 | m2]
 
 
-# ── Defensive actions scatter ─────────────────────────────────────────────────
-
-def _defensive_actions_scatter(opp_ev: pd.DataFrame) -> go.Figure:
-    tackles   = opp_ev[opp_ev["event_type"] == "Tackle"].dropna(subset=["x", "y"])
-    intercpts = opp_ev[opp_ev["event_type"] == "Interception"].dropna(subset=["x", "y"])
-    clearances = opp_ev[opp_ev["event_type"] == "Clearance"].dropna(subset=["x", "y"])
-
-    if tackles.empty and intercpts.empty and clearances.empty:
-        return empty_fig("No defensive action data")
-
-    fig = go.Figure()
-    add_pitch_background(fig)
-
-    for df, color, name, symbol in [
-        (tackles,    AWAY_COLOR, "Tackle",       "circle"),
-        (intercpts,  HOME_COLOR, "Interception", "triangle-up"),
-        (clearances, GOLD,       "Clearance",    "square"),
-    ]:
-        if not df.empty:
-            fig.add_trace(go.Scatter(
-                x=df["x"], y=df["y"], mode="markers",
-                marker=dict(size=7, color=color, opacity=0.7,
-                            symbol=symbol, line=dict(color="white", width=0.5)),
-                name=name,
-                hovertemplate=f"{name}<br>x=%{{x:.1f}}, y=%{{y:.1f}}<extra></extra>",
-            ))
-
-    fig.update_layout(layout_config(height=400, **PITCH_AXIS_FULL,
-                                    margin=dict(l=20, r=20, t=30, b=40)))
-    fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.15,
-                                  xanchor="center", x=0.5))
-    return fig
-
-
-# ── Shots allowed (by Barcelona) ─────────────────────────────────────────────
-
-def _shots_allowed_map(bar_ev: pd.DataFrame) -> go.Figure:
-    """Scatter of Barcelona shots — shows where the opposition allowed attempts."""
-    shots = bar_ev[bar_ev["event_type"].isin(_SHOT_EVENTS)].dropna(subset=["x", "y"])
-    if shots.empty:
-        return empty_fig("No shot data")
-
-    goals = shots[shots["event_type"] == "Goal"]
-    on_t  = shots[shots["event_type"] == "Saved Shot"]
-    off_t = shots[shots["event_type"].isin({"Miss", "Post"})]
-
-    fig = go.Figure()
-    add_pitch_background(fig)
-
-    for df, color, symbol, name, size in [
-        (off_t, "#666",      "circle-open", "Off Target",  8),
-        (on_t,  AWAY_COLOR,  "circle",      "On Target",  10),
-        (goals, GOLD,        "star",        "Goal",       14),
-    ]:
-        if not df.empty:
-            fig.add_trace(go.Scatter(
-                x=df["x"], y=df["y"], mode="markers",
-                marker=dict(size=size, color=color, opacity=0.85,
-                            symbol=symbol, line=dict(color="white", width=1)),
-                name=name,
-                hovertemplate=f"{name}<br>x=%{{x:.1f}}, y=%{{y:.1f}}<extra></extra>",
-            ))
-
-    n_goals = len(goals)
-    n_shots = len(shots)
-    fig.update_layout(layout_config(
-        height=400, **PITCH_AXIS_FULL,
-        title=dict(text=f"Conceded: {n_goals} goals from {n_shots} shots",
-                   font=dict(color=COLORS["text_secondary"], size=11)),
-        margin=dict(l=20, r=20, t=50, b=40),
-    ))
-    fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.15,
-                                  xanchor="center", x=0.5))
-    return fig
-
-
-# ── Weak-side analysis ────────────────────────────────────────────────────────
-
-def _weak_side_chart(bar_ev: pd.DataFrame) -> go.Figure:
-    """Barcelona shots split by left/centre/right side of the pitch — where opposition is exposed."""
-    shots = bar_ev[bar_ev["event_type"].isin(_SHOT_EVENTS)].dropna(subset=["y"])
-    if shots.empty:
-        return empty_fig("No shot data for side analysis")
-
-    left   = shots[shots["y"] <= 33]
-    centre = shots[(shots["y"] > 33) & (shots["y"] < 67)]
-    right  = shots[shots["y"] >= 67]
-
-    fig = go.Figure(go.Bar(
-        x=["Left", "Centre", "Right"],
-        y=[len(left), len(centre), len(right)],
-        marker_color=[AWAY_COLOR, GOLD, HOME_COLOR],
-        text=[str(v) for v in [len(left), len(centre), len(right)]],
-        textposition="outside",
-    ))
-    fig.update_layout(layout_config(
-        height=260, margin=dict(l=40, r=30, t=40, b=40),
-        yaxis_title="Shots conceded",
-        title=dict(text="Shots Conceded by Side", font=dict(size=12)),
-    ))
-    return fig
-
-
-# ── Top defenders table ────────────────────────────────────────────────────────
-
-def _top_defenders(opp_ev: pd.DataFrame) -> html.Div:
-    def_ev = opp_ev[opp_ev["event_type"].isin(_DEF_ACTIONS | {"Aerial"})]
-    if def_ev.empty or "player_name" not in def_ev.columns:
-        return html.P("No data", style={"color": COLORS["text_secondary"]})
-
-    stats = def_ev.groupby(["player_name", "event_type"]).size().unstack(fill_value=0)
-    for col in ["Tackle", "Interception", "Clearance", "Aerial"]:
-        if col not in stats.columns:
-            stats[col] = 0
-    stats["Total"] = stats[["Tackle", "Interception", "Clearance"]].sum(axis=1)
-    top = stats.sort_values("Total", ascending=False).head(8).reset_index()
-
-    th_s = {"color": COLORS["text_secondary"], "fontSize": "0.8rem", "padding": "4px 8px"}
-    td_s = {"color": COLORS["text_primary"],   "fontSize": "0.85rem", "padding": "4px 8px"}
-
-    rows = [html.Tr([html.Td(r["player_name"], style=td_s),
-                     html.Td(r["Tackle"],       style=td_s),
-                     html.Td(r["Interception"], style=td_s),
-                     html.Td(r["Clearance"],    style=td_s),
-                     html.Td(r["Total"],        style=td_s)])
-            for _, r in top.iterrows()]
-
-    return html.Table([
-        html.Thead(html.Tr([html.Th("Player", style=th_s), html.Th("Tackles", style=th_s),
-                             html.Th("Interceptions", style=th_s), html.Th("Clearances", style=th_s),
-                             html.Th("Total", style=th_s)])),
-        html.Tbody(rows),
-    ], className="table table-dark table-sm")
-
-
-# ── Public builder ─────────────────────────────────────────────────────────────
-
-def build_defence(
-    opp_ev: pd.DataFrame,
-    bar_ev: pd.DataFrame,
-    n_matches: int,
-) -> html.Div:
-    if opp_ev.empty:
-        return no_data("No event data available.")
-
-    hr = html.Hr(style={"borderColor": COLORS["dark_border"], "margin": "1rem 0"})
-
-    def_ev   = opp_ev[opp_ev["event_type"].isin(_DEF_ACTIONS)]
-    n_tackle = len(opp_ev[opp_ev["event_type"] == "Tackle"])
-    n_int    = len(opp_ev[opp_ev["event_type"] == "Interception"])
-    n_clear  = len(opp_ev[opp_ev["event_type"] == "Clearance"])
-
-    top_kpi = kpi_row(
-        {"tackles": n_tackle, "interceptions": n_int, "clearances": n_clear},
-        [("tackles", "Tackles"), ("interceptions", "Interceptions"), ("clearances", "Clearances")],
+def _add_attack_direction(fig: go.Figure) -> None:
+    fig.add_annotation(
+        x=0.5, y=1.02, xref='paper', yref='paper',
+        text='<b>➡  Direction of Attack</b>',
+        showarrow=False,
+        font=dict(size=10, color='white', family='Arial, sans-serif'),
+        xanchor='center', yanchor='bottom',
+        bgcolor='rgba(21,25,50,0.8)',
+        bordercolor='#8899CC', borderwidth=1, borderpad=4,
     )
 
-    # Pressing section
-    pressing_section = html.Div([
-        html.H6("Pressing Behaviour (High Block)", style={"color": GOLD, "marginBottom": "0.5rem"}),
-        dbc.Row([
-            dbc.Col(_ppda_card(opp_ev, bar_ev, n_matches), md=4),
-            dbc.Col(section_card("Press Trigger Map", dcc.Graph(figure=_press_trigger_map(opp_ev), config=CHART_CONFIG)), md=8),
-        ], className="mb-3"),
+
+def _kpi_card(value, label, color=None) -> html.Div:
+    return html.Div([
+        html.Div(str(value), style={
+            'color': color or COLORS['text_primary'],
+            'fontWeight': '800', 'fontSize': '1.35rem', 'lineHeight': '1.1',
+        }),
+        html.Div(label, style={
+            'color': COLORS['text_secondary'],
+            'fontSize': '0.60rem', 'fontWeight': '600',
+            'letterSpacing': '0.6px', 'textTransform': 'uppercase',
+            'marginTop': '3px',
+        }),
+    ], style={
+        'backgroundColor': COLORS['dark_secondary'],
+        'border': f'1px solid {COLORS["dark_border"]}',
+        'borderRadius': '6px', 'padding': '8px 10px',
+        'flex': '1', 'minWidth': '0',
+    })
+
+
+# =============================================================================
+# Defence data / chart functions
+# =============================================================================
+
+def _def_kpi_children(opp_def: pd.DataFrame, opp_ev: pd.DataFrame, bar_ev: pd.DataFrame) -> list:
+    if opp_def.empty:
+        total_n = tkl_n = tkl_won_pct = duel_total = duel_win_pct = 0
+        int_n = clr_n = clean_sheets = matches_played = 0
+    else:
+        total_n = len(opp_def)
+        tackles = opp_def[opp_def['event_type'] == 'Tackle']
+        tkl_n   = len(tackles)
+        tkl_won = (int((tackles['outcome'] == 1).sum())
+                   if tkl_n > 0 and 'outcome' in tackles.columns else 0)
+        tkl_won_pct = round(tkl_won / tkl_n * 100) if tkl_n > 0 else 0
+
+        challenge_n  = int((opp_ev['event_type'] == 'Challenge').sum()) if not opp_ev.empty else 0
+        duel_total   = tkl_n + challenge_n
+        duel_win_pct = round(tkl_n / duel_total * 100) if duel_total > 0 else 0
+
+        int_n = int((opp_def['event_type'] == 'Interception').sum())
+        clr_n = int((opp_def['event_type'] == 'Clearance').sum())
+
+        all_ids = set()
+        if not opp_ev.empty and 'match_id' in opp_ev.columns:
+            all_ids |= set(opp_ev['match_id'].unique())
+        if not bar_ev.empty and 'match_id' in bar_ev.columns:
+            all_ids |= set(bar_ev['match_id'].unique())
+        bar_goals = (set(bar_ev[bar_ev['event_type'] == 'Goal']['match_id'].unique())
+                     if not bar_ev.empty and 'match_id' in bar_ev.columns else set())
+        clean_sheets   = len(all_ids - bar_goals)
+        matches_played = len(all_ids)
+
+    cards = [
+        _kpi_card(total_n,                            'Total',          HOME_COLOR),
+        _kpi_card(tkl_n,                              'Tackles',        HOME_COLOR),
+        _kpi_card(f'{tkl_won_pct}%',                  '% Tackles Won',  GOLD),
+        _kpi_card(duel_total,                         'Def Duels',      HOME_COLOR),
+        _kpi_card(f'{duel_win_pct}%',                 '% Duels Won',    GOLD),
+        _kpi_card(int_n,                              'Interceptions',  HOME_COLOR),
+        _kpi_card(clr_n,                              'Clearances',     HOME_COLOR),
+        _kpi_card(f'{clean_sheets}/{matches_played}', 'Clean Sheets',   GOLD),
+    ]
+    return [html.Div(cards, style={'display': 'flex', 'gap': '6px', 'flexWrap': 'wrap'})]
+
+
+def _def_pitch_fig(def_events: pd.DataFrame) -> go.Figure:
+    fig = go.Figure()
+    add_pitch_background(fig, half=False)
+
+    for action_type, color in _DEF_COLORS.items():
+        subset = def_events[def_events['event_type'] == action_type].dropna(subset=['x', 'y'])
+        if subset.empty:
+            continue
+        custom = [
+            [row.get('player_name', '') or 'Unknown',
+             f"{int(row.get('time_min', 0))}'",
+             action_type,
+             'Won' if row.get('outcome', 0) == 1 else 'Lost']
+            for _, row in subset.iterrows()
+        ]
+        fig.add_trace(go.Scatter(
+            x=subset['x'], y=subset['y'],
+            mode='markers', name=action_type,
+            marker=dict(color=color, size=9, opacity=0.85,
+                        line=dict(color='white', width=0.6)),
+            customdata=custom,
+            hovertemplate=(
+                '<b>%{customdata[0]}</b>  %{customdata[1]}<br>'
+                'Action: %{customdata[2]}<br>Outcome: %{customdata[3]}'
+                '<extra></extra>'
+            ),
+        ))
+
+    _add_attack_direction(fig)
+    fig.update_layout(
+        **PITCH_AXIS_FULL,
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=12, family='Arial, sans-serif'),
+        height=540, hovermode='closest', uirevision='ods-def-pitch',
+        legend=dict(
+            orientation='v', x=1.01, y=1.0, xanchor='left', yanchor='top',
+            bgcolor='rgba(21,25,50,0.88)',
+            bordercolor=COLORS['dark_border'], borderwidth=1,
+            font=dict(color=COLORS['text_primary'], size=10),
+        ),
+        margin=dict(l=0, r=130, t=36, b=0),
+    )
+    return fig
+
+
+def _def_heatmap_src(def_events: pd.DataFrame) -> str:
+    coords = def_events.dropna(subset=['x', 'y'])
+    if len(coords) < 2:
+        return _SKEL_SRC
+    return render_lsc_heatmap_img(
+        coords['x'].values, coords['y'].values, color_hex=AWAY_COLOR, half=False,
+    )
+
+
+def _def_player_table(def_events: pd.DataFrame, opp_ev: pd.DataFrame, top_n: int = 15) -> list:
+    _no_data_msg = [html.P("No data", style={
+        'color': COLORS['text_secondary'], 'fontSize': '0.75rem',
+        'textAlign': 'center', 'marginTop': '8px',
+    })]
+    if def_events.empty or 'player_name' not in def_events.columns:
+        return _no_data_msg
+
+    challenges_by_player: dict[str, int] = {}
+    if not opp_ev.empty and 'player_name' in opp_ev.columns:
+        chal = opp_ev[opp_ev['event_type'] == 'Challenge']
+        if not chal.empty:
+            challenges_by_player = chal.groupby('player_name').size().to_dict()
+
+    rows_data = []
+    for player, grp in def_events.groupby('player_name'):
+        if not player:
+            continue
+        tackles = grp[grp['event_type'] == 'Tackle']
+        tkl_tot = len(tackles)
+        tkl_won = (int((tackles['outcome'] == 1).sum())
+                   if tkl_tot > 0 and 'outcome' in tackles.columns else 0)
+        challenges = challenges_by_player.get(player, 0)
+        duel_total = tkl_tot + challenges
+        rows_data.append({
+            'player':     player,
+            'total':      len(grp),
+            'tkl':        tkl_tot,
+            'tkl_won':    tkl_won,
+            'duel_total': duel_total,
+            'int':        int((grp['event_type'] == 'Interception').sum()),
+            'clr':        int((grp['event_type'] == 'Clearance').sum()),
+        })
+
+    rows_data.sort(key=lambda r: r['total'], reverse=True)
+    rows_data = rows_data[:top_n]
+    if not rows_data:
+        return _no_data_msg
+
+    header = html.Tr([
+        html.Th('Player', style={**_TH, 'textAlign': 'left'}),
+        html.Th('Tot',    style=_TH), html.Th('Tkl',   style=_TH),
+        html.Th('T%',     style=_TH), html.Th('Duels', style=_TH),
+        html.Th('D%',     style=_TH), html.Th('Int',   style=_TH),
+        html.Th('Clr',    style=_TH),
     ])
+    table_rows = []
+    for idx, s in enumerate(rows_data):
+        bg       = (COLORS.get('dark_tertiary', 'rgba(255,255,255,0.03)')
+                    if idx % 2 == 0 else 'transparent')
+        short    = s['player'].split()[-1] if s['player'] else '—'
+        tkl_pct  = f"{round(s['tkl_won'] / s['tkl'] * 100)}%" if s['tkl'] > 0 else '—'
+        duel_pct = f"{round(s['tkl'] / s['duel_total'] * 100)}%" if s['duel_total'] > 0 else '—'
+        table_rows.append(html.Tr([
+            html.Td(short,                style=_NAME_TD),
+            html.Td(str(s['total']),      style={**_TD, 'color': HOME_COLOR, 'fontWeight': '700'}),
+            html.Td(str(s['tkl']),        style={**_TD, 'color': '#4dabf7'}),
+            html.Td(tkl_pct,              style={**_TD, 'color': GOLD}),
+            html.Td(str(s['duel_total']), style={**_TD, 'color': '#a78bfa'}),
+            html.Td(duel_pct,             style={**_TD, 'color': GOLD}),
+            html.Td(str(s['int']),        style={**_TD, 'color': '#51cf66'}),
+            html.Td(str(s['clr']),        style={**_TD, 'color': '#ff922b'}),
+        ], style={'backgroundColor': bg}))
 
-    # Defensive block section
-    block_section = html.Div([
-        html.H6("Defensive Block", style={"color": GOLD, "marginBottom": "0.5rem"}),
-        dbc.Row([
-            dbc.Col(section_card("Defensive Line Height", dcc.Graph(figure=_defensive_line_height(opp_ev), config=CHART_CONFIG)), md=5),
-            dbc.Col(section_card("Defensive Actions Map", dcc.Graph(figure=_defensive_actions_scatter(opp_ev), config=CHART_CONFIG)), md=7),
-        ], className="mb-3"),
+    legend = html.Div(
+        "Tkl = Tackles  ·  T% = Tackle Win%  ·  "
+        "Duels = Def Duels (Tkl + Challenge)  ·  D% = Duel Win%  ·  "
+        "Int = Interceptions  ·  Clr = Clearances",
+        style={'color': COLORS['text_secondary'], 'fontSize': '0.55rem',
+               'fontStyle': 'italic', 'marginBottom': '4px'},
+    )
+    return [
+        legend,
+        html.Div(
+            html.Table([html.Thead(header), html.Tbody(table_rows)],
+                       style={'width': '100%', 'borderCollapse': 'collapse'}),
+            style={'overflowX': 'auto'},
+        ),
+    ]
+
+
+def _def_zone_summary(def_events: pd.DataFrame) -> list:
+    if def_events.empty or 'x' not in def_events.columns:
+        return []
+    total = max(len(def_events), 1)
+    z1 = int((def_events['x'] < 33.33).sum())
+    z2 = int(((def_events['x'] >= 33.33) & (def_events['x'] < 66.67)).sum())
+    z3 = int((def_events['x'] >= 66.67).sum())
+
+    def _row(label, count, color):
+        pct = round(count / total * 100)
+        return html.Div([
+            html.Span(label, style={'color': COLORS['text_secondary'],
+                                    'fontSize': '0.68rem', 'minWidth': '90px'}),
+            html.Div(style={
+                'flex': '1', 'height': '6px',
+                'backgroundColor': COLORS['dark_border'],
+                'borderRadius': '3px', 'overflow': 'hidden', 'margin': '0 8px',
+            }, children=[html.Div(style={
+                'width': f'{pct}%', 'height': '100%',
+                'backgroundColor': color, 'borderRadius': '3px',
+            })]),
+            html.Span(f'{count}  ({pct}%)', style={
+                'color': color, 'fontSize': '0.68rem', 'fontWeight': '700',
+                'minWidth': '60px', 'textAlign': 'right',
+            }),
+        ], style={'display': 'flex', 'alignItems': 'center', 'padding': '4px 0'})
+
+    return [
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
+        html.Div("Pressing Height", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
+        html.Div("Where they win the ball back",
+                 style={'color': COLORS['text_secondary'], 'fontSize': '0.60rem',
+                        'fontStyle': 'italic', 'marginBottom': '6px'}),
+        _row('Own Third (Z1)',  z1, AWAY_COLOR),
+        _row('Mid Third (Z2)',  z2, GOLD),
+        _row('Att Third (Z3)', z3, HOME_COLOR),
+    ]
+
+
+def _gk_stats_children(shots: pd.DataFrame, gk_events: pd.DataFrame | None = None) -> list:
+    """Goalkeeper stats block shown below the Shot Map / Shooting Zones row.
+
+    shots      — shots the GK had to face
+    gk_events  — events from the GK's own team (Save, Punch, Claim, Sweeper, etc.)
+    """
+    _GK_ACTIONS = ['Save', 'Keeper pick-up', 'Keeper Sweeper', 'Claim', 'Punch', 'Smother']
+
+    if shots.empty:
+        saves = goals = sot = box_saves = 0
+        save_pct = 0.0
+        xga = gsave = 0.0
+    else:
+        try:
+            shots_xg = add_xg_column(shots.copy())
+            xga = round(float(shots_xg['xg'].fillna(0).sum()), 2)
+        except Exception:
+            shots_xg = shots.copy()
+            shots_xg['xg'] = 0.0
+            xga = 0.0
+
+        saves    = int((shots['event_type'] == 'Saved Shot').sum())
+        goals    = int((shots['event_type'] == 'Goal').sum())
+        sot      = saves + goals
+        save_pct = round(saves / max(sot, 1) * 100, 1)
+        gsave    = round(xga - goals, 2)
+
+        saved_only = shots[shots['event_type'] == 'Saved Shot']
+        box_saves  = int(
+            saved_only.apply(
+                lambda r: r['x'] >= BOX_X_MIN and BOX_Y_MIN <= r['y'] <= BOX_Y_MAX,
+                axis=1,
+            ).sum()
+        ) if not saved_only.empty else 0
+
+    punches = sweeper = claims = pickups = smothers = 0
+    if gk_events is not None and not gk_events.empty and 'event_type' in gk_events.columns:
+        gk_ev = gk_events[gk_events['event_type'].isin(_GK_ACTIONS)]
+        vc    = gk_ev['event_type'].value_counts()
+        punches  = int(vc.get('Punch',          0))
+        sweeper  = int(vc.get('Keeper Sweeper',  0))
+        claims   = int(vc.get('Claim',           0))
+        pickups  = int(vc.get('Keeper pick-up',  0))
+        smothers = int(vc.get('Smother',         0))
+
+    gsave_color = HOME_COLOR if gsave >= 0 else AWAY_COLOR
+    gsave_str   = f'+{gsave:.2f}' if gsave >= 0 else f'{gsave:.2f}'
+
+    kpi_cards = [
+        _kpi_card(saves,          'Saves',           HOME_COLOR),
+        _kpi_card(goals,          'Conceded',         AWAY_COLOR),
+        _kpi_card(f'{save_pct}%', 'Save %',           GOLD),
+        _kpi_card(sot,            'On Target Faced',  HOME_COLOR),
+        _kpi_card(f'{xga:.2f}',   'xG Against',       GOLD),
+        _kpi_card(gsave_str,      'GSAvE',            gsave_color),
+        _kpi_card(box_saves,      'Box Saves',        HOME_COLOR),
+        _kpi_card(len(shots) - sot, 'Off Target',    COLORS['text_primary']),
+    ]
+
+    action_parts = []
+    for label, count in [('Punches', punches), ('Claims', claims),
+                          ('Sweeper', sweeper), ('Pick-ups', pickups),
+                          ('Smothers', smothers)]:
+        if count > 0:
+            action_parts.append(
+                html.Span([
+                    html.Span(f'{label}: ', style={
+                        'color': COLORS['text_secondary'], 'fontSize': '0.70rem',
+                    }),
+                    html.Span(str(count), style={
+                        'color': GOLD, 'fontWeight': '700', 'fontSize': '0.70rem',
+                    }),
+                ])
+            )
+
+    action_row = html.Div(
+        children=(
+            [action_parts[0]] +
+            [item for part in action_parts[1:]
+             for item in [html.Span('  ·  ', style={'color': COLORS['text_secondary'],
+                                                    'fontSize': '0.70rem'}), part]]
+        ) if action_parts else [html.Span('No GK action data', style={
+            'color': COLORS['text_secondary'], 'fontSize': '0.70rem', 'fontStyle': 'italic',
+        })],
+        style={'marginTop': '8px', 'display': 'flex', 'flexWrap': 'wrap', 'gap': '4px',
+               'alignItems': 'center'},
+    )
+
+    return [
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '18px 0 14px'}),
+        html.Div("Goalkeeper Statistics", style=_SECTION_TITLE),
+        html.Div(
+            "GSAvE = xG Against − Goals Conceded  ·  positive = better than expected",
+            style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
+                   'fontStyle': 'italic', 'marginBottom': '8px'},
+        ),
+        html.Div(kpi_cards, style={'display': 'flex', 'gap': '6px', 'flexWrap': 'wrap'}),
+        action_row,
+    ]
+
+
+def _shots_table(bar_shots: pd.DataFrame) -> list:
+    if bar_shots.empty:
+        shots_val = goals_val = in_box_val = on_tgt_val = 0
+        xg_str = '—'
+    else:
+        shots_val  = len(bar_shots)
+        goals_val  = int((bar_shots['event_type'] == 'Goal').sum())
+        in_box_val = int(bar_shots.apply(
+            lambda r: r['x'] >= BOX_X_MIN and BOX_Y_MIN <= r['y'] <= BOX_Y_MAX, axis=1
+        ).sum())
+        on_tgt_val = int(bar_shots['event_type'].isin(['Saved Shot', 'Goal']).sum())
+        try:
+            xg_str = str(round(add_xg_column(bar_shots.copy())['xg'].sum(), 2))
+        except Exception:
+            xg_str = '—'
+
+    rows = [
+        ('Shots (Barca)',  str(shots_val),  AWAY_COLOR),
+        ('Goals (Barca)',  str(goals_val),  AWAY_COLOR),
+        ('In-Box Shots',   str(in_box_val), AWAY_COLOR),
+        ('On Target',      str(on_tgt_val), HOME_COLOR),
+        ('xG (Barca)',     xg_str,          GOLD),
+    ]
+    table_rows = [
+        html.Tr([
+            html.Td(stat, style={**_TD, 'textAlign': 'left',
+                                 'color': COLORS['text_secondary'], 'fontSize': '0.65rem'}),
+            html.Td(val,  style={**_TD, 'fontWeight': '700',
+                                 'color': color, 'fontSize': '0.75rem'}),
+        ])
+        for stat, val, color in rows
+    ]
+    return [
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
+        html.Div("Barca's Shots vs Them", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
+        html.Table(html.Tbody(table_rows),
+                   style={'width': '100%', 'borderCollapse': 'collapse'}),
+    ]
+
+
+# =============================================================================
+# Barcelona Attack functions
+# =============================================================================
+
+def _bar_shot_map_fig(bar_shots: pd.DataFrame) -> go.Figure:
+    fig = go.Figure()
+    add_pitch_background(fig, half=True)
+
+    if not bar_shots.empty:
+        try:
+            bar_shots = add_xg_column(bar_shots.copy())
+        except Exception:
+            bar_shots['xg'] = 0.0
+
+    _base = dict(
+        **PITCH_AXIS_HALF,
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor=PITCH_BG,
+        height=480, margin=dict(l=0, r=0, t=30, b=0),
+        hoverlabel=dict(bgcolor='#1A1D2E', font_color='white', font_size=12),
+        legend=dict(
+            x=0.01, y=0.99, xanchor='left', yanchor='top', orientation='v',
+            font=dict(color=COLORS['text_primary'], size=10),
+            bgcolor='rgba(26,29,46,0.80)',
+            bordercolor=COLORS.get('dark_border', 'rgba(255,255,255,0.15)'),
+            borderwidth=1,
+        ),
+    )
+
+    for etype in _SHOT_TYPES:
+        grp = bar_shots[bar_shots['event_type'] == etype].dropna(subset=['x', 'y']) if not bar_shots.empty else pd.DataFrame()
+        if grp.empty:
+            continue
+        xg_vals = grp['xg'].fillna(0.0).tolist() if 'xg' in grp.columns else [0.0] * len(grp)
+        sizes   = ([16] * len(grp) if etype == 'Goal'
+                   else [max(8, min(20, int(v * 60 + 8))) for v in xg_vals])
+        names   = grp['player_name'].fillna('Unknown').tolist() if 'player_name' in grp.columns else [''] * len(grp)
+        times   = grp['time_min'].fillna(0).astype(int).tolist() if 'time_min' in grp.columns else [0] * len(grp)
+        fig.add_trace(go.Scatter(
+            x=grp['x'].tolist(), y=grp['y'].tolist(),
+            mode='markers', name=etype,
+            marker=dict(color=_SHOT_COLORS[etype], symbol=_SHOT_SYMBOLS[etype],
+                        size=sizes, opacity=0.88, line=dict(color='white', width=1)),
+            customdata=list(zip(names, times, xg_vals)),
+            hovertemplate=(
+                '<b>%{customdata[0]}</b><br>'
+                "%{customdata[1]}' | xG: %{customdata[2]:.2f}"
+                '<extra>' + etype + '</extra>'
+            ),
+        ))
+
+    _add_attack_direction(fig)
+    fig.update_layout(**_base)
+    return fig
+
+
+def _build_bar_entries(bar_ev: pd.DataFrame, zone: str) -> pd.DataFrame:
+    _EMPTY_COLS = [
+        'player_name', 'event_label', 'x', 'y', 'end_x', 'end_y',
+        'outcome', 'time_min', 'time_sec', 'period_id',
+        'dest_zone', 'led_to_shot', 'led_to_goal', 'receiver_name',
+    ]
+    if bar_ev.empty:
+        return pd.DataFrame(columns=_EMPTY_COLS)
+
+    sort_cols = [c for c in ['period_id', 'time_min', 'time_sec'] if c in bar_ev.columns]
+    te = bar_ev.sort_values(sort_cols).reset_index(drop=True)
+
+    is_shot  = te['event_type'].isin(set(_SHOT_TYPES))
+    is_goal  = te['event_type'] == 'Goal'
+    led_shot = pd.Series(False, index=te.index)
+    led_goal = pd.Series(False, index=te.index)
+    for _off in range(1, 6):
+        led_shot |= is_shot.shift(-_off, fill_value=False)
+        led_goal |= is_goal.shift(-_off, fill_value=False)
+
+    te['_led_to_shot'] = led_shot
+    te['_led_to_goal'] = led_goal
+    te['_next_x']      = te['x'].shift(-1)
+    te['_next_y']      = te['y'].shift(-1)
+    te['_next_player'] = (te['player_name'].shift(-1)
+                          if 'player_name' in te.columns
+                          else pd.Series('', index=te.index))
+
+    ev = te[te['event_type'].isin(['Pass', 'Take On', 'Ball touch']) &
+            te['x'].notna() & te['y'].notna()].copy()
+    if ev.empty:
+        return pd.DataFrame(columns=_EMPTY_COLS)
+
+    is_pass = ev['event_type'] == 'Pass'
+    has_end = 'Pass End X' in ev.columns and 'Pass End Y' in ev.columns
+    px = pd.to_numeric(ev['Pass End X'], errors='coerce') if has_end else pd.Series(np.nan, index=ev.index)
+    py = pd.to_numeric(ev['Pass End Y'], errors='coerce') if has_end else pd.Series(np.nan, index=ev.index)
+
+    ev['end_x'] = np.where(is_pass, px, ev['_next_x'])
+    ev['end_y'] = np.where(is_pass, py, ev['_next_y'])
+    ev = ev.dropna(subset=['end_x', 'end_y'])
+    if ev.empty:
+        return pd.DataFrame(columns=_EMPTY_COLS)
+
+    sx = ev['x'].astype(float)
+    ex = ev['end_x'].astype(float)
+    ey = ev['end_y'].astype(float)
+
+    if zone == 'final_third':
+        ev = ev[(sx < 66.67) & (ex >= 66.67)].copy()
+        ev['dest_zone'] = None
+    elif zone == 'zone14':
+        in_z14 = ex.between(66.67, 83.33) & ey.between(37, 63)
+        in_lhs = (ex > 66.67) & (ey > 63) & (ey <= 79)
+        in_rhs = (ex > 66.67) & (ey >= 21) & (ey < 37)
+        ev = ev[in_z14 | in_lhs | in_rhs].copy()
+        ev['dest_zone'] = np.select(
+            [in_z14.loc[ev.index], in_lhs.loc[ev.index]],
+            ['Zone 14', 'Left Half Space'],
+            default='Right Half Space',
+        )
+
+    if ev.empty:
+        return pd.DataFrame(columns=_EMPTY_COLS)
+
+    ev['event_label'] = ev['event_type'].map(
+        {'Pass': 'Pass', 'Take On': 'Dribble', 'Ball touch': 'Carry'})
+    suc_pass = (ev['event_type'] == 'Pass') & (
+        pd.to_numeric(ev['outcome'], errors='coerce').eq(1)
+        if 'outcome' in ev.columns else pd.Series(False, index=ev.index)
+    )
+    ev['receiver_name'] = np.where(suc_pass, ev['_next_player'].fillna(''), '')
+
+    return ev.rename(columns={
+        '_led_to_shot': 'led_to_shot',
+        '_led_to_goal': 'led_to_goal',
+    })[_EMPTY_COLS].reset_index(drop=True)
+
+
+def _bar_entries_fig(entries_df: pd.DataFrame, zone: str) -> go.Figure:
+    fig = go.Figure()
+    add_pitch_background(fig, half=False)
+
+    if not entries_df.empty:
+        df = entries_df.copy()
+        mins = df['time_min'].fillna(0).astype(int)
+        secs = df['time_sec'].fillna(0).astype(int)
+        df['time_display']  = mins.astype(str) + ':' + (secs // 10).astype(str) + (secs % 10).astype(str)
+        df['outcome_label'] = df['outcome'].map({1: '✓ Successful', 0: '✗ Unsuccessful'}).fillna('—')
+        df['shot_label']    = np.where(
+            df['led_to_goal'].fillna(False), '<br>⚽ Led to Goal',
+            np.where(df['led_to_shot'].fillna(False), '<br>🎯 Led to Shot', ''))
+        if 'receiver_name' not in df.columns:
+            df['receiver_name'] = ''
+
+        color_iter = _ZONE14_COLORS.items() if zone == 'zone14' else _ENTRY_COLORS.items()
+        group_col  = 'dest_zone'            if zone == 'zone14' else 'event_label'
+        new_annotations: list = []
+        _ann = dict(xref='x', yref='y', axref='x', ayref='y',
+                    showarrow=True, arrowhead=2, arrowsize=1.5, arrowwidth=2, opacity=0.65)
+
+        for group_name, ecolor in color_iter:
+            subset = df[df[group_col] == group_name]
+            if subset.empty:
+                continue
+            passes_sub    = subset[subset['event_label'] == 'Pass']
+            nonpasses_sub = subset[subset['event_label'] != 'Pass']
+
+            if zone == 'zone14':
+                for _, r in passes_sub.iterrows():
+                    new_annotations.append({**_ann, 'arrowcolor': ecolor,
+                                            'x': r['end_x'], 'y': r['end_y'],
+                                            'ax': r['x'], 'ay': r['y']})
+                if not nonpasses_sub.empty:
+                    _x  = nonpasses_sub['x'].values
+                    _ex = nonpasses_sub['end_x'].values
+                    _y  = nonpasses_sub['y'].values
+                    _ey = nonpasses_sub['end_y'].values
+                    seg  = np.empty(len(_x) * 3, dtype=object)
+                    segy = np.empty(len(_y) * 3, dtype=object)
+                    seg[0::3]  = _x;  seg[1::3]  = _ex;  seg[2::3]  = None
+                    segy[0::3] = _y;  segy[1::3] = _ey;  segy[2::3] = None
+                    fig.add_trace(go.Scatter(
+                        x=seg.tolist(), y=segy.tolist(), mode='lines',
+                        line=dict(color=ecolor, width=2, dash='dash'),
+                        showlegend=False, hoverinfo='skip'))
+            else:
+                for _, r in subset.iterrows():
+                    new_annotations.append({**_ann, 'arrowcolor': ecolor,
+                                            'x': r['end_x'], 'y': r['end_y'],
+                                            'ax': r['x'], 'ay': r['y']})
+
+            legend_name  = f'{group_name} ({len(subset)})'
+            legend_shown = False
+
+            if not passes_sub.empty:
+                cd = (passes_sub[['player_name', 'receiver_name', 'event_label',
+                                   'time_display', 'outcome_label', 'shot_label']].values
+                      if zone == 'zone14'
+                      else passes_sub[['player_name', 'receiver_name',
+                                       'time_display', 'outcome_label', 'shot_label']].values)
+                ht = ((f'<b>{group_name}</b><br>Pass: %{{customdata[0]}} → %{{customdata[1]}}<br>'
+                       'Time: %{customdata[3]}<br>%{customdata[4]}%{customdata[5]}<extra></extra>')
+                      if zone == 'zone14'
+                      else (f'<b>{group_name}</b><br>%{{customdata[0]}} → %{{customdata[1]}}<br>'
+                            'Time: %{customdata[2]}<br>%{customdata[3]}%{customdata[4]}<extra></extra>'))
+                fig.add_trace(go.Scatter(
+                    x=passes_sub['end_x'], y=passes_sub['end_y'], mode='markers',
+                    marker=dict(size=8, color=ecolor, line=dict(width=1.5, color='white')),
+                    customdata=cd, hovertemplate=ht,
+                    name=legend_name, showlegend=True, legendgroup=group_name))
+                legend_shown = True
+
+            if not nonpasses_sub.empty:
+                cd = (nonpasses_sub[['player_name', 'event_label',
+                                      'time_display', 'outcome_label', 'shot_label']].values
+                      if zone == 'zone14'
+                      else nonpasses_sub[['player_name',
+                                          'time_display', 'outcome_label', 'shot_label']].values)
+                ht = ((f'<b>{group_name}</b><br>%{{customdata[1]}}: %{{customdata[0]}}<br>'
+                       'Time: %{customdata[2]}<br>%{customdata[3]}%{customdata[4]}<extra></extra>')
+                      if zone == 'zone14'
+                      else (f'<b>{group_name}</b><br>%{{customdata[0]}}<br>'
+                            'Time: %{customdata[1]}<br>%{customdata[2]}%{customdata[3]}<extra></extra>'))
+                fig.add_trace(go.Scatter(
+                    x=nonpasses_sub['end_x'], y=nonpasses_sub['end_y'], mode='markers',
+                    marker=dict(size=8, color=ecolor, line=dict(width=1.5, color='white')),
+                    customdata=cd, hovertemplate=ht,
+                    name=legend_name if not legend_shown else '',
+                    showlegend=not legend_shown, legendgroup=group_name))
+
+        if new_annotations:
+            fig.update_layout(annotations=list(fig.layout.annotations) + new_annotations)
+
+    if zone == 'final_third':
+        fig.add_shape(type='line', x0=66.67, y0=0, x1=66.67, y1=100,
+                      line=dict(color='yellow', width=3, dash='dash'))
+        fig.add_annotation(x=83, y=96, text='Final Third', showarrow=False,
+                           font=dict(color='yellow', size=11, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=4)
+    elif zone == 'zone14':
+        for x0, y0, x1, y1, color, label, lx, ly in [
+            (66.67, 37, 83.33, 63,  '#ff1493', 'Zone 14',  75, 50),
+            (66.67, 63, 100,   79,  '#00ffff',  'Left HS',  83, 71),
+            (66.67, 21, 100,   37,  '#ffd700',  'Right HS', 83, 29),
+        ]:
+            fig.add_shape(type='rect', x0=x0, y0=y0, x1=x1, y1=y1,
+                          line=dict(color=color, width=2, dash='dash'),
+                          fillcolor=f'rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)},0.08)')
+            fig.add_annotation(x=lx, y=ly, text=label, showarrow=False,
+                               font=dict(color=color, size=10, family='Arial Black'),
+                               bgcolor='rgba(0,0,0,0.5)', borderpad=3)
+
+    _add_attack_direction(fig)
+    fig.update_layout(
+        **PITCH_AXIS_FULL,
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=12, family='Arial, sans-serif'),
+        margin=dict(l=0, r=0, t=36, b=0), height=480,
+        uirevision=f'ods-bar-entries-{zone}', hovermode='closest',
+        legend=dict(
+            orientation='v', x=0.01, xanchor='left', y=0.99, yanchor='top',
+            bgcolor='rgba(0,0,0,0.55)', font=dict(color=COLORS['text_primary'], size=9),
+        ),
+    )
+    return fig
+
+
+def _bar_entries_table(entries_df: pd.DataFrame, top_n: int = 5) -> list:
+    _no_data_msg = [html.P("No data", style={
+        'color': COLORS['text_secondary'], 'fontSize': '0.75rem',
+        'textAlign': 'center', 'marginTop': '8px',
+    })]
+    if entries_df.empty or 'player_name' not in entries_df.columns:
+        return _no_data_msg
+
+    df = entries_df.copy()
+    df['_band'] = pd.cut(
+        pd.to_numeric(df['y'], errors='coerce').fillna(50),
+        bins=[-0.1, 33.33, 66.67, 100.1], labels=['Right', 'Centre', 'Left'],
+    )
+    rows_data = []
+    for player, grp in df.groupby('player_name'):
+        total  = len(grp)
+        suc    = int(grp['outcome'].eq(1).sum())
+        shot_n = int(grp['led_to_shot'].fillna(False).sum()) if 'led_to_shot' in grp.columns else 0
+        goal_n = int(grp['led_to_goal'].fillna(False).sum()) if 'led_to_goal' in grp.columns else 0
+        rows_data.append({
+            'player': player, 'total': total,
+            'left':   int((grp['_band'] == 'Left').sum()),
+            'centre': int((grp['_band'] == 'Centre').sum()),
+            'right':  int((grp['_band'] == 'Right').sum()),
+            'suc':    suc, 'fail': int(grp['outcome'].eq(0).sum()),
+            'succ_pct': round(suc / max(total, 1) * 100),
+            'shot_pct': round(shot_n / max(total, 1) * 100),
+            'goal_pct': round(goal_n / max(total, 1) * 100),
+        })
+    rows_data.sort(key=lambda x: x['total'], reverse=True)
+    rows_data = rows_data[:top_n]
+
+    header = html.Tr([
+        html.Th('Player', style={**_TH, 'textAlign': 'left'}),
+        html.Th('#',      style=_TH), html.Th('L',     style=_TH),
+        html.Th('C',      style=_TH), html.Th('R',     style=_TH),
+        html.Th('Suc',    style=_TH), html.Th('Fail',  style=_TH),
+        html.Th('Succ%',  style=_TH), html.Th('Shot%', style=_TH),
+        html.Th('Goal%',  style=_TH),
     ])
+    table_rows = []
+    for i, s in enumerate(rows_data):
+        bg = (COLORS.get('dark_tertiary', 'rgba(255,255,255,0.03)') if i % 2 == 0 else 'transparent')
+        short = s['player'].split()[-1] if s['player'] else '—'
+        pct_c  = GOLD if s['succ_pct'] >= 70 else (AWAY_COLOR if s['succ_pct'] < 40 else COLORS['text_primary'])
+        shot_c = GOLD if s['shot_pct'] >= 40 else COLORS['text_primary']
+        goal_c = GOLD if s['goal_pct'] >= 15 else COLORS['text_primary']
+        table_rows.append(html.Tr([
+            html.Td(short,                style=_NAME_TD),
+            html.Td(str(s['total']),      style=_TD),
+            html.Td(str(s['left']),       style=_TD),
+            html.Td(str(s['centre']),     style=_TD),
+            html.Td(str(s['right']),      style=_TD),
+            html.Td(str(s['suc']),        style={**_TD, 'color': HOME_COLOR}),
+            html.Td(str(s['fail']),       style={**_TD, 'color': AWAY_COLOR}),
+            html.Td(f"{s['succ_pct']}%",  style={**_TD, 'color': pct_c,  'fontWeight': '700'}),
+            html.Td(f"{s['shot_pct']}%",  style={**_TD, 'color': shot_c, 'fontWeight': '700'}),
+            html.Td(f"{s['goal_pct']}%",  style={**_TD, 'color': goal_c, 'fontWeight': '700'}),
+        ], style={'backgroundColor': bg}))
 
-    # Vulnerabilities section
-    vuln_section = html.Div([
-        html.H6("Vulnerabilities When Defending", style={"color": GOLD, "marginBottom": "0.5rem"}),
+    return [
+        html.Div("L = left flank (y>67)  ·  C = centre  ·  R = right flank (y<33)", style={
+            'color': COLORS['text_secondary'], 'fontSize': '0.55rem',
+            'fontStyle': 'italic', 'marginBottom': '4px',
+        }),
+        html.Div(html.Table([html.Thead(header), html.Tbody(table_rows)],
+                            style={'width': '100%', 'borderCollapse': 'collapse'}),
+                 style={'overflowX': 'auto'}),
+    ]
+
+
+def _classify_shot_zone(x: float, y: float) -> str:
+    if y < BOX_Y_MIN:  return 'right_wing'
+    if y > BOX_Y_MAX:  return 'left_wing'
+    if x < 66.7:       return 'long_range'
+    if x < 83.0:
+        if y < 37.0:   return 'r_halfspace'
+        if y > 63.0:   return 'l_halfspace'
+        return 'outside_cen'
+    if y < 37.0:       return 'right_box'
+    if y > 63.0:       return 'left_box'
+    if x >= 94.2:      return 'six_yard'
+    return 'cen_penalty'
+
+
+def _bar_zone_img(bar_shots: pd.DataFrame) -> str:
+    if bar_shots.empty:
+        return ''
+    shots = bar_shots.dropna(subset=['x', 'y'])
+    if shots.empty:
+        return ''
+
+    counts  = {z[0]: 0 for z in _SHOT_ZONE_DEFS}
+    for _, row in shots.iterrows():
+        counts[_classify_shot_zone(float(row['x']), float(row['y']))] += 1
+    n_total = max(len(shots), 1)
+    pcts    = {k: v / n_total * 100 for k, v in counts.items()}
+    max_pct = max(pcts.values()) if pcts else 1.0
+
+    pitch = Pitch(pitch_type='opta', pitch_color=PITCH_BG, line_color=_PITCH_LINE_COLOR,
+                  linewidth=1.5, stripe=False, goal_type='box', half=True,
+                  pad_top=10, pad_bottom=4, pad_left=2, pad_right=4)
+    fig_mpl, ax = pitch.draw(figsize=(5, 4.5))
+
+    for key, label, x0, x1, y0, y1 in _SHOT_ZONE_DEFS:
+        pct   = pcts.get(key, 0.0)
+        alpha = 0.10 + 0.65 * (pct / max(max_pct, 0.01))
+        ax.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0,
+                                facecolor=COLORS['garnet'], alpha=alpha,
+                                edgecolor=(1, 1, 1, 0.3), linewidth=0.5, zorder=2))
+        cx, cy     = (x0 + x1) / 2, (y0 + y1) / 2
+        small      = (x1 - x0) < 12 or (y1 - y0) < 18
+        fsize_pct  = 5.5 if small else 7.5
+        ax.text(cx, cy + 2, f'{pct:.0f}%', ha='center', va='center',
+                fontsize=fsize_pct, color='white', fontweight='bold', zorder=3)
+        ax.text(cx, cy - 2, label, ha='center', va='top',
+                fontsize=fsize_pct - 1.5, color='#cccccc', zorder=3, multialignment='center')
+
+    ax.annotate('→  Direction of Attack', xy=(75, 104), xycoords='data',
+                ha='center', va='center', fontsize=7, color='white', fontweight='bold',
+                annotation_clip=False, zorder=5,
+                bbox=dict(facecolor='#151932', edgecolor='#8899CC',
+                          boxstyle='round,pad=0.4', linewidth=1))
+
+    buf = io.BytesIO()
+    fig_mpl.savefig(buf, format='png', dpi=130, bbox_inches='tight',
+                    pad_inches=0.05, facecolor=PITCH_BG)
+    buf.seek(0)
+    result = base64.b64encode(buf.read()).decode()
+    plt.close(fig_mpl)
+    return result
+
+
+def _bar_flank_fig(bar_ev: pd.DataFrame) -> go.Figure:
+    _empty = go.Figure()
+    _empty.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor=PITCH_BG,
+                         height=180, margin=dict(l=10, r=10, t=10, b=10))
+    if bar_ev.empty or 'x' not in bar_ev.columns:
+        return _empty
+    att = bar_ev[bar_ev['x'] > 50].dropna(subset=['y'])
+    if att.empty:
+        return _empty
+
+    left_n    = int((att['y'] < 33.33).sum())
+    central_n = int(((att['y'] >= 33.33) & (att['y'] <= 66.67)).sum())
+    right_n   = int((att['y'] > 66.67).sum())
+
+    fig = go.Figure(go.Bar(
+        x=[right_n, central_n, left_n],
+        y=['Barca Right / Opp Left', 'Central', 'Barca Left / Opp Right'],
+        orientation='h',
+        marker=dict(color=[AWAY_COLOR, GOLD, HOME_COLOR],
+                    line=dict(color=PITCH_BG, width=1)),
+        text=[str(right_n), str(central_n), str(left_n)],
+        textposition='inside',
+        textfont=dict(color='white', size=11),
+        hovertemplate='%{y}: %{x} events<extra></extra>',
+    ))
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(21,25,50,0.6)',
+        height=180, margin=dict(l=10, r=10, t=10, b=10),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, fixedrange=True),
+        yaxis=dict(showgrid=False, zeroline=False, fixedrange=True,
+                   tickfont=dict(color=COLORS['text_secondary'], size=10)),
+        showlegend=False, uirevision='ods-bar-flank',
+    )
+    return fig
+
+
+# =============================================================================
+# Skeleton
+# =============================================================================
+
+def _build_defence_skeleton() -> html.Div:
+    filter_panel = html.Div([
+        html.Div("Filters", style=_SECTION_TITLE),
+        html.Div("Player", style=_LABEL_STYLE),
+        dcc.Dropdown(
+            id='ods-def-player', options=[], value=None, multi=True,
+            placeholder="All players…", style={'fontSize': '0.75rem'},
+        ),
+        *PassMap.dash_controls(
+            show=['outcome', 'start_third', 'end_third', 'bands', 'h1_time', 'h2_time'],
+            id_prefix='ods-def',
+        ),
+    ], style=_PANEL_STYLE)
+
+    content = html.Div([
+        html.Div(id='ods-def-kpi', children=[]),
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 14px'}),
+
         dbc.Row([
-            dbc.Col(section_card("Shots Allowed Map", dcc.Graph(figure=_shots_allowed_map(bar_ev), config=CHART_CONFIG)), md=7),
-            dbc.Col(section_card("Shots Conceded by Side", dcc.Graph(figure=_weak_side_chart(bar_ev), config=CHART_CONFIG)), md=5),
-        ], className="mb-3"),
-    ])
+            dbc.Col([
+                html.Div("Defensive Action Map", style=_SECTION_TITLE),
+                html.Div("All defensive actions · hover for player, time, and outcome",
+                         style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
+                                'fontStyle': 'italic', 'marginBottom': '8px'}),
+                dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
+                    id='ods-def-pitch', figure=_skel_fig(540), config=CHART_CFG,
+                    style={'width': '100%'})),
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '14px 0 10px'}),
+                html.Div("Defensive Action Heatmap", style=_SECTION_TITLE),
+                html.Div("Density of all defensive events — darker = higher concentration",
+                         style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
+                                'fontStyle': 'italic', 'marginBottom': '8px'}),
+                dcc.Loading(type='circle', color=GOLD, children=html.Img(
+                    id='ods-def-heatmap', src=_SKEL_SRC,
+                    style={'width': '100%', 'borderRadius': '6px', 'minHeight': '180px'})),
+            ], md=8),
 
-    defenders_section = section_card("Top Defenders", _top_defenders(opp_ev))
+            dbc.Col([
+                html.Div("By Player", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
+                html.Div(style={'marginBottom': '6px'}),
+                html.Div(id='ods-def-table',        children=[]),
+                html.Div(id='ods-def-zone-summary', children=[]),
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
+                html.Div("Barca Attacking Flanks", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
+                html.Div("Where Barcelona attacks (att half events by y-channel)",
+                         style={'color': COLORS['text_secondary'], 'fontSize': '0.60rem',
+                                'fontStyle': 'italic', 'marginBottom': '6px'}),
+                dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
+                    id='ods-bar-flank-fig', figure=_skel_fig(180), config=CHART_CFG,
+                    style={'width': '100%'})),
+                html.Div(id='ods-bar-shots-table', children=[]),
+            ], md=4, style={'borderLeft': f'1px solid {COLORS["dark_border"]}',
+                            'paddingLeft': '14px'}),
+        ], align='start', className='g-0'),
 
-    return html.Div([top_kpi, hr, pressing_section, hr, block_section, hr, vuln_section, defenders_section])
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '18px 0 14px'}),
+
+        dbc.Row([
+            dbc.Col([
+                html.Div("Barca Entries into Final Third",
+                         style={**_SECTION_TITLE, 'borderBottom': 'none',
+                                'paddingBottom': '4px', 'fontSize': '0.72rem'}),
+                dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
+                    id='ods-bar-ft-fig', figure=_skel_fig(480), config=CHART_CFG,
+                    style={'width': '100%'})),
+                html.Div(id='ods-bar-ft-table', children=[], style={'marginTop': '8px'}),
+            ], md=6),
+            dbc.Col([
+                html.Div("Zone 14 & Half Spaces",
+                         style={**_SECTION_TITLE, 'borderBottom': 'none',
+                                'paddingBottom': '4px', 'fontSize': '0.72rem'}),
+                dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
+                    id='ods-bar-z14-fig', figure=_skel_fig(480), config=CHART_CFG,
+                    style={'width': '100%'})),
+                html.Div(id='ods-bar-z14-table', children=[], style={'marginTop': '8px'}),
+            ], md=6, style={'borderLeft': f'1px solid {COLORS["dark_border"]}',
+                            'paddingLeft': '14px'}),
+        ], align='start', className='g-0'),
+
+        html.Div(id='ods-gk-stats', children=[]),
+
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '18px 0 14px'}),
+
+        dbc.Row([
+            dbc.Col([
+                html.Div("Barcelona Shot Map", style=_SECTION_TITLE),
+                html.Div("Where Barcelona shoots from · size = xG · stars = goals",
+                         style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
+                                'fontStyle': 'italic', 'marginBottom': '8px'}),
+                dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
+                    id='ods-bar-shot-map', figure=_skel_fig(480), config=CHART_CFG,
+                    style={'width': '100%', 'height': '480px'})),
+            ], md=6),
+
+            dbc.Col([
+                html.Div("Shooting Zones", style=_SECTION_TITLE),
+                html.Div("% of Barcelona shots from each zone",
+                         style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
+                                'fontStyle': 'italic', 'marginBottom': '8px'}),
+                dcc.Loading(type='circle', color=GOLD, children=html.Img(
+                    id='ods-bar-zone-donut', src='',
+                    style={'height': '480px', 'width': 'auto', 'maxWidth': '100%',
+                           'display': 'block', 'margin': '0 auto', 'borderRadius': '4px'})),
+            ], md=6, style={'borderLeft': f'1px solid {COLORS["dark_border"]}',
+                            'paddingLeft': '14px'}),
+        ], align='start', className='g-0'),
+    ], style=_PANEL_STYLE)
+
+    return html.Div(
+        dbc.Row([
+            dbc.Col(filter_panel, md=2),
+            dbc.Col(content,      md=10),
+        ], align='start', className='g-3'),
+    )
+
+
+# =============================================================================
+# Public builder
+# =============================================================================
+
+def build_defence(team: str | None = None, comp_key: str | None = None) -> html.Div:
+    """Return skeleton layout; callbacks fill charts when filters change."""
+    return _build_defence_skeleton()
+
+
+# =============================================================================
+# Callbacks
+# =============================================================================
+
+def register_defence_callbacks(app) -> None:
+
+    @app.callback(
+        Output('ods-def-kpi',          'children'),
+        Output('ods-def-pitch',        'figure'),
+        Output('ods-def-heatmap',      'src'),
+        Output('ods-def-table',        'children'),
+        Output('ods-def-zone-summary', 'children'),
+        Output('ods-bar-flank-fig',    'figure'),
+        Output('ods-bar-shots-table',  'children'),
+        Output('ods-bar-ft-fig',       'figure'),
+        Output('ods-bar-ft-table',     'children'),
+        Output('ods-bar-z14-fig',      'figure'),
+        Output('ods-bar-z14-table',    'children'),
+        Output('ods-bar-shot-map',     'figure'),
+        Output('ods-bar-zone-donut',   'src'),
+        Output('ods-gk-stats',         'children'),
+        Input('ods-def-player',        'value'),
+        Input('ods-def-outcome',       'value'),
+        Input('ods-def-start-third',   'value'),
+        Input('ods-def-end-third',     'value'),
+        Input('ods-def-bands',         'value'),
+        Input('ods-def-h1-time',       'value'),
+        Input('ods-def-h2-time',       'value'),
+        State('oa-team-select',        'value'),
+        State('oa-comp-select',        'value'),
+        State('oa-venue-filter',       'value'),
+        State('oa-selected-matches',   'data'),
+        State('oa-date-filter',        'date'),
+    )
+    def _update_defence(players, outcomes, start_thirds, end_thirds, bands,
+                        h1_range, h2_range,
+                        team, comp, venue, match_ids, date_cutoff):
+
+        def _empty():
+            return ([], _skel_fig(540), _SKEL_SRC, [], [], _skel_fig(180), [],
+                    _skel_fig(480), [], _skel_fig(480), [], _skel_fig(480), '', [])
+
+        opp_ev, bar_ev = load_opp_events(
+            team, comp, venue or 'all', match_ids or None, date_cutoff, SEASON,
+        )
+        if opp_ev.empty and bar_ev.empty:
+            return _empty()
+
+        opp_def = opp_ev[opp_ev['event_type'].isin(_ALL_DEF_TYPES)].dropna(subset=['x', 'y'])
+        _h1 = tuple(h1_range) if h1_range else (0, 50)
+        _h2 = tuple(h2_range) if h2_range else (45, 100)
+
+        opp_def_time     = _apply_time_filter(opp_def, _h1, _h2)
+        opp_def_filtered = PassMap.filter(
+            opp_def_time,
+            outcomes=outcomes, start_thirds=start_thirds,
+            end_thirds=end_thirds, bands=bands, h1_range=_h1, h2_range=_h2,
+        )
+        if players and 'player_name' in opp_def_filtered.columns:
+            opp_def_filtered = opp_def_filtered[opp_def_filtered['player_name'].isin(players)]
+
+        bar_shots = (bar_ev[bar_ev['event_type'].isin(_SHOT_TYPES)].dropna(subset=['x', 'y'])
+                     if not bar_ev.empty else pd.DataFrame())
+        bar_time  = _apply_time_filter(bar_ev, _h1, _h2) if not bar_ev.empty else bar_ev
+
+        entries_ft  = _build_bar_entries(bar_ev, 'final_third')
+        entries_z14 = _build_bar_entries(bar_ev, 'zone14')
+
+        zone_img = _bar_zone_img(bar_shots)
+        zone_src = f'data:image/png;base64,{zone_img}' if zone_img else ''
+
+        return (
+            _def_kpi_children(opp_def, opp_ev, bar_ev),
+            _def_pitch_fig(opp_def_filtered),
+            _def_heatmap_src(opp_def_filtered),
+            _def_player_table(opp_def, opp_ev),
+            _def_zone_summary(opp_def),
+            _bar_flank_fig(bar_time),
+            _shots_table(bar_shots),
+            _bar_entries_fig(entries_ft,  'final_third'),
+            _bar_entries_table(entries_ft),
+            _bar_entries_fig(entries_z14, 'zone14'),
+            _bar_entries_table(entries_z14),
+            _bar_shot_map_fig(bar_shots),
+            zone_src,
+            _gk_stats_children(bar_shots, opp_ev),
+        )

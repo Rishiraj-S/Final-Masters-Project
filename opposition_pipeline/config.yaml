@@ -114,7 +114,7 @@ opponents:
 
   - team_name: "Atletico de Madrid"
     country: "Spain"
-    search_name: "Atl"           # Scoresway often abbreviates to "Atl. Madrid"
+    search_name: "Atletico"      # "Atl" matched Athletic Club too; "Atletico" is safe
     competitions:
       - Spain_Primera_Division
       - Spain_Copa_del_Rey
@@ -236,7 +236,7 @@ opponents:
 
   - team_name: "Racing de Santander"
     country: "Spain"
-    search_name: "Racing"
+    search_name: "Santander"      # "Racing" too broad — matches any club with "Racing" in name
     competitions:
       - Spain_Copa_del_Rey
 
@@ -251,7 +251,7 @@ opponents:
 
   - team_name: "Newcastle United"
     country: "England"
-    search_name: "Newcastle"
+    search_name: "Newcastle Utd"   # "Newcastle" matched Newcastle Town (amateur FA Cup teams)
     competitions:
       - England_Premier_League
       - England_FA_Cup
@@ -270,7 +270,7 @@ opponents:
   # ── Belgium ─────────────────────────────────────────────────────────────────
   - team_name: "Club Brugge"
     country: "Belgium"
-    search_name: "Brugge"
+    search_name: "Club Brugge"    # "Brugge" matched Cercle Brugge (separate club in same league)
     competitions:
       - Belgium_First_Division_A
       - Belgium_Cup

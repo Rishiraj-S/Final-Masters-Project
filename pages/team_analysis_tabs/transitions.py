@@ -15,7 +15,7 @@ from utils.config import COLORS
 from page_utils.visualizations import GOLD
 
 from pages.team_analysis_tabs.attacking_transition import build_attacking_transition_skeleton
-from pages.team_analysis_tabs.defending_transition import build_defending_transition_skeleton
+from pages.team_analysis_tabs.defensive_transition import build_defending_transition_skeleton
 
 
 _BTN_BASE = {
@@ -40,20 +40,20 @@ _BTN_ACTIVE   = {**_BTN_BASE, 'color': GOLD,
 def build_transitions_tab(**_):
     """Return the Transitions tab layout — two skeleton sub-tabs."""
     return dbc.Tabs(
-        active_tab='ta-trans-attack',
+        active_tab='ta-trans-defend',
         children=[
             dbc.Tab(
-                build_attacking_transition_skeleton(),
-                label='Attacking Transition',
-                tab_id='ta-trans-attack',
+                build_defending_transition_skeleton(),
+                label='Defensive Transition',
+                tab_id='ta-trans-defend',
                 tab_style={'flex': '1'},
                 label_style=_BTN_INACTIVE,
                 active_label_style=_BTN_ACTIVE,
             ),
             dbc.Tab(
-                build_defending_transition_skeleton(),
-                label='Defending Transition',
-                tab_id='ta-trans-defend',
+                build_attacking_transition_skeleton(),
+                label='Attacking Transition',
+                tab_id='ta-trans-attack',
                 tab_style={'flex': '1'},
                 label_style=_BTN_INACTIVE,
                 active_label_style=_BTN_ACTIVE,

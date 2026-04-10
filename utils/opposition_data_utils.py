@@ -219,6 +219,7 @@ def get_opp_team_matches(team: str, country: str, comp_key: str,
             result = 'W' if gf > ga else ('D' if gf == ga else 'L')
 
             results.append({
+                'match_id':    str(row.get('match_id', f.stem)),
                 'date':        str(row.get('date', row.get('match_date', '')))[:10],
                 'competition': comp_key.replace('_', ' '),
                 'is_home':     is_home,
@@ -232,6 +233,67 @@ def get_opp_team_matches(team: str, country: str, comp_key: str,
 
     results.sort(key=lambda r: r['date'])
     return results
+
+
+def load_opp_events(team: str, comp_key: str,
+                    venue: str = 'all',
+                    match_ids: list | None = None,
+                    date_cutoff: str | None = None,
+                    season: str = SEASON) -> tuple:
+    """Load and split opposition events into (opp_ev, bar_ev).
+
+    Applies venue, match-id selection, and date filters in that order.
+    opp_ev — events attributed to ``team``.
+    bar_ev — all other events (Barcelona's events in the match files).
+    Returns (pd.DataFrame, pd.DataFrame) — both empty on any failure.
+    """
+    if not team or not comp_key:
+        return pd.DataFrame(), pd.DataFrame()
+
+    country   = get_team_country(team)
+    all_comps = get_team_competitions(team)
+
+    if comp_key == 'all':
+        frames = [get_opp_all_events(team, country, c, season) for c in all_comps]
+        non_empty = [f for f in frames if not f.empty]
+        all_ev = pd.concat(non_empty, ignore_index=True) if non_empty else pd.DataFrame()
+    else:
+        all_ev = get_opp_all_events(team, country, comp_key, season)
+
+    if all_ev.empty:
+        return pd.DataFrame(), pd.DataFrame()
+
+    # Date filter
+    if date_cutoff and 'match_date' in all_ev.columns:
+        all_ev = all_ev[all_ev['match_date'].astype(str).str[:10] <= date_cutoff[:10]]
+
+    # Venue filter (uses home_team column written by the match transformer)
+    if venue and venue != 'all' and 'home_team' in all_ev.columns:
+        needle  = _normalize(team)
+        is_home = all_ev['home_team'].fillna('').apply(lambda s: needle in _normalize(s))
+        if venue == 'home':
+            all_ev = all_ev[is_home].copy()
+        elif venue == 'away':
+            all_ev = all_ev[~is_home].copy()
+
+    # Match-id selection filter
+    if match_ids and 'match_id' in all_ev.columns:
+        all_ev = all_ev[all_ev['match_id'].isin(match_ids)]
+
+    if all_ev.empty:
+        return pd.DataFrame(), pd.DataFrame()
+
+    # Split into opposition team and Barcelona
+    if 'team_name' in all_ev.columns:
+        needle  = _normalize(team)
+        is_opp  = all_ev['team_name'].fillna('').apply(lambda s: needle in _normalize(s))
+        opp_ev  = all_ev[is_opp].copy()
+        bar_ev  = all_ev[~is_opp].copy()
+    else:
+        opp_ev  = all_ev.copy()
+        bar_ev  = pd.DataFrame()
+
+    return opp_ev, bar_ev
 
 
 def get_opp_possession(team: str, country: str, comp_key: str,

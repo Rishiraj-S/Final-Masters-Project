@@ -1419,8 +1419,8 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
 
     return html.Div(
         dbc.Row([
-            dbc.Col(_filter_panel(player_opts), md=3),
-            dbc.Col(combined,                   md=9),
+            dbc.Col(_filter_panel(player_opts), md=2),
+            dbc.Col(combined,                   md=10),
         ], align='start', className='g-3'),
     )
 

@@ -373,24 +373,24 @@ def process_team_competition(
         logger.info(f"   ⚠️  No matches found for '{team_name}' in {comp_name}")
         return {'downloaded': 0, 'skipped': 0, 'transformed': 0, 'status': 'empty'}
 
-    # Filter out matches already recorded in the manifest
-    already_in_manifest = team_df['match_id'].astype(str).isin(manifest)
-    n_manifest_skip = already_in_manifest.sum()
-    pending_df = team_df[~already_in_manifest].copy()
-
-    total_matches = len(pending_df)
+    # NOTE: We do NOT pre-filter by global manifest here.
+    # Match IDs are globally unique (Opta IDs), so Real Madrid vs Atletico has one
+    # match_id.  A global manifest pre-filter would cause the same match to be skipped
+    # for Atletico after it was downloaded for Real Madrid, leaving Atletico's folder
+    # incomplete.  Instead we pass all matches to MatchDownloader.download_match which
+    # performs a per-team-folder parquet/JSON existence check (already_exists).
+    total_matches = len(team_df)
     logger.info(
-        f"   📊 {len(team_df)} match(es) for {team_name} in {comp_name} "
-        f"({n_manifest_skip} already in manifest, {total_matches} to download)"
+        f"   📊 {len(team_df)} match(es) for {team_name} in {comp_name}"
     )
 
-    stats = {'downloaded': 0, 'skipped': int(n_manifest_skip), 'transformed': 0, 'status': 'success'}
+    stats = {'downloaded': 0, 'skipped': 0, 'transformed': 0, 'status': 'success'}
 
     # ── Download phase ─────────────────────────────────────────────────────────
-    if not args.transform_only and not args.skip_download and not pending_df.empty:
+    if not args.transform_only and not args.skip_download:
         downloader = MatchDownloader(comp_config, logger)
 
-        pbar = _tqdm(list(pending_df.iterrows()), total=total_matches,
+        pbar = _tqdm(list(team_df.iterrows()), total=total_matches,
                      desc=f"⬇  {team_name[:18]}", unit="match",
                      ncols=90, leave=True)
         for i, (_, row) in enumerate(pbar, 1):
@@ -416,9 +416,6 @@ def process_team_competition(
                 save_manifest(manifest)
             else:
                 stats['skipped'] += 1
-    elif pending_df.empty and not args.transform_only:
-        print(f"      ⏭️  All {len(team_df)} match(es) already in manifest — skipping download")
-
     # ── Transform phase ────────────────────────────────────────────────────────
     write_progress(
         team=team_name, competition=comp_name, stage="Transforming",
