@@ -48,7 +48,7 @@ from pages.opposition_analysis_tabs import (
     register_set_pieces_callbacks,
 )
 from pages.match_analysis_tabs.shared import page_header
-from utils.logos import get_team_logo_path, get_tournament_logo_path
+from utils.logos import get_team_logo_path, get_tournament_logo_path, get_country_flag_path
 from page_utils.visualizations import GOLD
 
 CURRENT_SEASON = SEASON
@@ -65,6 +65,27 @@ RESULT_COLORS = {
     'D': '#ffc107',
     'L': '#dc3545',
 }
+
+_LOGO_LABEL_STYLE = {'display': 'flex', 'alignItems': 'center', 'gap': '8px'}
+_LOGO_IMG_STYLE   = {'height': '20px', 'width': '20px', 'objectFit': 'contain', 'flexShrink': '0'}
+
+
+def _country_option(country: str) -> dict:
+    flag_path = get_country_flag_path(country)
+    children  = []
+    if flag_path:
+        children.append(html.Img(src=flag_path, style=_LOGO_IMG_STYLE))
+    children.append(html.Span(country))
+    return {'label': html.Div(children, style=_LOGO_LABEL_STYLE), 'value': country}
+
+
+def _team_option(team: str) -> dict:
+    logo_path = get_team_logo_path(team)
+    children  = []
+    if logo_path:
+        children.append(html.Img(src=logo_path, style=_LOGO_IMG_STYLE))
+    children.append(html.Span(team))
+    return {'label': html.Div(children, style=_LOGO_LABEL_STYLE), 'value': team}
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -262,7 +283,7 @@ def _build_oa_calendar_grid(
 def create_opposition_analysis_layout() -> dbc.Container:
     opponents       = list_available_opponents()
     countries       = sorted({o.get('country', '') for o in opponents if o.get('country')})
-    country_options = [{'label': c, 'value': c} for c in countries]
+    country_options = [_country_option(c) for c in countries]
 
     now = datetime.now()
     init_year, init_month = now.year, now.month
@@ -282,6 +303,7 @@ def create_opposition_analysis_layout() -> dbc.Container:
                 dcc.Dropdown(
                     id='oa-country-select', options=country_options,
                     placeholder='Select country…', style=_DROPDOWN_STYLE, clearable=False,
+                    optionHeight=36,
                 ),
             ], md=2),
             dbc.Col([
@@ -289,6 +311,7 @@ def create_opposition_analysis_layout() -> dbc.Container:
                 dcc.Dropdown(
                     id='oa-team-select', options=[], placeholder='Select country first…',
                     style=_DROPDOWN_STYLE, clearable=False, disabled=True,
+                    optionHeight=36,
                 ),
             ], md=3),
             dbc.Col([
@@ -407,7 +430,7 @@ def register_opposition_analysis_callbacks(app) -> None:
             return [], None, True
         opponents = list_available_opponents()
         teams     = sorted([o['team_name'] for o in opponents if o.get('country') == country])
-        return [{'label': t, 'value': t} for t in teams], None, False
+        return [_team_option(t) for t in teams], None, False
 
     # ── Team → Competition options ─────────────────────────────────────────────
     @app.callback(

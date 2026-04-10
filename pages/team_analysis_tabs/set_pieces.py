@@ -967,7 +967,7 @@ def _pen_kpi_children(pen: pd.DataFrame) -> list:
     ])
 
 
-def _pen_goal_mouth_fig(pen: pd.DataFrame) -> go.Figure:
+def _pen_goal_mouth_fig(pen: pd.DataFrame, team: str | None = None) -> go.Figure:
     """Penalty shot placement on a goal-face frame — matches goalkeeping.py approach."""
     POST_W = 0.7
     shapes = [
@@ -1001,6 +1001,14 @@ def _pen_goal_mouth_fig(pen: pd.DataFrame) -> go.Figure:
     if (not pen.empty
             and _GM_Y_COL in pen.columns
             and _GM_Z_COL in pen.columns):
+        # Derive the opponent team for each row from home/away columns
+        if team and 'home_team' in pen.columns and 'away_team' in pen.columns:
+            t_lower   = team.lower()
+            is_home   = pen['home_team'].fillna('').str.lower().str.contains(t_lower, regex=False)
+            opp_series = pen['away_team'].where(is_home, pen['home_team']).fillna('Unknown')
+        else:
+            opp_series = pd.Series('Unknown', index=pen.index)
+
         for outcome, color, symbol, size in _PEN_STYLE:
             grp = pen[pen['event_type'] == outcome].copy()
             if grp.empty:
@@ -1012,6 +1020,7 @@ def _pen_goal_mouth_fig(pen: pd.DataFrame) -> go.Figure:
                 continue
             names = grp['player_name'].fillna('Unknown').tolist() if 'player_name' in grp.columns else [''] * len(grp)
             mins  = grp['time_min'].fillna('?').astype(str).tolist() if 'time_min'  in grp.columns else ['?'] * len(grp)
+            opps  = opp_series.loc[grp.index].tolist()
             x_raw  = 100 - grp[_GM_Y_COL]
             x_disp = (_GM_CENTER + (x_raw - _GM_CENTER) * _GM_X_SCALE).tolist()
             fig.add_trace(go.Scatter(
@@ -1019,11 +1028,12 @@ def _pen_goal_mouth_fig(pen: pd.DataFrame) -> go.Figure:
                 mode='markers', name=outcome,
                 marker=dict(color=color, symbol=symbol, size=size, opacity=0.92,
                             line=dict(color='white', width=1)),
-                customdata=list(zip(names, mins)),
+                customdata=list(zip(names, mins, opps)),
                 hovertemplate=(
                     f'<b>{outcome}</b><br>'
                     'Player: %{customdata[0]}<br>'
-                    "Min: %{customdata[1]}'<extra></extra>"
+                    "Min: %{customdata[1]}'<br>"
+                    'vs: %{customdata[2]}<extra></extra>'
                 ),
             ))
 
@@ -1601,6 +1611,6 @@ def register_set_pieces_callbacks(app) -> None:
 
         return (
             _pen_kpi_children(pen),
-            _pen_goal_mouth_fig(pen),
+            _pen_goal_mouth_fig(pen, team='Barcelona'),
             _pen_table_children(pen),
         )

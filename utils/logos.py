@@ -11,9 +11,11 @@ from dash import html
 
 TEAM_LOGOS = {
     'Alavés': 'Deportivo-Alaves-v2020.svg',
+    'Alaves': 'Deportivo-Alaves-v2020.svg',           # opposition config spelling
     'Albacete': 'Albacete-Balompie-v2009.svg',
     'Athletic Club': 'Athletic-Club-Bilbao-v2008.svg',
     'Atlético de Madrid': 'Atletico-Madrid-v2024.svg',
+    'Atletico de Madrid': 'Atletico-Madrid-v2024.svg', # opposition config spelling
     'Barcelona': 'FC-Barcelona-v2002.svg',
     'Celta de Vigo': 'RC-Celta-de-Vigo-v2010.svg',
     'Chelsea': 'Chelsea-FC-v2006.svg',
@@ -24,6 +26,7 @@ TEAM_LOGOS = {
     'Getafe': 'Getafe-Club-de-Futbol-v2011.svg',
     'Girona': 'Girona-Futbol-Club-v2021.svg',
     'København': 'FC-Copenhagen-v1992.svg',
+    'FC Kobenhavn': 'FC-Copenhagen-v1992.svg',         # opposition config spelling
     'Levante': 'Levante-UD-v2010.svg',
     'Mallorca': 'Real-Club-Deportivo-Mallorca-v1996.svg',
     'Newcastle United': 'Newcastle-United-Football-Club-v1988.svg',
@@ -71,6 +74,27 @@ TEAM_LOGOS = {
     'Valladolid': 'Real-Valladolid-Club-de-Futbol-v2024.svg',
 }
 
+# ── Country name → flag ISO code mapping ────────────────────────────────────
+# Keys are country names as they appear in opposition_pipeline/config.yaml.
+# Values are ISO 3166-1 alpha-2 codes (matching filenames in assets/logos/flag/).
+
+COUNTRY_FLAGS = {
+    'Belgium':        'be',
+    'Czech Republic': 'cz',
+    'Denmark':        'dk',
+    'England':        'gb-eng',
+    'France':         'fr',
+    'Germany':        'de',
+    'Greece':         'gr',
+    'Italy':          'it',
+    'Netherlands':    'nl',
+    'Portugal':       'pt',
+    'Scotland':       'gb-sct',
+    'Spain':          'es',
+    'Turkey':         'tr',
+    'Wales':          'gb-wls',
+}
+
 # ── Competition name → logo filename mapping ─────────────────────────────────
 # Keys match COMPETITION_NAMES values from data_utils.py.
 
@@ -87,6 +111,14 @@ def get_team_logo_path(team_name: str) -> str:
     filename = TEAM_LOGOS.get(team_name)
     if filename:
         return f'/assets/logos/team/{filename}'
+    return ''
+
+
+def get_country_flag_path(country: str) -> str:
+    """Return the Dash-relative asset path for a country flag SVG, or empty string."""
+    iso = COUNTRY_FLAGS.get(country)
+    if iso:
+        return f'/assets/logos/flag/{iso}.svg'
     return ''
 
 
