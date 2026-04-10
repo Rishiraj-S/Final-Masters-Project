@@ -34,6 +34,7 @@ from page_utils.visualizations import (
     HOME_COLOR,
     AWAY_COLOR,
 )
+from page_utils.competitions import COMP_SHORT as _COMP_SHORT
 
 
 # ─── Constants ────────────────────────────────────────────────────────────────
@@ -47,21 +48,6 @@ _PHASE_COLORS = {
     'Transitions':      '#51cf66',
     'Def. Structure':   '#5c7cfa',
     'Set Pieces':       '#cc5de8',
-}
-
-_PHASE_TAB = {
-    'Build-up':         'Build-up',
-    'Chance Creation':  'Chance Creation',
-    'Transitions':      'Transitions',
-    'Def. Structure':   'Def. Structure',
-    'Set Pieces':       'Set Pieces',
-}
-
-_COMP_SHORT = {
-    'La Liga': 'Liga',
-    'Champions League': 'UCL',
-    'Copa del Rey': 'Copa',
-    'Spanish Super Cup': 'SC',
 }
 
 _CARD = {
@@ -653,7 +639,7 @@ def build_overview_tab(season: str, competitions: list | None, match_ids: list |
         dbc.Col(
             _phase_card(
                 title   = phase,
-                tab     = _PHASE_TAB[phase],
+                tab     = phase,
                 score   = scores.get(phase, 50.0),
                 color   = _PHASE_COLORS[phase],
                 metrics = phase_metrics.get(phase, []),

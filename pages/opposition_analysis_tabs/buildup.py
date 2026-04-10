@@ -30,18 +30,18 @@ import dash_bootstrap_components as dbc
 from utils.config import COLORS
 from utils.opposition_data_utils import load_opp_events, SEASON
 from page_utils import PassMap, GOLD, HOME_COLOR, AWAY_COLOR
-from page_utils.visualizations import render_lsc_heatmap_img
+from page_utils.visualizations import render_lsc_heatmap_img, PITCH_BG, CHART_CONFIG
 
 
 # =============================================================================
 # Constants
 # =============================================================================
 
-PITCH_BG         = '#151932'
 PITCH_LINE_COLOR = '#8899CC'
 _SKEL_SRC        = 'data:image/png;base64,'
-CHART_CONFIG     = {'displayModeBar': False}
 
+# Local PITCH_AXIS_FULL intentionally includes scaleanchor/scaleratio for correct
+# pass-map aspect ratio — differs from page_utils.visualizations.PITCH_AXIS_FULL.
 PITCH_AXIS_FULL = dict(
     xaxis=dict(range=[-5, 105], showgrid=False, zeroline=False,
                showticklabels=False, fixedrange=True, visible=False),

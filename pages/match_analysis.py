@@ -364,7 +364,12 @@ def create_match_analysis_layout():
         html.Div(id='pma-score-headline', className="mb-3"),
 
         tabs,
-        html.Div(id='pma-tab-content'),
+        dcc.Loading(
+            id='pma-loading',
+            type='circle',
+            color=GOLD,
+            children=html.Div(id='pma-tab-content'),
+        ),
     ], fluid=True, className="py-4")
 
 

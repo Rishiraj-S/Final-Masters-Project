@@ -128,13 +128,30 @@ def _opp_dir(country: str, team: str, comp_key: str,
 
 # ── Data loaders ────────────────────────────────────────────────────────────
 
+# In-process cache for opposition event DataFrames.  Keyed by (team, country,
+# comp_key, season).  Avoids re-reading all parquet files on every tab switch.
+_opp_events_cache: dict[tuple, pd.DataFrame] = {}
+
+
+def clear_opp_events_cache() -> None:
+    """Clear the opposition events cache (call after running the pipeline)."""
+    _opp_events_cache.clear()
+
+
 def get_opp_all_events(team: str, country: str, comp_key: str,
                        season: str = SEASON) -> pd.DataFrame:
     """Load all match_event parquets for a team × competition (both teams).
 
+    Results are cached in-process so repeated calls within the same session
+    (e.g. switching tabs for the same opponent) hit memory instead of disk.
+
     Renames ``event_type_id`` → ``type_id`` so tab modules share a
     consistent column name.
     """
+    cache_key = (team, country, comp_key, season)
+    if cache_key in _opp_events_cache:
+        return _opp_events_cache[cache_key]
+
     ev_dir = _opp_dir(country, team, comp_key, season, 'match_event')
     if not ev_dir.exists():
         return pd.DataFrame()
@@ -144,6 +161,8 @@ def get_opp_all_events(team: str, country: str, comp_key: str,
     df = pd.concat(frames, ignore_index=True)
     if 'event_type_id' in df.columns and 'type_id' not in df.columns:
         df = df.rename(columns={'event_type_id': 'type_id'})
+    if not df.empty:
+        _opp_events_cache[cache_key] = df
     return df
 
 

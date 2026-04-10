@@ -10,6 +10,7 @@ Sections:
 """
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from dash import html, dcc
@@ -39,9 +40,9 @@ from page_utils.visualizations import (
     add_pitch_background,
     PITCH_AXIS_FULL,
 )
+from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
 _WIN_TYPES      = {'Ball Recovery', 'Interception', 'Tackle'}
-_SHOT_TYPES     = {'Miss', 'Saved Shot', 'Goal', 'Post', 'Blocked Shot'}
 _TURNOVER_TYPES = {'Pass', 'Take On'}  # turnovers = failed versions
 
 # Number of events after a ball win to count as a direct transition sequence
@@ -76,25 +77,40 @@ def _compute_half_stats(events: pd.DataFrame, pos: str, period: int | None = Non
     ball_wins     = te[te['event_type'].isin(_WIN_TYPES)]
     ball_wins_df  = ball_wins.copy()
 
-    # Sort for sequence analysis
-    sorted_te  = te.sort_values(['period_id', 'time_min']).reset_index(drop=True)
-    sorted_opp = opp.sort_values(['period_id', 'time_min']).reset_index(drop=True)
+    # Sort for sequence analysis (include time_sec for sub-minute precision)
+    sort_cols_te  = ['period_id', 'time_min'] + (['time_sec'] if 'time_sec' in te.columns else [])
+    sort_cols_opp = ['period_id', 'time_min'] + (['time_sec'] if 'time_sec' in opp.columns else [])
+    sorted_te  = te.sort_values(sort_cols_te).reset_index(drop=True)
+    sorted_opp = opp.sort_values(sort_cols_opp).reset_index(drop=True)
+
+    # Pre-compute absolute seconds per event for accurate 5-second window
+    def _abs_sec(df: pd.DataFrame) -> pd.Series:
+        mins = pd.to_numeric(df['time_min'], errors='coerce').fillna(0)
+        secs = pd.to_numeric(df['time_sec'], errors='coerce').fillna(0) if 'time_sec' in df.columns else 0
+        return mins * 60 + secs
+
+    te_abs_sec  = _abs_sec(sorted_te)
+    opp_abs_sec = _abs_sec(sorted_opp)
 
     # Counter-pressing: our defensive actions within 5 seconds after opponent wins the ball
     opp_wins = sorted_opp[sorted_opp['event_type'].isin(_WIN_TYPES)]
-    counterpress_events = []
-    for _, win_row in opp_wins.iterrows():
-        t_win = win_row['time_min']
-        t_deadline = t_win + _COUNTER_SECS / 60.0
-        our_cp = sorted_te[
-            (sorted_te['period_id'] == win_row['period_id']) &
-            (sorted_te['time_min'] >= t_win) &
-            (sorted_te['time_min'] <= t_deadline) &
-            (sorted_te['event_type'].isin(_WIN_TYPES))
-        ]
-        counterpress_events.append(our_cp)
-
-    cp_df = pd.concat(counterpress_events).drop_duplicates() if counterpress_events else pd.DataFrame()
+    our_def_mask = sorted_te['event_type'].isin(_WIN_TYPES)
+    our_def = sorted_te[our_def_mask]
+    if opp_wins.empty or our_def.empty:
+        cp_df = pd.DataFrame()
+    else:
+        opp_t = opp_abs_sec[opp_wins.index].values        # (N,)
+        opp_p = opp_wins['period_id'].values               # (N,)
+        our_t = te_abs_sec[our_def.index].values           # (M,)
+        our_p = our_def['period_id'].values                # (M,)
+        # Broadcast: (N,1) vs (1,M) → (N,M) match matrix
+        in_window = (
+            (our_t[np.newaxis, :] >= opp_t[:, np.newaxis]) &
+            (our_t[np.newaxis, :] <= (opp_t + _COUNTER_SECS)[:, np.newaxis]) &
+            (our_p[np.newaxis, :] == opp_p[:, np.newaxis])
+        )
+        cp_col_mask = in_window.any(axis=0)
+        cp_df = our_def[cp_col_mask] if cp_col_mask.any() else pd.DataFrame()
 
     # Sequences ending in a shot after ball win (direct transitions)
     counter_shots = sum(
@@ -135,31 +151,35 @@ def _compute(events: pd.DataFrame) -> dict:
         # For each opponent ball win, find our actions within _COUNTER_SECS.
         # Keep only the first triggering opponent event per CP action so each
         # marker is plotted once and the tooltip can name what triggered it.
-        cp_by_idx: dict = {}
-        for _, win_row in opp_wins.iterrows():
-            t_win      = win_row['time_min']
-            t_deadline = t_win + _COUNTER_SECS / 60.0
-            our_cp = sorted_te[
-                (sorted_te['period_id'] == win_row['period_id']) &
-                (sorted_te['time_min'] >= t_win) &
-                (sorted_te['time_min'] <= t_deadline) &
-                (sorted_te['event_type'].isin(_WIN_TYPES))
-            ]
-            for idx, row in our_cp.iterrows():
-                if idx not in cp_by_idx:
-                    cp_by_idx[idx] = {
-                        **row.to_dict(),
-                        '_trigger_player': win_row.get('player_name', 'Unknown'),
-                        '_trigger_type':   win_row['event_type'],
-                        '_trigger_min':    int(win_row['time_min']),
-                    }
-
-        cp_events_df = (
-            pd.DataFrame(list(cp_by_idx.values()))
-            if cp_by_idx
-            else pd.DataFrame(columns=list(ball_wins_df.columns) +
-                              ['_trigger_player', '_trigger_type', '_trigger_min'])
-        )
+        _empty_cols = list(ball_wins_df.columns) + ['_trigger_player', '_trigger_type', '_trigger_min']
+        our_win_mask = sorted_te['event_type'].isin(_WIN_TYPES)
+        our_wins_te  = sorted_te[our_win_mask]
+        if opp_wins.empty or our_wins_te.empty:
+            cp_events_df = pd.DataFrame(columns=_empty_cols)
+        else:
+            opp_t_arr = opp_wins['time_min'].values                   # (N,)
+            opp_p_arr = opp_wins['period_id'].values                  # (N,)
+            our_t_arr = our_wins_te['time_min'].values                # (M,)
+            our_p_arr = our_wins_te['period_id'].values               # (M,)
+            deadline  = opp_t_arr + _COUNTER_SECS / 60.0
+            # (N, M) boolean match matrix — vectorised, no Python loop
+            match = (
+                (our_t_arr[np.newaxis, :] >= opp_t_arr[:, np.newaxis]) &
+                (our_t_arr[np.newaxis, :] <= deadline[:, np.newaxis]) &
+                (our_p_arr[np.newaxis, :] == opp_p_arr[:, np.newaxis])
+            )
+            cp_col_mask = match.any(axis=0)
+            if cp_col_mask.any():
+                cp_local_idx = np.where(cp_col_mask)[0]
+                cp_events_df = our_wins_te.iloc[cp_local_idx].copy()
+                # For each CP action find the first triggering opp event
+                trig_indices = [int(np.argmax(match[:, j])) for j in cp_local_idx]
+                trig_rows    = opp_wins.iloc[trig_indices]
+                cp_events_df['_trigger_player'] = trig_rows['player_name'].fillna('Unknown').to_numpy()
+                cp_events_df['_trigger_type']   = trig_rows['event_type'].to_numpy()
+                cp_events_df['_trigger_min']    = trig_rows['time_min'].fillna(0).astype(int).to_numpy()
+            else:
+                cp_events_df = pd.DataFrame(columns=_empty_cols)
 
         # Per-player counterpressing stats (Full / 1H / 2H) — based on cp_events_df
         _CP_COLS = ['Player', 'Actions', 'Recoveries', 'Tackles', 'Interceptions']
@@ -239,17 +259,24 @@ def _counterpress_map(cp_events_df: pd.DataFrame, team_color: str) -> dcc.Graph:
             if valid.empty:
                 continue
 
+            _outcome = (
+                valid['outcome'].fillna(1).map(lambda v: 'Successful' if v == 1 else 'Unsuccessful')
+                if 'outcome' in valid.columns
+                else pd.Series('Successful', index=valid.index)
+            )
+            _trig_player = valid['_trigger_player'].fillna('Unknown') if '_trigger_player' in valid.columns else pd.Series('Unknown', index=valid.index)
+            _trig_type   = valid['_trigger_type'].fillna('—')         if '_trigger_type'   in valid.columns else pd.Series('—',       index=valid.index)
+            _trig_min    = valid['_trigger_min'].fillna(0).astype(int)  if '_trigger_min'    in valid.columns else pd.Series(0,         index=valid.index)
             customdata = [
-                [
-                    r.get('player_name', 'Unknown'),
-                    win_type,
-                    int(r.get('time_min', 0)),
-                    'Successful' if r.get('outcome', 1) == 1 else 'Unsuccessful',
-                    r.get('_trigger_player', 'Unknown'),
-                    r.get('_trigger_type', '—'),
-                    int(r.get('_trigger_min', 0)),
-                ]
-                for _, r in valid.iterrows()
+                [name, win_type, t, oc, tp, tt, tm]
+                for name, t, oc, tp, tt, tm in zip(
+                    valid['player_name'].fillna('Unknown').tolist(),
+                    valid['time_min'].fillna(0).astype(int).tolist(),
+                    _outcome.tolist(),
+                    _trig_player.tolist(),
+                    _trig_type.tolist(),
+                    _trig_min.tolist(),
+                )
             ]
 
             fig.add_trace(go.Scatter(

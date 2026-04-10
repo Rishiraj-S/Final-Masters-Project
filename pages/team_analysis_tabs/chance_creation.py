@@ -23,14 +23,14 @@ from page_utils.competitions import normalize_competitions as _normalize_competi
 from page_utils.visualizations import (
     add_vertical_half_pitch_background,
     VPITCH_AXIS_HALF,
+    PITCH_BG,
 )
+from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
 
 # =============================================================================
 # Constants
 # =============================================================================
-
-_SHOT_TYPES = ['Goal', 'Saved Shot', 'Miss', 'Post', 'Blocked Shot']
 
 _OUTCOME_COLOR = {
     'Goal':         '#51cf66',
@@ -46,8 +46,6 @@ _OUTCOME_SYMBOL = {
     'Post':         'diamond',
     'Blocked Shot': 'square',
 }
-
-PITCH_BG = '#151932'
 
 _LABEL_STYLE = {
     'color': GOLD,

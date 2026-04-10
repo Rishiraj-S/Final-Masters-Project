@@ -13,6 +13,7 @@ import plotly.graph_objects as go
 import yaml
 
 from utils.config import COLORS
+from page_utils.visualizations import CHART_CONFIG
 
 # ── Opposition pipeline config (for modal dropdowns) ────────────────────────
 
@@ -114,7 +115,6 @@ CHART_LAYOUT = dict(
     margin=dict(l=40, r=40, t=50, b=40),
 )
 
-CHART_CONFIG = {'displayModeBar': False}
 
 BARCA_FONT = "'Barcelona', 'Segoe UI', sans-serif"
 

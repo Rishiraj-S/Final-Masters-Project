@@ -42,14 +42,15 @@ from page_utils.visualizations import (
     PITCH_AXIS_FULL,
     PITCH_AXIS_HALF,
     render_lsc_heatmap_img,
+    PITCH_BG,
 )
+from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
 
 # =============================================================================
 # Constants
 # =============================================================================
 
-PITCH_BG          = '#151932'
 _PITCH_LINE_COLOR = '#8899CC'
 _SKEL_SRC         = 'data:image/png;base64,'
 
@@ -61,8 +62,6 @@ _DEF_COLORS = {
     'Blocked Shot':  '#cc5de8',
 }
 _ALL_DEF_TYPES = list(_DEF_COLORS.keys())
-
-_SHOT_TYPES = ['Goal', 'Saved Shot', 'Miss', 'Post', 'Blocked Shot']
 _SHOT_COLORS = {
     'Goal':         '#51cf66',
     'Saved Shot':   '#339af0',

@@ -32,14 +32,15 @@ from page_utils.visualizations import (
     add_vertical_half_pitch_background,
     PITCH_AXIS_FULL,
     VPITCH_AXIS_HALF,
+    PITCH_BG,
 )
+from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
 
 # =============================================================================
 # Constants
 # =============================================================================
 
-PITCH_BG  = '#151932'
 _SKEL_SRC = 'data:image/png;base64,'
 
 CHART_CFG = {'displayModeBar': False}
@@ -102,14 +103,13 @@ _BTN_ACTIVE   = {
     'borderBottom': f'3px solid {GOLD}',
 }
 
-_SHOT_TYPES = ['Saved Shot', 'Miss', 'Goal', 'Post']
 _SHOT_COLORS = {
     'Goal': '#22c55e', 'Saved Shot': '#3b82f6',
-    'Miss': '#ef4444', 'Post': GOLD,
+    'Miss': '#ef4444', 'Post': GOLD, 'Blocked Shot': '#cc5de8',
 }
 _SHOT_SYMBOLS = {
     'Goal': 'star', 'Saved Shot': 'circle',
-    'Miss': 'x',    'Post': 'diamond',
+    'Miss': 'x',    'Post': 'diamond', 'Blocked Shot': 'square',
 }
 
 _PEN_STYLE = [

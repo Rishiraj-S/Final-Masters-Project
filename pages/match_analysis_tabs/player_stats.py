@@ -26,8 +26,8 @@ from page_utils.visualizations import (
     GOLD,
     render_lsc_heatmap_img,
 )
+from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
-_SHOT_TYPES = {'Miss', 'Saved Shot', 'Goal', 'Post', 'Blocked Shot'}
 _DEF_TYPES  = {'Tackle', 'Interception', 'Ball Recovery', 'Clearance'}
 
 # ---------------------------------------------------------------------------

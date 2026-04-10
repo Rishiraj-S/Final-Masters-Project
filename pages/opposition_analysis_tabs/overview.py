@@ -25,6 +25,7 @@ from page_utils.visualizations import (
     HOME_COLOR,
     AWAY_COLOR,
 )
+from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
 
 # ─── Constants ────────────────────────────────────────────────────────────────
@@ -189,7 +190,6 @@ def _compute_phases(opp_ev: pd.DataFrame, bar_ev: pd.DataFrame,
     buildup_score = poss_pct
 
     # ── Chance Creation (aligns with shot map tab) ────────────────────────────
-    _SHOT_TYPES = {'Goal', 'Saved Shot', 'Miss', 'Post', 'Blocked Shot'}
     opp_shots = opp_ev[opp_ev['event_type'].isin(_SHOT_TYPES)] if not opp_ev.empty else pd.DataFrame()
     n_goals = int((opp_shots['event_type'] == 'Goal').sum())   if not opp_shots.empty else 0
     n_sot   = int(opp_shots['event_type'].isin({'Goal', 'Saved Shot'}).sum()) if not opp_shots.empty else 0

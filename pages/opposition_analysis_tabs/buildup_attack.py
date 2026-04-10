@@ -45,11 +45,14 @@ from page_utils.visualizations import (
 # Shared constants
 # =============================================================================
 
-PITCH_BG         = '#151932'
+from page_utils.visualizations import PITCH_BG, CHART_CONFIG
+from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
+
 PITCH_LINE_COLOR = '#8899CC'
 _SKEL_SRC        = 'data:image/png;base64,'
-CHART_CONFIG     = {'displayModeBar': False}
 
+# Local PITCH_AXIS_FULL intentionally includes scaleanchor/scaleratio for correct
+# pass-map aspect ratio — differs from page_utils.visualizations.PITCH_AXIS_FULL.
 PITCH_AXIS_FULL = dict(
     xaxis=dict(range=[-5, 105], showgrid=False, zeroline=False,
                showticklabels=False, fixedrange=True, visible=False),
@@ -104,8 +107,6 @@ _BTN_ACTIVE   = {
     'backgroundColor': 'rgba(237, 187, 0, 0.08)',
     'borderBottom': f'3px solid {GOLD}',
 }
-
-_SHOT_TYPES = ['Goal', 'Saved Shot', 'Miss', 'Post', 'Blocked Shot']
 
 _PITCH_CACHE: dict = {}
 

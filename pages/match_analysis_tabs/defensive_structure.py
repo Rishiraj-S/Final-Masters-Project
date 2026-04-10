@@ -40,8 +40,7 @@ from page_utils.visualizations import (
     PITCH_AXIS_FULL,
     render_lsc_heatmap_img,
 )
-
-_DEF_ACTION_TYPES = {'Tackle', 'Interception', 'Ball Recovery', 'Clearance', 'Blocked Shot'}
+from page_utils.event_filters import DEF_ACTION_TYPES as _DEF_ACTION_TYPES
 _PITCH_HEIGHT = 480
 
 _DEF_COLORS = {
@@ -242,13 +241,13 @@ def _def_action_map(def_events_df: pd.DataFrame, team_color: str) -> dcc.Graph:
             if valid.empty:
                 continue
 
-            customdata = []
-            for _, r in valid.iterrows():
-                customdata.append([
-                    r.get('player_name', 'Unknown'),
-                    int(r.get('time_min', 0)),
-                    action_type,
-                ])
+            customdata = [
+                [name, t, action_type]
+                for name, t in zip(
+                    valid['player_name'].fillna('Unknown').tolist(),
+                    valid['time_min'].fillna(0).astype(int).tolist(),
+                )
+            ]
 
             fig.add_trace(go.Scatter(
                 x=valid['x'].tolist(), y=valid['y'].tolist(),
@@ -373,15 +372,19 @@ def _fouls_offsides_map(fouls_df: pd.DataFrame, offsides_df: pd.DataFrame) -> dc
     if not fouls_df.empty and 'x' in fouls_df.columns:
         valid = fouls_df.dropna(subset=['x', 'y'])
         if not valid.empty:
-            customdata = []
-            for _, r in valid.iterrows():
-                zone = r.get('Zone', '—') if pd.notna(r.get('Zone')) and str(r.get('Zone', '')) != 'N/A' else '—'
-                customdata.append([
-                    r.get('player_name', 'Unknown'),
-                    int(r.get('time_min', 0)),
-                    'Foul',
-                    zone,
-                ])
+            if 'Zone' in valid.columns:
+                zones = valid['Zone'].fillna('—').astype(str)
+                zones = zones.where(zones != 'N/A', '—').tolist()
+            else:
+                zones = ['—'] * len(valid)
+            customdata = [
+                [name, t, 'Foul', z]
+                for name, t, z in zip(
+                    valid['player_name'].fillna('Unknown').tolist(),
+                    valid['time_min'].fillna(0).astype(int).tolist(),
+                    zones,
+                )
+            ]
             fig.add_trace(go.Scatter(
                 x=valid['x'].tolist(), y=valid['y'].tolist(),
                 mode='markers', name='Foul',
@@ -401,13 +404,13 @@ def _fouls_offsides_map(fouls_df: pd.DataFrame, offsides_df: pd.DataFrame) -> dc
     if not offsides_df.empty and 'x' in offsides_df.columns:
         valid = offsides_df.dropna(subset=['x', 'y'])
         if not valid.empty:
-            customdata = []
-            for _, r in valid.iterrows():
-                customdata.append([
-                    r.get('player_name', 'Unknown'),
-                    int(r.get('time_min', 0)),
-                    'Offside Pass',
-                ])
+            customdata = [
+                [name, t, 'Offside Pass']
+                for name, t in zip(
+                    valid['player_name'].fillna('Unknown').tolist(),
+                    valid['time_min'].fillna(0).astype(int).tolist(),
+                )
+            ]
             fig.add_trace(go.Scatter(
                 x=valid['x'].tolist(), y=valid['y'].tolist(),
                 mode='markers', name='Offside',

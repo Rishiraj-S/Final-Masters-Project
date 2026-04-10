@@ -77,7 +77,7 @@ def build_match_selector_options(
     show_tag = not competitions or len(competitions) > 1
     options: list[dict] = []
     for r in results:
-        comp_tag = COMP_SHORT.get(r['competition'], r['competition'][:4])
+        comp_tag = COMP_SHORT.get(r['competition'], r['competition'])
         label = (
             f"{str(r['date'])[:10]}  vs  {r['opponent']}  ({r['result']})"
             + (f"  · {comp_tag}" if show_tag else '')

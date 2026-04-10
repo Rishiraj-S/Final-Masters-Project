@@ -201,6 +201,10 @@ def add_xg_column(shots_df: pd.DataFrame) -> pd.DataFrame:
         result['xg'] = pd.Series(dtype=float)
         return result
 
+    # If xG was pre-computed upstream (e.g. once per tab render), skip model inference.
+    if 'xg' in shots_df.columns:
+        return shots_df
+
     # Build a shot dict for every row (None = excluded from model)
     shot_dicts = []
     for _, row in shots_df.iterrows():

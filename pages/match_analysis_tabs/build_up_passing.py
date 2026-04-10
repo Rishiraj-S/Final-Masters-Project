@@ -47,6 +47,7 @@ from page_utils.visualizations import (
     PITCH_AXIS_FULL,
     render_lsc_heatmap_img,
 )
+from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
 
 # =============================================================================
@@ -227,14 +228,13 @@ def _build_3player_combos(te: pd.DataFrame) -> pd.DataFrame:
             .reset_index(drop=True))
 
 
-_SHOT_TYPES = {'Miss', 'Saved Shot', 'Goal', 'Post', 'Blocked Shot'}
-
 
 def _build_entries(te: pd.DataFrame, zone: str = 'final_third') -> pd.DataFrame:
     """Build a DataFrame of entries (passes, dribbles, carries) into a target zone.
 
     Args:
-        te:   team events (coords already flipped for away teams)
+        te:   team events — Opta coordinates are per-team normalised (x=0 own goal,
+              x=100 opponent goal), so no coordinate flip is applied or needed.
         zone: 'final_third' or 'zone14'
 
     Returns:
@@ -242,10 +242,15 @@ def _build_entries(te: pd.DataFrame, zone: str = 'final_third') -> pd.DataFrame:
                                 outcome, time_min, time_sec, period_id,
                                 dest_zone, led_to_shot, led_to_goal
     """
-    # Full sorted event list for shot/goal look-ahead
+    # Full sorted event list for shot/goal look-ahead.
+    # IMPORTANT: reset_index(drop=True) here so row positions are 0-based integers.
     te_full = te.sort_values(['period_id', 'time_min', 'time_sec']).reset_index(drop=True)
 
     relevant_types = ['Pass', 'Take On', 'Ball touch']
+    # reset_index() (without drop=True) preserves the old integer index as a column
+    # named 'index'. This is used below as a pointer back into te_full rows.
+    # Callers MUST pass te with a clean 0-based integer index (reset_index(drop=True))
+    # or the 'index' column will not correctly map back to te_full positions.
     ev = (te_full[te_full['event_type'].isin(relevant_types)]
           .dropna(subset=['x', 'y'])
           .reset_index())          # 'index' col = row position in te_full

@@ -330,6 +330,11 @@ VPITCH_AXIS_HALF = dict(
 # Images & Matplotlib standalone exports (Heatmaps)
 # =============================================================================
 
+import hashlib as _hashlib
+
+_heatmap_cache: dict[tuple, str] = {}
+
+
 def render_lsc_heatmap_img(x_vals, y_vals, color_hex: str, half: bool = False,
                            show_zone_pcts: bool = False,
                            text_color: str | None = None) -> str:
@@ -337,7 +342,19 @@ def render_lsc_heatmap_img(x_vals, y_vals, color_hex: str, half: bool = False,
     Render a LinearSegmentedColormap KDE heatmap with marginal distribution
     curves (top = x-distribution, right = y-distribution) around the pitch.
     Returns a base64 PNG data URI string suitable for html.Img(src=...).
+
+    Results are cached by content hash so the same heatmap (same match + same
+    half filter) is only rendered once per session.
     """
+    _x = np.asarray(x_vals, dtype=float)
+    _y = np.asarray(y_vals, dtype=float)
+    _cache_key = (
+        _hashlib.md5(_x.tobytes()).hexdigest()[:10],
+        _hashlib.md5(_y.tobytes()).hexdigest()[:10],
+        color_hex, half, show_zone_pcts, text_color,
+    )
+    if _cache_key in _heatmap_cache:
+        return _heatmap_cache[_cache_key]
     r_c = int(color_hex[1:3], 16) / 255
     g_c = int(color_hex[3:5], 16) / 255
     b_c = int(color_hex[5:7], 16) / 255
@@ -486,7 +503,9 @@ def render_lsc_heatmap_img(x_vals, y_vals, color_hex: str, half: bool = False,
     buf.seek(0)
     img_str = base64.b64encode(buf.read()).decode()
     plt.close(fig)
-    return f'data:image/png;base64,{img_str}'
+    result = f'data:image/png;base64,{img_str}'
+    _heatmap_cache[_cache_key] = result
+    return result
 
 
 # =============================================================================

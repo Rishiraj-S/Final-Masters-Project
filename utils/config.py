@@ -2,6 +2,7 @@
 CuléVision Configuration
 Central configuration file for the application
 """
+import os
 
 # FC Barcelona Brand Colors - Dark Theme
 COLORS = {
@@ -27,7 +28,7 @@ APP_CONFIG = {
     'title': 'CuléVision',
     'subtitle': 'Game Analytics',
     'version': '0.1.0',
-    'debug': True,
+    'debug': os.getenv('CULEVISION_DEBUG', 'true').lower() == 'true',
     'host': '0.0.0.0',
     'port': 8050
 }

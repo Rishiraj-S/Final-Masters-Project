@@ -656,9 +656,11 @@ def get_all_teams(season=None, competition=None):
                 continue
             for f in event_path.glob('*.parquet'):
                 df = pd.read_parquet(f, columns=['team_name', 'team_code'])
-                for _, row in df[['team_name', 'team_code']].drop_duplicates().iterrows():
-                    if str(row['team_code']) != 'BAR' and pd.notna(row['team_name']):
-                        teams.add(row['team_name'])
+                valid = df.loc[
+                    (df['team_code'] != 'BAR') & df['team_name'].notna(),
+                    'team_name'
+                ]
+                teams.update(valid.unique())
 
     return sorted(teams)
 
@@ -750,15 +752,12 @@ def get_team_season_stats(season=CURRENT_SEASON, competition=None):
     red_cards = len(cards[cards[red_col] == 'Si']) if red_col in cards.columns else 0
 
     # Match-level stats from results
+    # Scope to match_ids already present in the season-scoped events (authoritative)
+    match_ids = set(events['match_id'].unique()) if not events.empty else set()
     results = get_match_results()
     if competition and competition != 'all':
         results = [r for r in results if r['competition'] == competition]
-    # Filter by season via date year range
-    season_start = int(season.split('-')[0])
-    results = [
-        r for r in results
-        if str(r['date'])[:4] in [str(season_start), str(season_start + 1)]
-    ]
+    results = [r for r in results if r['match_id'] in match_ids]
 
     wins = sum(1 for r in results if r['result'] == 'W')
     draws = sum(1 for r in results if r['result'] == 'D')

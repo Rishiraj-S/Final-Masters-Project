@@ -47,12 +47,11 @@ from page_utils.visualizations import (
     add_vertical_half_pitch_background,
     VPITCH_AXIS_HALF,
 )
+from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-
-_SHOT_TYPES = {'Miss', 'Saved Shot', 'Goal', 'Post', 'Blocked Shot'}
 
 _SAVE_COLOR = '#51cf66'
 _GOAL_COLOR = '#ff6b6b'

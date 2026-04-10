@@ -24,16 +24,14 @@ from page_utils import PassMap, GOLD, HOME_COLOR
 from page_utils.visualizations import (
     add_vertical_half_pitch_background,
     VPITCH_AXIS_HALF,
+    PITCH_BG,
 )
+from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
 
 # =============================================================================
 # Constants
 # =============================================================================
-
-PITCH_BG = '#151932'
-
-_SHOT_TYPES = ['Goal', 'Saved Shot', 'Miss', 'Post', 'Blocked Shot']
 
 _OUTCOME_COLOR = {
     'Goal':         '#51cf66',

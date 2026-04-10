@@ -26,14 +26,8 @@ from page_utils.visualizations import (
     add_pitch_background,
     PITCH_AXIS_FULL,
     render_lsc_heatmap_img,
+    PITCH_BG,
 )
-
-
-# =============================================================================
-# Constants
-# =============================================================================
-
-PITCH_BG               = '#151932'
 _TRANSITION_WINDOW_SEC = 30
 
 # ── Attacking transition ──────────────────────────────────────────────────────

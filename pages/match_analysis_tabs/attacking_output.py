@@ -14,7 +14,8 @@ import dash_bootstrap_components as dbc
 from utils.config import COLORS
 from utils.data_utils import exclude_own_goals
 from utils.xg_utils import add_xg_column
-from page_utils.pitch_zones import is_in_penalty_box
+from page_utils.pitch_zones import BOX_X_MIN, BOX_Y_MIN, BOX_Y_MAX
+from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
 from .shared import (
     build_legend_box,
@@ -32,7 +33,6 @@ from page_utils.visualizations import (
     VPITCH_AXIS_HALF,
 )
 
-_SHOT_TYPES    = {'Miss', 'Saved Shot', 'Goal', 'Post', 'Blocked Shot'}
 _OUTCOME_COLOR = {
     'Goal':         '#51cf66',
     'Saved Shot':   '#339af0',
@@ -52,6 +52,15 @@ _OUTCOME_SYMBOL = {
 # ---------------------------------------------------------------------------
 
 _SI = ('N/A', '', 'nan', None)
+
+
+def _count_from_box(shots: pd.DataFrame) -> int:
+    """Count shots from inside the attacking penalty box (vectorised)."""
+    if not {'x', 'y'}.issubset(shots.columns) or shots.empty:
+        return 0
+    x = pd.to_numeric(shots['x'], errors='coerce')
+    y = pd.to_numeric(shots['y'], errors='coerce')
+    return int(((x >= BOX_X_MIN) & (y >= BOX_Y_MIN) & (y <= BOX_Y_MAX)).sum())
 
 
 def _get_shot_type(row) -> str:
@@ -138,9 +147,7 @@ def _compute(events: pd.DataFrame) -> dict:
             'total_shots':  len(shots),
             'total_xg':     round(shots['xg'].sum(), 2) if 'xg' in shots.columns else None,
             'on_target':    len(te[te['event_type'] == 'Saved Shot']) + len(goals),
-            'from_box':     int(shots['x'].dropna()
-                               .apply(lambda x: is_in_penalty_box(float(x), 50)).sum())
-                            if 'x' in shots.columns else 0,
+            'from_box':     _count_from_box(shots),
             'top_shooters': shooter_counts,
         }
     return out
@@ -161,9 +168,7 @@ def _compute_team_stats(events: pd.DataFrame, pos: str) -> tuple[dict, dict, dic
             'on_target': len(te[te['event_type'] == 'Saved Shot']) + len(goals),
             'goals':     len(goals),
             'xg':        round(shots['xg'].sum(), 2) if 'xg' in shots.columns else None,
-            'from_box':  int(shots['x'].dropna()
-                             .apply(lambda x: is_in_penalty_box(float(x), 50)).sum())
-                         if 'x' in shots.columns else 0,
+            'from_box':  _count_from_box(shots),
         }
     h1 = events[events['period_id'] == 1] if 'period_id' in events.columns else events.iloc[:0]
     h2 = events[events['period_id'] == 2] if 'period_id' in events.columns else events.iloc[:0]
@@ -380,6 +385,17 @@ def _player_table(df: pd.DataFrame, color: str) -> html.Div:
 def build_attacking_output_tab(events: pd.DataFrame, **_) -> html.Div:
     if events.empty:
         return html.P("No event data.", style={"color": COLORS["text_secondary"]})
+
+    # Pre-compute xG for all shot rows once.  Every helper that calls
+    # add_xg_column() on a slice of these events will detect the 'xg'
+    # column already present and return immediately — reducing model
+    # inference from ~7 calls down to 1.
+    _shot_mask = events['event_type'].isin(_SHOT_TYPES)
+    if 'xg' not in events.columns and _shot_mask.any():
+        events = events.copy()
+        _shots_enriched = add_xg_column(events.loc[_shot_mask].copy())
+        if 'xg' in _shots_enriched.columns:
+            events.loc[_shot_mask, 'xg'] = _shots_enriched['xg'].values
 
     d = _compute(events)
     hs, as_ = d['home'], d['away']

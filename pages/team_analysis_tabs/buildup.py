@@ -29,18 +29,19 @@ from utils.data_utils import get_all_events, CURRENT_SEASON
 from page_utils import PassMap, GOLD, HOME_COLOR, AWAY_COLOR
 from page_utils.competitions import normalize_competitions as _normalize_competitions
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
-from page_utils.visualizations import render_lsc_heatmap_img
+from page_utils.visualizations import render_lsc_heatmap_img, PITCH_BG, CHART_CONFIG
 
 
 # =============================================================================
-# Pitch constants (inlined from page_utils/visualizations.py)
+# Pitch constants
 # =============================================================================
 
-PITCH_BG         = '#151932'
 PITCH_LINE_COLOR = '#8899CC'
 BARCA_BLUE       = COLORS['primary_blue']
 CYAN             = '#22D3EE'
 
+# Local PITCH_AXIS_FULL intentionally includes scaleanchor/scaleratio for correct
+# pass-map aspect ratio — differs from page_utils.visualizations.PITCH_AXIS_FULL.
 PITCH_AXIS_FULL = dict(
     xaxis=dict(range=[-5, 105], showgrid=False, zeroline=False,
                showticklabels=False, fixedrange=True, visible=False),
@@ -50,8 +51,6 @@ PITCH_AXIS_FULL = dict(
 )
 
 _PITCH_CACHE: dict = {}
-
-CHART_CONFIG = {'displayModeBar': False}
 
 _ENTRY_COLORS = {
     'Pass':    '#32cd32',
