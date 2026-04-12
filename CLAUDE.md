@@ -39,14 +39,38 @@ Login credentials: `Guest / guest` (read-only) or `Rishi / admin` (admin, can tr
 ```
 app.py
 └── pages/
-    ├── home.py
-    ├── match_analysis.py         ← score headline callback lives here, not in overview.py
-    ├── player_analysis.py
-    ├── team_analysis.py
-    ├── opposition_analysis.py
-    ├── match_analysis_tabs/      ← 7 sub-tabs, shared constants in shared.py
-    ├── team_analysis_tabs/       ← 6 sub-tabs
-    └── opposition_analysis_tabs/ ← 7 sub-tabs
+    ├── home.py                       ← Season overview + pipeline trigger UI
+    ├── match_report.py               ← Match Report (was match_analysis.py)  /match-report
+    ├── barca_dna.py                  ← Player analysis                       /barca-dna
+    ├── barca_iq.py                   ← Team analysis                         /barca-iq
+    ├── opposition_analysis.py                                                 /opposition-analysis
+    ├── match_analysis_tabs/          ← 7 sub-tabs, shared constants in shared.py
+    ├── team_analysis_tabs/           ← 7 sub-tabs (overview + 6 analytical)
+    └── opposition_analysis_tabs/     ← 7 sub-tabs
+```
+
+**URL → page file mapping** (configured in `app.py:update_main_container`):
+
+| URL | File | Layout function exported as |
+|-----|------|-----------------------------|
+| `/` | `home.py` | `create_home_layout` |
+| `/match-report` | `match_report.py` | `create_match_analysis_layout` |
+| `/barca-dna` | `barca_dna.py` | `create_player_analysis_layout` |
+| `/barca-iq` | `barca_iq.py` | `create_team_analysis_layout` |
+| `/opposition-analysis` | `opposition_analysis.py` | `create_opposition_analysis_layout` |
+
+> Note: the old `match_analysis.py`, `player_analysis.py`, and `team_analysis.py` files have been removed. Do not reference them.
+
+### Flask Route — PDF Report
+
+`app.py` registers a Flask route at `/download-report/<match_id>` that bypasses Dash callbacks and serves a PDF via `utils/pdf_report.py:generate_match_report_pdf(match_id)`.
+
+### Navigation
+
+`utils/config.py` → `NAV_LINKS` defines the navbar order:
+
+```
+Home  |  Barça DNA  |  Barça IQ  |  Match Report  |  Opposition Analysis
 ```
 
 ### Data Layer
@@ -64,6 +88,26 @@ Opposition data is accessed through `utils/opposition_data_utils.py`, stored at 
 - `pitch_zones.py` — `PitchZone`, `ZoneBoundaries`, `get_zone()`, `is_in_penalty_box()`
 - `possession_utils.py` — `annotate_possession()`, `compute_vertical_speed()`, `is_stable_possession()`
 - `time_utils.py` — `to_seconds()`, `format_seconds()`, `events_within_window()`
+
+### Tab Inventory
+
+**match_analysis_tabs/** (7 tabs, used by `match_report.py`):
+
+| File | Builder | Callbacks |
+|------|---------|-----------|
+| `overview.py` | `build_overview_tab` | `register_overview_callbacks` |
+| `attacking_output.py` | `build_attacking_output_tab` | — |
+| `build_up_passing.py` | `build_build_up_passing_tab` | `register_build_up_passing_callbacks` |
+| `defensive_structure.py` | `build_defensive_structure_tab` | `register_defensive_structure_callbacks` |
+| `transitions_counterpressing.py` | `build_transitions_counterpressing_tab` | `register_transitions_counterpressing_callbacks` |
+| `goalkeeping.py` | `build_goalkeeping_tab` | `register_goalkeeping_callbacks` |
+| `player_stats.py` | `build_player_stats_tab` | `register_player_stats_callbacks` |
+
+Score headline callback lives in `match_report.py` (not in `overview.py`).
+
+**team_analysis_tabs/** (used by `barca_iq.py`):
+
+`overview`, `buildup`, `chance_creation`, `def_structure`, `transitions` (split across `attacking_transition.py` + `defensive_transition.py`), `set_pieces`
 
 ### Pitch Plots
 
@@ -88,4 +132,4 @@ Both pipelines (Barcelona and opposition) share the same modules from `opta_pipe
 
 ### UI / Styling
 
-Color tokens are in `utils/config.py` (`COLORS` dict) and mirrored as CSS variables in `assets/style.css`. Import from `page_utils/visualizations.py` for pitch plot constants (`HOME_COLOR`, `AWAY_COLOR`, `GOLD`). Image paths in `home.py` use the format `'assets/...'` (no leading `/`).
+Color tokens are in `utils/config.py` (`COLORS` dict — only `COLORS`, `APP_CONFIG`, `NAV_LINKS` remain) and mirrored as CSS variables in `assets/style.css`. Import from `page_utils/visualizations.py` for pitch plot constants (`HOME_COLOR`, `AWAY_COLOR`, `GOLD`). Image paths in `home.py` use the format `'assets/...'` (no leading `/`).

@@ -10,8 +10,8 @@ This is the main entry point for the application. It handles:
 
 Individual pages are organized in the pages/ directory:
 - pages/home.py: Season Overview
-- pages/match_analysis.py: Match Analysis (phase-based post-match analysis)
-- pages/player_analysis.py: Player Analysis
+- pages/match_report.py: Match Report (phase-based post-match analysis)
+- pages/barca_dna.py: Barça DNA (player analysis)
 """
 
 import io
@@ -575,9 +575,9 @@ def create_opp_update_overlay():
 
 
 _PAGE_TITLES = {
-    '/match-analysis': 'Match Analysis',
-    '/player-analysis': 'Player Analysis',
-    '/team-analysis': 'Team Analysis',
+    '/match-report': 'Match Report',
+    '/barca-dna': 'Barça DNA',
+    '/barca-iq': 'Barça IQ',
     '/opposition-analysis': 'Opposition Analysis',
 }
 
@@ -659,11 +659,11 @@ def update_main_container(session_data, pathname, update_status):
     navbar = create_navbar(user_info)
 
     # Determine which page to show based on URL
-    if pathname == '/match-analysis':
+    if pathname == '/match-report':
         page_content = create_match_analysis_layout()
-    elif pathname == '/player-analysis':
+    elif pathname == '/barca-dna':
         page_content = create_player_analysis_layout()
-    elif pathname == '/team-analysis':
+    elif pathname == '/barca-iq':
         page_content = create_team_analysis_layout()
     elif pathname == '/opposition-analysis':
         page_content = create_opposition_analysis_layout()

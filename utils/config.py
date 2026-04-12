@@ -36,9 +36,9 @@ APP_CONFIG = {
 # Navigation Links
 NAV_LINKS = [
     {'label': 'Home', 'href': '/'},
-    {'label': 'Match Analysis', 'href': '/match-analysis'},
-    {'label': 'Player Analysis', 'href': '/player-analysis'},
-    {'label': 'Team Analysis', 'href': '/team-analysis'},
+    {'label': 'Barça DNA', 'href': '/barca-dna'},
+    {'label': 'Barça IQ', 'href': '/barca-iq'},
+    {'label': 'Match Report', 'href': '/match-report'},
     {'label': 'Opposition Analysis', 'href': '/opposition-analysis'},
 ]
 

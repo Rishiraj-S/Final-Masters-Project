@@ -223,7 +223,7 @@ def create_team_analysis_layout():
         dcc.Store(id='ta-calendar-month', data={'year': init_year, 'month': init_month}),
         dcc.Store(id='ta-selected-matches', data=[]),
         
-        page_header("Team Analysis"),
+        page_header("Barça IQ"),
         html.Hr(),
 
         # ── Filters & Calendar Control Row ───────────────────────────────────

@@ -286,7 +286,7 @@ def create_match_analysis_layout():
         dcc.Store(id='pma-match-data', data=match_data),
         dcc.Store(id='pma-calendar-month', data={'year': init_year, 'month': init_month}),
         dcc.Store(id='pma-selected-match', data=default_match_id),
-        html.H2("Match Analysis", style={'color': COLORS['text_primary'], 'fontWeight': 'bold'}),
+        html.H2("Match Report", style={'color': COLORS['text_primary'], 'fontWeight': 'bold'}),
         html.Hr(),
 
         # Calendar controls row

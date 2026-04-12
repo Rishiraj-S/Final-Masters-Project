@@ -447,22 +447,22 @@ def _create_footer_nav():
     """Section: Quick-link footer navigation — 2×2 grid of all four pages."""
     links = [
         {
-            'title': 'Match Analysis',
-            'desc': 'Phase-based post-match tactical breakdown: overview, attack, defence, transitions and set pieces — with a downloadable PDF report.',
-            'href': '/match-analysis',
-            'icon': 'fas fa-futbol',
-        },
-        {
-            'title': 'Player Analysis',
+            'title': 'Barça DNA',
             'desc': 'Individual Barcelona player profiles, shot maps, touch heatmaps and match-by-match performance logs across all competitions.',
-            'href': '/player-analysis',
+            'href': '/barca-dna',
             'icon': 'fas fa-running',
         },
         {
-            'title': 'Team Analysis',
+            'title': 'Barça IQ',
             'desc': "Season-wide FC Barcelona performance across attack, defence, attacking & defensive transitions and set pieces — filterable by competition and match.",
-            'href': '/team-analysis',
+            'href': '/barca-iq',
             'icon': 'fas fa-chart-bar',
+        },
+        {
+            'title': 'Match Report',
+            'desc': 'Phase-based post-match tactical breakdown: overview, attack, defence, transitions and set pieces — with a downloadable PDF report.',
+            'href': '/match-report',
+            'icon': 'fas fa-futbol',
         },
         {
             'title': 'Opposition Analysis',

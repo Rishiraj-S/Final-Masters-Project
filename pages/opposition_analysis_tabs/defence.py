@@ -301,6 +301,181 @@ def _def_heatmap_src(def_events: pd.DataFrame) -> str:
     )
 
 
+_FOUL_COLOR    = '#ff922b'
+_OFFSIDE_COLOR = '#74c0fc'
+
+
+def _annotate_foul_cards(foul_ev: pd.DataFrame, card_ev: pd.DataFrame) -> pd.DataFrame:
+    """Add card_type column ('none', 'yellow', 'red') to foul events by matching player+minute."""
+    foul_ev = foul_ev.copy()
+    foul_ev['card_type'] = 'none'
+    if card_ev.empty or 'player_name' not in card_ev.columns:
+        return foul_ev
+    yellow_set: set = set()
+    red_set: set = set()
+    for _, row in card_ev.iterrows():
+        player = row.get('player_name', '')
+        minute = row.get('time_min', -1)
+        if 'Red Card' in card_ev.columns and row.get('Red Card') == 'Si':
+            red_set.add((player, minute))
+        elif 'Yellow Card' in card_ev.columns and row.get('Yellow Card') == 'Si':
+            yellow_set.add((player, minute))
+        elif 'Second yellow' in card_ev.columns and row.get('Second yellow') == 'Si':
+            yellow_set.add((player, minute))
+
+    def _card_type(row):
+        key = (row.get('player_name', ''), row.get('time_min', -1))
+        if key in red_set:
+            return 'red'
+        if key in yellow_set:
+            return 'yellow'
+        return 'none'
+
+    foul_ev['card_type'] = foul_ev.apply(_card_type, axis=1)
+    return foul_ev
+
+
+def _foul_offside_fig(foul_ev: pd.DataFrame, offside_ev: pd.DataFrame,
+                      uirevision: str = 'ods-foul-map') -> go.Figure:
+    """Full-pitch scatter of fouls (colored by card outcome) and offsides provoked (blue)."""
+    fig = go.Figure()
+    add_pitch_background(fig, half=False)
+
+    foul_groups = [
+        ('none',   'Foul',       _FOUL_COLOR, 'circle'),
+        ('yellow', 'Foul (YC)', '#ffd43b',    'circle'),
+        ('red',    'Foul (RC)', '#ff6b6b',    'circle'),
+    ]
+    foul_ev = foul_ev.dropna(subset=['x', 'y'])
+    for card_val, label, color, symbol in foul_groups:
+        if 'card_type' in foul_ev.columns:
+            subset = foul_ev[foul_ev['card_type'] == card_val]
+        else:
+            subset = foul_ev if card_val == 'none' else pd.DataFrame()
+        if subset.empty:
+            continue
+        custom = [
+            [row.get('player_name', '') or 'Unknown', f"{int(row.get('time_min', 0))}'"]
+            for _, row in subset.iterrows()
+        ]
+        fig.add_trace(go.Scatter(
+            x=subset['x'], y=subset['y'],
+            mode='markers', name=label,
+            marker=dict(color=color, size=8, symbol=symbol, opacity=0.85,
+                        line=dict(color='white', width=0.5)),
+            customdata=custom,
+            hovertemplate=(
+                '<b>%{customdata[0]}</b>  %{customdata[1]}<br>'
+                f'{label}<extra></extra>'
+            ),
+        ))
+
+    offside_ev = offside_ev.dropna(subset=['x', 'y'])
+    if not offside_ev.empty:
+        custom = [
+            [row.get('player_name', '') or 'Unknown', f"{int(row.get('time_min', 0))}'"]
+            for _, row in offside_ev.iterrows()
+        ]
+        fig.add_trace(go.Scatter(
+            x=offside_ev['x'], y=offside_ev['y'],
+            mode='markers', name='Offside Provoked',
+            marker=dict(color=_OFFSIDE_COLOR, size=8, symbol='diamond', opacity=0.85,
+                        line=dict(color='white', width=0.5)),
+            customdata=custom,
+            hovertemplate=(
+                '<b>%{customdata[0]}</b>  %{customdata[1]}<br>'
+                'Offside Provoked<extra></extra>'
+            ),
+        ))
+
+    _add_attack_direction(fig)
+    fig.update_layout(
+        **PITCH_AXIS_FULL,
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=12, family='Arial, sans-serif'),
+        height=540,
+        hovermode='closest',
+        uirevision=uirevision,
+        legend=dict(
+            orientation='v', x=1.01, y=1.0,
+            xanchor='left', yanchor='top',
+            bgcolor='rgba(21,25,50,0.88)',
+            bordercolor=COLORS['dark_border'], borderwidth=1,
+            font=dict(color=COLORS['text_primary'], size=10),
+        ),
+        margin=dict(l=0, r=130, t=36, b=0),
+    )
+    return fig
+
+
+def _foul_player_table(team_events: pd.DataFrame, top_n: int = 15) -> list:
+    """Per-player fouls, offsides provoked, and card breakdown table."""
+    _no_data = [html.P("No data", style={
+        'color': COLORS['text_secondary'], 'fontSize': '0.75rem',
+        'textAlign': 'center', 'marginTop': '8px',
+    })]
+    if team_events.empty or 'player_name' not in team_events.columns:
+        return _no_data
+
+    rows_data = []
+    for player, grp in team_events.groupby('player_name'):
+        if not player:
+            continue
+        fouls    = int((grp['event_type'] == 'Foul').sum())
+        offsides = int((grp['event_type'] == 'Offside provoked').sum())
+        cards    = grp[grp['event_type'] == 'Card']
+        yellows  = int((cards['Yellow Card'].eq('Si')).sum()) if not cards.empty and 'Yellow Card' in cards.columns else 0
+        reds     = int((cards['Red Card'].eq('Si')).sum()) if not cards.empty and 'Red Card' in cards.columns else 0
+        if fouls + offsides + yellows + reds == 0:
+            continue
+        rows_data.append({
+            'player':   player,
+            'fouls':    fouls,
+            'offsides': offsides,
+            'yellow':   yellows,
+            'red':      reds,
+        })
+
+    rows_data.sort(key=lambda r: r['fouls'], reverse=True)
+    rows_data = rows_data[:top_n]
+    if not rows_data:
+        return _no_data
+
+    header = html.Tr([
+        html.Th('Player', style={**_TH, 'textAlign': 'left'}),
+        html.Th('Fls',    style=_TH),
+        html.Th('Off',    style=_TH),
+        html.Th('YC',     style=_TH),
+        html.Th('RC',     style=_TH),
+    ])
+    table_rows = []
+    for idx, s in enumerate(rows_data):
+        bg    = (COLORS.get('dark_tertiary', 'rgba(255,255,255,0.03)')
+                 if idx % 2 == 0 else 'transparent')
+        short = s['player'].split()[-1] if s['player'] else '—'
+        table_rows.append(html.Tr([
+            html.Td(short,              style=_NAME_TD),
+            html.Td(str(s['fouls']),    style={**_TD, 'color': _FOUL_COLOR}),
+            html.Td(str(s['offsides']), style={**_TD, 'color': _OFFSIDE_COLOR}),
+            html.Td(str(s['yellow']),   style={**_TD, 'color': '#ffd43b'}),
+            html.Td(str(s['red']),      style={**_TD, 'color': '#ff6b6b'}),
+        ], style={'backgroundColor': bg}))
+
+    legend = html.Div(
+        "Fls = Fouls  ·  Off = Offsides Provoked  ·  YC = Yellow  ·  RC = Red",
+        style={'color': COLORS['text_secondary'], 'fontSize': '0.55rem',
+               'fontStyle': 'italic', 'marginBottom': '4px'},
+    )
+    return [
+        legend,
+        html.Div(
+            html.Table([html.Thead(header), html.Tbody(table_rows)],
+                       style={'width': '100%', 'borderCollapse': 'collapse'}),
+            style={'overflowX': 'auto'},
+        ),
+    ]
+
+
 def _def_player_table(def_events: pd.DataFrame, opp_ev: pd.DataFrame, top_n: int = 15) -> list:
     _no_data_msg = [html.P("No data", style={
         'color': COLORS['text_secondary'], 'fontSize': '0.75rem',
@@ -521,45 +696,6 @@ def _gk_stats_children(shots: pd.DataFrame, gk_events: pd.DataFrame | None = Non
         action_row,
     ]
 
-
-def _shots_table(bar_shots: pd.DataFrame) -> list:
-    if bar_shots.empty:
-        shots_val = goals_val = in_box_val = on_tgt_val = 0
-        xg_str = '—'
-    else:
-        shots_val  = len(bar_shots)
-        goals_val  = int((bar_shots['event_type'] == 'Goal').sum())
-        in_box_val = int(bar_shots.apply(
-            lambda r: r['x'] >= BOX_X_MIN and BOX_Y_MIN <= r['y'] <= BOX_Y_MAX, axis=1
-        ).sum())
-        on_tgt_val = int(bar_shots['event_type'].isin(['Saved Shot', 'Goal']).sum())
-        try:
-            xg_str = str(round(add_xg_column(bar_shots.copy())['xg'].sum(), 2))
-        except Exception:
-            xg_str = '—'
-
-    rows = [
-        ('Shots (Barca)',  str(shots_val),  AWAY_COLOR),
-        ('Goals (Barca)',  str(goals_val),  AWAY_COLOR),
-        ('In-Box Shots',   str(in_box_val), AWAY_COLOR),
-        ('On Target',      str(on_tgt_val), HOME_COLOR),
-        ('xG (Barca)',     xg_str,          GOLD),
-    ]
-    table_rows = [
-        html.Tr([
-            html.Td(stat, style={**_TD, 'textAlign': 'left',
-                                 'color': COLORS['text_secondary'], 'fontSize': '0.65rem'}),
-            html.Td(val,  style={**_TD, 'fontWeight': '700',
-                                 'color': color, 'fontSize': '0.75rem'}),
-        ])
-        for stat, val, color in rows
-    ]
-    return [
-        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
-        html.Div("Barca's Shots vs Them", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
-        html.Table(html.Tbody(table_rows),
-                   style={'width': '100%', 'borderCollapse': 'collapse'}),
-    ]
 
 
 # =============================================================================
@@ -1033,6 +1169,7 @@ def _build_defence_skeleton() -> html.Div:
                 dcc.Loading(type='circle', color=GOLD, children=html.Img(
                     id='ods-def-heatmap', src=_SKEL_SRC,
                     style={'width': '100%', 'borderRadius': '6px', 'minHeight': '180px'})),
+
             ], md=8),
 
             dbc.Col([
@@ -1040,6 +1177,7 @@ def _build_defence_skeleton() -> html.Div:
                 html.Div(style={'marginBottom': '6px'}),
                 html.Div(id='ods-def-table',        children=[]),
                 html.Div(id='ods-def-zone-summary', children=[]),
+
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
                 html.Div("Barca Attacking Flanks", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
                 html.Div("Where Barcelona attacks (att half events by y-channel)",
@@ -1048,7 +1186,29 @@ def _build_defence_skeleton() -> html.Div:
                 dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
                     id='ods-bar-flank-fig', figure=_skel_fig(180), config=CHART_CFG,
                     style={'width': '100%'})),
-                html.Div(id='ods-bar-shots-table', children=[]),
+
+            ], md=4, style={'borderLeft': f'1px solid {COLORS["dark_border"]}',
+                            'paddingLeft': '14px'}),
+        ], align='start', className='g-0'),
+
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '18px 0 14px'}),
+
+        dbc.Row([
+            dbc.Col([
+                html.Div("Fouls & Offsides", style=_SECTION_TITLE),
+                html.Div(
+                    "Fouls committed (●) and offsides provoked (◆) — hover for player and minute",
+                    style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
+                           'fontStyle': 'italic', 'marginBottom': '8px'}),
+                dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
+                    id='ods-foul-map', figure=_skel_fig(540), config=CHART_CFG,
+                    style={'width': '100%'})),
+            ], md=8),
+
+            dbc.Col([
+                html.Div("Fouls, Offsides & Cards", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
+                html.Div(style={'marginBottom': '6px'}),
+                html.Div(id='ods-foul-table', children=[]),
             ], md=4, style={'borderLeft': f'1px solid {COLORS["dark_border"]}',
                             'paddingLeft': '14px'}),
         ], align='start', className='g-0'),
@@ -1135,8 +1295,9 @@ def register_defence_callbacks(app) -> None:
         Output('ods-def-heatmap',      'src'),
         Output('ods-def-table',        'children'),
         Output('ods-def-zone-summary', 'children'),
+        Output('ods-foul-map',         'figure'),
+        Output('ods-foul-table',       'children'),
         Output('ods-bar-flank-fig',    'figure'),
-        Output('ods-bar-shots-table',  'children'),
         Output('ods-bar-ft-fig',       'figure'),
         Output('ods-bar-ft-table',     'children'),
         Output('ods-bar-z14-fig',      'figure'),
@@ -1162,8 +1323,8 @@ def register_defence_callbacks(app) -> None:
                         team, comp, venue, match_ids, date_cutoff):
 
         def _empty():
-            return ([], _skel_fig(540), _SKEL_SRC, [], [], _skel_fig(180), [],
-                    _skel_fig(480), [], _skel_fig(480), [], _skel_fig(480), '', [])
+            return ([], _skel_fig(540), _SKEL_SRC, [], [], _skel_fig(420), [],
+                    _skel_fig(180), _skel_fig(480), [], _skel_fig(480), [], _skel_fig(480), '', [])
 
         opp_ev, bar_ev = load_opp_events(
             team, comp, venue or 'all', match_ids or None, date_cutoff, SEASON,
@@ -1188,6 +1349,11 @@ def register_defence_callbacks(app) -> None:
                      if not bar_ev.empty else pd.DataFrame())
         bar_time  = _apply_time_filter(bar_ev, _h1, _h2) if not bar_ev.empty else bar_ev
 
+        opp_fouls    = opp_ev[opp_ev['event_type'] == 'Foul'].dropna(subset=['x', 'y']) if not opp_ev.empty else pd.DataFrame()
+        opp_cards    = opp_ev[opp_ev['event_type'] == 'Card'] if not opp_ev.empty else pd.DataFrame()
+        opp_fouls    = _annotate_foul_cards(opp_fouls, opp_cards)
+        opp_offsides = opp_ev[opp_ev['event_type'] == 'Offside provoked'].dropna(subset=['x', 'y']) if not opp_ev.empty else pd.DataFrame()
+
         entries_ft  = _build_bar_entries(bar_ev, 'final_third')
         entries_z14 = _build_bar_entries(bar_ev, 'zone14')
 
@@ -1200,8 +1366,9 @@ def register_defence_callbacks(app) -> None:
             _def_heatmap_src(opp_def_filtered),
             _def_player_table(opp_def, opp_ev),
             _def_zone_summary(opp_def),
+            _foul_offside_fig(opp_fouls, opp_offsides),
+            _foul_player_table(opp_ev),
             _bar_flank_fig(bar_time),
-            _shots_table(bar_shots),
             _bar_entries_fig(entries_ft,  'final_third'),
             _bar_entries_table(entries_ft),
             _bar_entries_fig(entries_z14, 'zone14'),
