@@ -9,6 +9,7 @@ Both sub-tabs use the skeleton + callback pattern: skeletons render
 instantly and charts are populated asynchronously by their own callbacks.
 """
 
+from dash import html
 import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
@@ -43,7 +44,13 @@ def build_transitions_tab(**_):
         active_tab='ta-trans-defend',
         children=[
             dbc.Tab(
-                build_defending_transition_skeleton(),
+                html.Div([
+                    html.Div('Transition from Attack to Defense',
+                             style={'fontSize': '0.95rem', 'color': GOLD,
+                                    'fontStyle': 'italic', 'marginBottom': '12px',
+                                    'letterSpacing': '0.3px'}),
+                    build_defending_transition_skeleton(),
+                ]),
                 label='Defensive Transition',
                 tab_id='ta-trans-defend',
                 tab_style={'flex': '1'},
@@ -51,7 +58,13 @@ def build_transitions_tab(**_):
                 active_label_style=_BTN_ACTIVE,
             ),
             dbc.Tab(
-                build_attacking_transition_skeleton(),
+                html.Div([
+                    html.Div('Transition from Defense to Attack',
+                             style={'fontSize': '0.95rem', 'color': GOLD,
+                                    'fontStyle': 'italic', 'marginBottom': '12px',
+                                    'letterSpacing': '0.3px'}),
+                    build_attacking_transition_skeleton(),
+                ]),
                 label='Attacking Transition',
                 tab_id='ta-trans-attack',
                 tab_style={'flex': '1'},

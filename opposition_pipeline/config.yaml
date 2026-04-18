@@ -106,6 +106,7 @@ opponents:
 
   - team_name: "Athletic Club"
     country: "Spain"
+    search_name: "Athletic"      # Scoresway shows "Athletic" not "Athletic Club"
     competitions:
       - Spain_Primera_Division
       - Spain_Copa_del_Rey
@@ -136,6 +137,7 @@ opponents:
 
   - team_name: "Real Betis"
     country: "Spain"
+    search_name: "Betis"         # Scoresway shows "Betis" not "Real Betis"
     competitions:
       - Spain_Primera_Division
       - Spain_Copa_del_Rey
@@ -170,12 +172,14 @@ opponents:
 
   - team_name: "Celta de Vigo"
     country: "Spain"
+    search_name: "Celta"         # Scoresway shows "Celta" not "Celta de Vigo"
     competitions:
       - Spain_Primera_Division
       - Spain_Copa_del_Rey
 
   - team_name: "Rayo Vallecano"
     country: "Spain"
+    search_name: "Rayo"          # Scoresway shows "Rayo" not "Rayo Vallecano"
     competitions:
       - Spain_Primera_Division
       - Spain_Copa_del_Rey
@@ -213,6 +217,7 @@ opponents:
 
   - team_name: "Real Oviedo"
     country: "Spain"
+    search_name: "Oviedo"        # Scoresway shows "Oviedo" not "Real Oviedo"
     competitions:
       - Spain_Primera_Division
       - Spain_Copa_del_Rey
@@ -251,7 +256,7 @@ opponents:
 
   - team_name: "Newcastle United"
     country: "England"
-    search_name: "Newcastle Utd"   # "Newcastle" matched Newcastle Town (amateur FA Cup teams)
+    search_name: "Newcastle"       # Scoresway uses "Newcastle"; FA Cup false-positives (Newcastle B/Town) have no event data
     competitions:
       - England_Premier_League
       - England_FA_Cup

@@ -40,26 +40,24 @@ Login credentials: `Guest / guest` (read-only) or `Rishi / admin` (admin, can tr
 app.py
 └── pages/
     ├── home.py                       ← Season overview + pipeline trigger UI
-    ├── match_report.py               ← Match Report (was match_analysis.py)  /match-report
-    ├── barca_dna.py                  ← Player analysis                       /barca-dna
-    ├── barca_iq.py                   ← Team analysis                         /barca-iq
-    ├── opposition_analysis.py                                                 /opposition-analysis
+    ├── match_report.py               ← Match Report (phase-based post-match)  /match-report
+    ├── barca_dna.py                  ← Player analysis                        /barca-dna
+    ├── barca_iq.py                   ← Team analysis                          /barca-iq
+    ├── opposition_analysis.py                                                  /opposition-analysis
     ├── match_analysis_tabs/          ← 7 sub-tabs, shared constants in shared.py
-    ├── team_analysis_tabs/           ← 7 sub-tabs (overview + 6 analytical)
-    └── opposition_analysis_tabs/     ← 7 sub-tabs
+    ├── team_analysis_tabs/           ← 6 sub-tabs (overview + 5 analytical)
+    └── opposition_analysis_tabs/     ← 6 sub-tabs
 ```
 
 **URL → page file mapping** (configured in `app.py:update_main_container`):
 
-| URL | File | Layout function exported as |
-|-----|------|-----------------------------|
+| URL | File | Layout function |
+|-----|------|-----------------|
 | `/` | `home.py` | `create_home_layout` |
 | `/match-report` | `match_report.py` | `create_match_analysis_layout` |
 | `/barca-dna` | `barca_dna.py` | `create_player_analysis_layout` |
 | `/barca-iq` | `barca_iq.py` | `create_team_analysis_layout` |
 | `/opposition-analysis` | `opposition_analysis.py` | `create_opposition_analysis_layout` |
-
-> Note: the old `match_analysis.py`, `player_analysis.py`, and `team_analysis.py` files have been removed. Do not reference them.
 
 ### Flask Route — PDF Report
 
@@ -75,9 +73,71 @@ Home  |  Barça DNA  |  Barça IQ  |  Match Report  |  Opposition Analysis
 
 ### Data Layer
 
-All Barcelona data is loaded exclusively through `utils/data_utils.py`. Data lives at `data/barcelona/result/{Competition}/{Season}/{match|match_event|lineup}/`. The module maintains an in-process cache (`_events_cache`) that must be cleared via `clear_events_cache()` after a pipeline run — page reloads alone do not clear it.
+**Barcelona data** — loaded exclusively through `utils/data_utils.py`. Parquet files live at `data/barcelona/result/{Competition}/{Season}/{match|match_event|lineup}/`. The module maintains an in-process cache (`_events_cache`) cleared via `clear_events_cache()` after pipeline runs — page reloads alone do not clear it.
 
-Opposition data is accessed through `utils/opposition_data_utils.py`, stored at `data/opposition/{Country}/{Team}/{Competition}/{Season}/`.
+**Opposition data** — accessed through `utils/opposition_data_utils.py`, stored at `data/opposition/{Country}/{Team}/{Competition}/{Season}/`. Important: the module renames `event_type_id` → `type_id` on load, so opposition tab modules use `type_id` not `event_type_id`.
+
+### Utils Layer
+
+| Module | Purpose |
+|--------|---------|
+| `utils/event_utils.py` | Canonical event-extraction functions — **always use these, never filter inline** |
+| `utils/match_data_adapter.py` | Phase-tagged match analysis: possession, transitions, set pieces, counterpress, pass networks |
+| `utils/player_analysis/metrics.py` | Per-player stat computation, percentiles, A–D rating dimensions |
+| `utils/player_analysis/wyscout_weights.py` | Wyscout position weights loaded from `assets/wyscout_weights/*.xlsx` |
+| `utils/logos.py` | `get_team_logo_path()`, `get_tournament_logo_path()`, `get_country_flag_path()` — maps data names to asset paths |
+| `utils/xg_utils.py` | `add_xg_column(shots_df)` bridge to the xG model |
+| `utils/config.py` | `COLORS`, `APP_CONFIG`, `NAV_LINKS` only |
+
+### Event Helpers — `utils/event_utils.py`
+
+**Always import from here instead of filtering inline.** The functions encode the correct qualifier conventions from the parquet schema.
+
+```python
+from utils.event_utils import (
+    # ── Event type selectors ──────────────────────────────────────────
+    get_passes, get_shots, get_shots_on_target, get_goals,
+    get_tackles, get_successful_tackles,
+    get_interceptions, get_ball_recoveries, get_clearances,
+    get_aerials, get_aerial_wins,
+    get_take_ons, get_successful_take_ons,
+    get_challenges, get_successful_challenges,
+    get_fouls, get_penalty_fouls,
+    get_cards, get_yellow_cards, get_second_yellow_cards, get_red_cards,
+    get_touches, get_corners, get_saves, get_errors, get_dispossessions,
+
+    # ── Pass sub-types ────────────────────────────────────────────────
+    get_accurate_passes,
+    get_goal_assists,      # Assist == 16  (pass led to a Goal)
+    get_key_passes,        # Assist in [13,14,15]  (pass led to a non-goal shot)
+    get_any_assist_passes, # Assist in [13-16]
+    get_long_balls, get_crosses, get_through_balls, get_head_passes,
+    get_chipped_passes, get_switch_passes,
+    get_free_kick_passes, get_corner_passes,
+    get_own_half_passes, get_opposition_half_passes, get_progressive_passes,
+
+    # ── Shot sub-types ────────────────────────────────────────────────
+    get_big_chances, get_headed_shots, get_direct_free_kick_shots,
+    get_assisted_shots, get_box_shots,
+
+    # ── Rate helpers (return float 0-100) ─────────────────────────────
+    pct_pass_accuracy, pct_aerial_win, pct_take_on,
+    pct_shot_on_target, pct_cross_accuracy, pct_long_ball_accuracy,
+    pct_tackle_success,
+
+    # ── Count helpers (return int) ────────────────────────────────────
+    count_appearances, count_goal_assists, count_key_passes,
+    count_shots, count_shots_on_target, count_total_minutes,
+
+    # ── Own goal handling ─────────────────────────────────────────────
+    filter_out_opponent_goals,  # drop Goals scored by the other team_code
+
+    # ── Composite stats dict ──────────────────────────────────────────
+    compute_event_stats,  # full aggregate dict from any filtered events DF
+)
+```
+
+Key `compute_event_stats` output keys: `apps`, `total_minutes`, `mins_per_app`, `touches`, `goals`, `goals_app`, `assists`, `assists_app`, `shots`, `shot_acc`, `goal_conv`, `key_passes`, `key_passes_app`, `passes`, `pass_acc`, `own_h_acc`, `opp_h_acc`, `long_ball_acc`, `cross_acc`, `through_balls`, `tackles`, `tackle_pct`, `intercepts_app`, `recoveries_app`, `clearances_app`, `aerials`, `aerial_win_pct`, `take_ons`, `takeon_pct`, `duel_pct`, `fouls`, `penalty_fouls`, `yellow_cards`, `red_cards`, `dispossessions`.
 
 ### page_utils — Shared Analytical Helpers
 
@@ -105,9 +165,13 @@ Opposition data is accessed through `utils/opposition_data_utils.py`, stored at 
 
 Score headline callback lives in `match_report.py` (not in `overview.py`).
 
-**team_analysis_tabs/** (used by `barca_iq.py`):
+**team_analysis_tabs/** (6 tabs, used by `barca_iq.py`):
 
-`overview`, `buildup`, `chance_creation`, `def_structure`, `transitions` (split across `attacking_transition.py` + `defensive_transition.py`), `set_pieces`
+`overview`, `buildup`, `chance_creation`, `def_structure`, `transitions` (orchestrates `attacking_transition.py` + `defensive_transition.py`), `set_pieces`
+
+**opposition_analysis_tabs/** (6 tabs, used by `opposition_analysis.py`):
+
+`overview`, `buildup`, `chance_creation`, `transitions`, `defence`, `set_pieces`
 
 ### Pitch Plots
 
@@ -126,10 +190,129 @@ Zone boundaries (both teams, no flip needed):
 
 ### Pipeline Architecture
 
-Both pipelines (Barcelona and opposition) share the same modules from `opta_pipeline/modules/`. The pipeline stages are Scrape → Download → Transform, each writing Parquet files. `opta_pipeline/main.py` writes `logs/progress.json` after each step; `app.py` polls this every 2 s for live UI updates.
+Both pipelines share modules from `opta_pipeline/modules/`. Stages: Scrape → Download → Transform, each writing Parquet files. `opta_pipeline/main.py` writes `logs/progress.json` after each step; `app.py` polls it every 2 s for live overlay updates.
 
-**Typo note**: `"Team setp up"` (typeId=34) exists intentionally in both `mappings/opta_event_types.csv` and `matchevent_transformer.py:156` — they are consistent with each other. Fix both together or neither.
+**Typo note**: `"Team setp up"` (typeId=34) exists intentionally in both `mappings/opta_event_types.csv` and `opta_pipeline/modules/transformers/matchevent_transformer.py:156` — they are consistent. Fix both together or neither.
+
+### Event Data Reference (from actual parquet files)
+
+Each parquet in `data/barcelona/result/{Competition}/{Season}/match_event/` has **250 columns** and covers all events from both teams in the match.
+
+#### Core fields (always present)
+| Column | Values / Notes |
+|--------|---------------|
+| `event_type` | String. See event types below. |
+| `event_type_id` | Integer. |
+| `outcome` | `1` = success, `0` = failure (integer). Present on Pass, Tackle, Take On, Aerial, Interception, Ball recovery. Interceptions and Ball recoveries are always `1`. |
+| `x`, `y` | Float. Pitch coordinates (0–100). x=0 own goal, x=100 opponent goal. |
+| `team_code` | `'BAR'` for Barcelona, opponent code otherwise. All events from both teams are in each file. |
+| `position` | Opta position string: `GK, CB, LB, RB, LWB, RWB, CDM, CM, MC, CAM, LM, RM, LW, RW, CF`. `'N/A'` when missing. |
+| `player_name` | String. |
+| `Jersey Number` | String (e.g. `'9'`). |
+| `Pass End X`, `Pass End Y` | Float. Destination coordinates for pass events. Always populated on passes. |
+| `Length`, `Angle` | Float. Pass distance and angle. Always populated on passes. |
+| `Zone` | `'Back'`, `'Center'`, `'Right'`, `'Left'`, `'N/A'`. Pitch zone from the player's perspective. |
+
+#### Event types (full list with IDs)
+```
+Pass (1)              Ball recovery (49)    Take On (3)
+Foul (4)              Aerial (44)           Tackle (7)
+Interception (8)      Save (10)             Saved Shot (15)
+Miss (13)             Goal (16)             Post (14)
+Blocked Pass (74)     Clearance (12)        Dispossessed (50)
+Ball touch (61)       Challenge (45)        Out (5)
+Corner Awarded (6)    Offside Pass (2)      Offside provoked (55)
+Card (17)             Error (51)            Keeper pick-up (52)
+Player Off (18)       Player on (19)        Formation change (40)
+Punch (41)            Keeper Sweeper (59)   Shield ball opp (56)
+Good skill (42)       Chance missed (60)    Deleted event (43)
+Start/End/Start delay/End delay (32/30/27/28)
+Team setp up (34)     [note: intentional typo]
+```
+
+**Important**: `'Ball recovery'` is lowercase-r — `events["event_type"] == "Ball recovery"`.
+
+#### Pass qualifiers (boolean: `'Si'` present, `'N/A'` absent)
+| Qualifier | Meaning |
+|-----------|---------|
+| `Long ball` | Long aerial pass |
+| `Cross` | Crossing pass from wide area |
+| `Head pass` | Pass played with the head |
+| `Through ball` | Ball played through for a run |
+| `Chipped` | Chipped/lobbed pass |
+| `Launch` | Goal-kick or long hoof launch |
+| `Lay-off` | One-touch lay-off |
+| `Flick-on` | Flick-on header/touch |
+| `Pull Back` | Pull-back from byline |
+| `Switch of play` | Ball switched across the pitch |
+| `Free kick taken` | Pass taken from a free kick |
+| `Corner taken` | Pass taken from a corner |
+| `Throw In` | Throw-in |
+| `Goal Kick` | Goal kick |
+| `Keeper Throw` | Goalkeeper throw |
+| `Gk kick from hands` | GK distribution from hands |
+| `Right footed` / `Left footed` | Foot used |
+| `High` | Ball played in the air |
+| `From corner` | Pass originating from a corner |
+| `Fast break` | Pass during fast break |
+| `Intentional Assist` | Pass was an intentional assist (no deflection) |
+| `Inswinger` / `Outswinger` / `Straight` | Corner/cross delivery type |
+| `2nd assist` | Pass that led to the assist pass |
+
+#### `Assist` qualifier on passes (numeric)
+The `Assist` column contains the **event type ID of the resulting shot**:
+- `'13'` → assisted a **Miss** (key pass)
+- `'14'` → assisted a **Post** (key pass)
+- `'15'` → assisted a **Saved Shot** (key pass)
+- `'16'` → assisted a **Goal** (goal assist)
+- `'N/A'` → not an assist
+
+All assist passes have `outcome == 1`. Correct formulas:
+```python
+goal_assists = pass_rows['Assist'] == '16'          # or == 16 after pd.to_numeric
+key_passes   = (
+    pass_rows['Assist'].isin(['13','14','15'])       # direct key pass (pass leading to shot)
+    | (pass_rows.get('2nd assist', 'N/A') == 'Si')  # 2nd assist / pre-assist (pass leading to assist pass)
+)
+any_assist   = pass_rows['Assist'].isin(['13','14','15','16']) | (pass_rows.get('2nd assist', 'N/A') == 'Si')
+```
+**Do not use** `Leading to attempt` or `Leading to goal` for assists — those are qualifiers on **Error (type 51)** events containing the related event ID, not pass qualifiers.
+
+#### Shot qualifiers
+| Qualifier | Meaning |
+|-----------|---------|
+| `Head` | Header |
+| `Right footed` / `Left footed` | Foot used |
+| `Big Chance` | Tagged as a big chance (`'Si'`) |
+| `Assisted` | Shot was assisted (`'Si'` on the shot event, not the pass) |
+| `Intentional Assist` | Assist was intentional |
+| `Direct free` | Direct free kick shot |
+| `Regular play` / `Fast break` / `From corner` / `Set piece` | Situation |
+| `Small box-centre`, `Box-centre`, `Box-right`, `Box-left`, ... | Shot location zones |
+| `Goal Mouth Y Coordinate`, `Goal Mouth Z Coordinate` | Goal mouth position (float strings) |
+| `own goal` | **Always `'N/A'`** — own goals are NOT flagged with this qualifier. Own goals are identified by the scoring player's `team_code` not matching the conceding team's code (i.e. an opponent-team player's Goal event). |
+
+#### Defensive event outcomes
+| Event | outcome=1 | outcome=0 |
+|-------|-----------|-----------|
+| `Tackle` | Successful | Unsuccessful |
+| `Interception` | Always 1 | — |
+| `Ball recovery` | Always 1 | — |
+| `Take On` | Dribble succeeded | Dribble failed |
+| `Aerial` | Won | Lost |
+| `Challenge` | Won | Lost |
+| `Pass` | Accurate | Inaccurate |
+
+#### Foul / Card / Penalty
+- **Foul**: `Penalty` qualifier (`'Si'`) marks penalty fouls. **Stored as two rows** (one per team) — filter to the committing team's row for analysis.
+- **Card**: `Yellow Card`, `Second yellow`, `Red Card` qualifiers are `'Si'` on the relevant row.
+
+#### Own goals
+`own goal` qualifier is **always `'N/A'`** in practice. Own goals are identified programmatically: a Goal event where the scoring player's team is the opponent. Use `filter_own_goals()` / `exclude_own_goals()` from `utils/data_utils.py`.
+
+#### Error events (type 51)
+The `Leading to attempt` and `Leading to goal` columns on Error events contain the **related event ID** (a number string like `'454'`), not a boolean flag. They link the error to the resulting shot/goal event.
 
 ### UI / Styling
 
-Color tokens are in `utils/config.py` (`COLORS` dict — only `COLORS`, `APP_CONFIG`, `NAV_LINKS` remain) and mirrored as CSS variables in `assets/style.css`. Import from `page_utils/visualizations.py` for pitch plot constants (`HOME_COLOR`, `AWAY_COLOR`, `GOLD`). Image paths in `home.py` use the format `'assets/...'` (no leading `/`).
+Color tokens are in `utils/config.py` (`COLORS` dict) and mirrored as CSS variables in `assets/style.css`. Import from `page_utils/visualizations.py` for pitch plot constants (`HOME_COLOR`, `AWAY_COLOR`, `GOLD`). Image paths use the format `'assets/...'` (no leading `/`).

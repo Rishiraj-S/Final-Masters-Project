@@ -25,6 +25,14 @@ import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 
 from utils.data_utils import count_goals
+from utils.event_utils import (
+    get_passes, get_accurate_passes, get_goals, get_shots, get_shots_on_target,
+    get_take_ons, get_successful_take_ons,
+    get_tackles, get_interceptions, get_ball_recoveries, get_clearances,
+    get_through_balls, get_long_balls, get_crosses, get_switch_passes,
+    get_goal_assists, get_big_chances, get_headed_shots,
+    get_fouls, get_cards, get_corners,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -140,18 +148,18 @@ def compute_team_kpis(events: pd.DataFrame, team_position: str) -> Dict[str, Any
     """
     team = events[events['team_position'] == team_position] if _has_col(events, 'team_position') else events.iloc[0:0]
 
-    passes = team[team['event_type'] == 'Pass'] if not team.empty else team
+    passes = get_passes(team) if not team.empty else team
     total_passes = len(passes)
-    successful_passes = len(passes[passes['outcome'] == 1]) if _has_col(passes, 'outcome') and not passes.empty else 0
+    successful_passes = len(get_accurate_passes(team)) if not team.empty else 0
 
     # Post (type_id=14) = ball hits frame, still counts as a shot attempt
     shot_types = ['Miss', 'Post', 'Saved Shot', 'Goal']
 
     # Own-goal-aware goal counting
-    all_goals = events[events['event_type'] == 'Goal'] if not events.empty else events.iloc[0:0]
+    all_goals = get_goals(events) if not events.empty else events.iloc[0:0]
     home_goal_count, away_goal_count = count_goals(all_goals)
     goals = home_goal_count if team_position == 'home' else away_goal_count
-    shots = len(team[team['event_type'].isin(shot_types)]) if not team.empty else 0
+    shots = len(get_shots(team)) if not team.empty else 0
 
     # Shots on target: GK saves (Saved Shot WITHOUT 'Blocked' qualifier) + goals.
     # 'Saved Shot' with Blocked='Si' means blocked by outfield player, not on target.
@@ -167,18 +175,20 @@ def compute_team_kpis(events: pd.DataFrame, team_position: str) -> Dict[str, Any
 
     # Fouls: each foul produces two paired rows (committer outcome=1, receiver outcome=0).
     # Count only outcome=1 to get fouls committed by this team.
+    _fouls = get_fouls(team) if not team.empty else team
     if not team.empty and _has_col(team, 'outcome'):
-        fouls = len(team[(team['event_type'] == 'Foul') & (team['outcome'] == 1)])
+        fouls = len(_fouls[_fouls['outcome'] == 1])
     else:
-        fouls = len(team[team['event_type'] == 'Foul']) if not team.empty else 0
+        fouls = len(_fouls)
 
     # Corners: same paired-row structure. outcome=1 = team that won the corner kick.
+    _corners = get_corners(team) if not team.empty else team
     if not team.empty and _has_col(team, 'outcome'):
-        corners = len(team[(team['event_type'] == 'Corner Awarded') & (team['outcome'] == 1)])
+        corners = len(_corners[_corners['outcome'] == 1])
     else:
-        corners = len(team[team['event_type'] == 'Corner Awarded']) if not team.empty else 0
+        corners = len(_corners)
 
-    cards = team[team['event_type'] == 'Card'] if not team.empty else team
+    cards = get_cards(team) if not team.empty else team
     yellow = int(_flag_is_set(cards, 'Yellow Card').sum()) if not cards.empty else 0
     red = int(_flag_is_set(cards, 'Red Card').sum()) if not cards.empty else 0
 
@@ -188,8 +198,8 @@ def compute_team_kpis(events: pd.DataFrame, team_position: str) -> Dict[str, Any
         t = evts[evts['team_position'] == pos] if _has_col(evts, 'team_position') else evts.iloc[0:0]
         if t.empty:
             return 0
-        succ = len(t[(t['event_type'] == 'Pass') & (t['outcome'] == 1)]) if _has_col(t, 'outcome') else 0
-        take_ons = len(t[t['event_type'] == 'Take On'])
+        succ = len(get_accurate_passes(t))
+        take_ons = len(get_take_ons(t))
         return succ + take_ons
 
     home_poss_score = _poss_score(events, 'home')
@@ -208,17 +218,14 @@ def compute_team_kpis(events: pd.DataFrame, team_position: str) -> Dict[str, Any
     offsides = len(team[team['event_type'] == 'Offside Pass']) if not team.empty else 0
 
     # Interceptions: attributed to the intercepting team (not paired)
-    interceptions = len(team[team['event_type'] == 'Interception']) if not team.empty else 0
+    interceptions = len(get_interceptions(team)) if not team.empty else 0
 
     # Goal assists: passes with Assist qualifier == 16
-    assists = 0
-    if not passes.empty and 'Assist' in passes.columns:
-        import pandas as _pd
-        assists = int((_pd.to_numeric(passes['Assist'], errors='coerce') == 16).sum())
+    assists = len(get_goal_assists(team)) if not team.empty else 0
 
     # xG: sum of per-shot expected goals (routes to open play / DFK / penalty model)
     xg = 0.0
-    shots_df = team[team['event_type'].isin(shot_types)] if not team.empty else team.iloc[0:0]
+    shots_df = get_shots(team) if not team.empty else team.iloc[0:0]
     if not shots_df.empty:
         try:
             from utils.xg_utils import add_xg_column
@@ -259,8 +266,7 @@ def compute_shot_quality_summary(events: pd.DataFrame, team_position: str) -> Di
         ``Out of box-*``.
     """
     team = events[events['team_position'] == team_position] if _has_col(events, 'team_position') else events.iloc[0:0]
-    shot_types = ['Miss', 'Saved Shot', 'Goal']
-    shots = team[team['event_type'].isin(shot_types)] if not team.empty else team
+    shots = get_shots(team) if not team.empty else team
 
     if shots.empty:
         return {'total_shots': 0, 'inside_box': 0, 'outside_box': 0,
@@ -280,14 +286,14 @@ def compute_shot_quality_summary(events: pd.DataFrame, team_position: str) -> Di
     for col in outside_box_cols:
         outside_box = outside_box | _flag_is_set(shots, col)
 
-    goals = len(shots[shots['event_type'] == 'Goal'])
+    goals = len(get_goals(shots))
     total = len(shots)
 
     return {
         'total_shots': total,
         'inside_box': int(inside_box.sum()),
         'outside_box': int(outside_box.sum()),
-        'big_chances': int(_flag_is_set(shots, 'Big Chance').sum()),
+        'big_chances': len(get_big_chances(shots)),
         'conversion_rate': round(goals / total * 100, 1) if total > 0 else 0.0,
     }
 
@@ -467,9 +473,9 @@ def get_build_up_stats(tagged_events: pd.DataFrame) -> Dict[str, Any]:
     bu = tagged_events[tagged_events['possession_phase'].eq('build_up')] \
         if 'possession_phase' in tagged_events.columns else tagged_events.iloc[0:0]
 
-    passes = bu[bu['event_type'] == 'Pass'] if not bu.empty else bu
+    passes = get_passes(bu) if not bu.empty else bu
     total = len(passes)
-    successful = len(passes[passes['outcome'] == 1]) if _has_col(passes, 'outcome') and not passes.empty else 0
+    successful = len(get_accurate_passes(bu)) if not bu.empty else 0
 
     # Progressive passes: end_x > x + 10
     progressive = 0
@@ -498,15 +504,15 @@ def get_progression_stats(tagged_events: pd.DataFrame) -> Dict[str, Any]:
     prog = tagged_events[tagged_events['possession_phase'].eq('progression')] \
         if 'possession_phase' in tagged_events.columns else tagged_events.iloc[0:0]
 
-    passes = prog[prog['event_type'] == 'Pass'] if not prog.empty else prog
-    take_ons = prog[prog['event_type'] == 'Take On'] if not prog.empty else prog
+    passes   = get_passes(prog)   if not prog.empty else prog
+    take_ons = get_take_ons(prog) if not prog.empty else prog
 
-    through_balls = int(_flag_is_set(passes, 'Through ball').sum()) if not passes.empty else 0
-    long_balls = int(_flag_is_set(passes, 'Long ball').sum()) if not passes.empty else 0
-    crosses = int(_flag_is_set(passes, 'Cross').sum()) if not passes.empty else 0
-    switches = int(_flag_is_set(passes, 'Switch of play').sum()) if not passes.empty else 0
+    through_balls = len(get_through_balls(passes)) if not passes.empty else 0
+    long_balls    = len(get_long_balls(passes))     if not passes.empty else 0
+    crosses       = len(get_crosses(passes))         if not passes.empty else 0
+    switches      = len(get_switch_passes(passes))   if not passes.empty else 0
 
-    successful_take_ons = len(take_ons[take_ons['outcome'] == 1]) if _has_col(take_ons, 'outcome') and not take_ons.empty else 0
+    successful_take_ons = len(get_successful_take_ons(take_ons)) if not take_ons.empty else 0
 
     return {
         'total_passes': len(passes),
@@ -531,8 +537,8 @@ def get_fast_break_stats(tagged_events: pd.DataFrame) -> Dict[str, Any]:
     fb = tagged_events[tagged_events['possession_phase'].eq('fast_break')] \
         if 'possession_phase' in tagged_events.columns else tagged_events.iloc[0:0]
 
-    shots = fb[fb['event_type'].isin(['Miss', 'Saved Shot', 'Goal'])] if not fb.empty else fb
-    goals = fb[fb['event_type'] == 'Goal'] if not fb.empty else fb
+    shots = get_shots(fb) if not fb.empty else fb
+    goals = get_goals(fb) if not fb.empty else fb
 
     return {
         'total_actions': len(fb),
@@ -555,14 +561,14 @@ def get_finishing_stats(tagged_events: pd.DataFrame) -> Dict[str, Any]:
         return {'total_shots': 0, 'on_target': 0, 'goals': 0,
                 'headed': 0, 'right_foot': 0, 'left_foot': 0, 'assisted': 0}
 
-    on_target = len(fin[fin['event_type'].isin(['Saved Shot', 'Goal'])])
-    goals = len(fin[fin['event_type'] == 'Goal'])
+    on_target = len(get_shots_on_target(fin))
+    goals     = len(get_goals(fin))
 
     return {
         'total_shots': len(fin),
         'on_target': on_target,
         'goals': goals,
-        'headed': int(_flag_is_set(fin, 'Head').sum()),
+        'headed': len(get_headed_shots(fin)),
         'right_foot': int(_flag_is_set(fin, 'Right footed').sum()),
         'left_foot': int(_flag_is_set(fin, 'Left footed').sum()),
         'assisted': int(_flag_is_set(fin, 'Assisted').sum()),
@@ -711,13 +717,8 @@ def get_transition_summary(events: pd.DataFrame) -> Dict[str, Any]:
     ca_sequences = get_counterattack_sequences(events)
     cp_sequences = get_counterpress_sequences(events)
 
-    ca_goals = sum(
-        1 for seq in ca_sequences if (seq['event_type'] == 'Goal').any()
-    )
-    ca_shots = sum(
-        len(seq[seq['event_type'].isin(['Miss', 'Saved Shot', 'Goal'])])
-        for seq in ca_sequences
-    )
+    ca_goals = sum(1 for seq in ca_sequences if not get_goals(seq).empty)
+    ca_shots = sum(len(get_shots(seq)) for seq in ca_sequences)
 
     cp_recoveries = sum(
         1 for seq in cp_sequences
@@ -795,9 +796,8 @@ def get_set_piece_summary(events: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
     def _summarise(sp_dict):
         summary = {}
         for sp_type, sp_df in sp_dict.items():
-            shot_types = ['Miss', 'Saved Shot', 'Goal']
-            shots = sp_df[sp_df['event_type'].isin(shot_types)] if not sp_df.empty else sp_df
-            goals = sp_df[sp_df['event_type'] == 'Goal'] if not sp_df.empty else sp_df
+            shots = get_shots(sp_df) if not sp_df.empty else sp_df
+            goals = get_goals(sp_df) if not sp_df.empty else sp_df
             summary[sp_type] = {
                 'count': len(sp_df),
                 'shots': len(shots),
@@ -916,13 +916,12 @@ def get_shot_locations(events: pd.DataFrame, team_code: str = 'BAR') -> pd.DataF
     Returns DataFrame with columns: x, y, event_type, player_name, time_min,
     outcome.  Only includes events with valid x/y coordinates.
     """
-    shot_types = ['Miss', 'Saved Shot', 'Goal']
     if _has_col(events, 'team_code'):
         team = events[events['team_code'] == team_code]
     else:
         team = events
 
-    shots = team[team['event_type'].isin(shot_types)].copy() if not team.empty else team.iloc[0:0]
+    shots = get_shots(team).copy() if not team.empty else team.iloc[0:0]
 
     if shots.empty or not _has_col(shots, 'x') or not _has_col(shots, 'y'):
         return pd.DataFrame(columns=['x', 'y', 'event_type', 'player_name', 'time_min', 'outcome'])
@@ -947,7 +946,7 @@ def get_pass_network_data(events: pd.DataFrame, team_code: str = 'BAR') -> Tuple
     else:
         team = events
 
-    passes = team[team['event_type'] == 'Pass'].copy() if not team.empty else team.iloc[0:0]
+    passes = get_passes(team).copy() if not team.empty else team.iloc[0:0]
 
     if passes.empty or not _has_col(passes, 'x') or not _has_col(passes, 'y'):
         return (

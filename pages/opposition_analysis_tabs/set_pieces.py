@@ -1068,11 +1068,11 @@ def register_set_pieces_callbacks(app) -> None:
         Input('osp-fk-bands',       'value'),
         Input('osp-fk-h1-time',     'value'),
         Input('osp-fk-h2-time',     'value'),
-        State('oa-team-select',     'value'),
-        State('oa-comp-select',     'value'),
-        State('oa-venue-filter',    'value'),
-        State('oa-selected-matches','data'),
-        State('oa-date-filter',     'date'),
+        Input('oa-team-select',     'value'),
+        Input('oa-comp-select',     'value'),
+        Input('oa-venue-filter',    'value'),
+        Input('oa-selected-matches','data'),
+        Input('oa-date-filter',     'date'),
     )
     def _update_fk(players, outcomes, start_thirds, end_thirds, bands,
                    h1_range, h2_range,
@@ -1146,11 +1146,11 @@ def register_set_pieces_callbacks(app) -> None:
         Input('osp-corner-outcome',  'value'),
         Input('osp-corner-h1-time',  'value'),
         Input('osp-corner-h2-time',  'value'),
-        State('oa-team-select',      'value'),
-        State('oa-comp-select',      'value'),
-        State('oa-venue-filter',     'value'),
-        State('oa-selected-matches', 'data'),
-        State('oa-date-filter',      'date'),
+        Input('oa-team-select',      'value'),
+        Input('oa-comp-select',      'value'),
+        Input('oa-venue-filter',     'value'),
+        Input('oa-selected-matches', 'data'),
+        Input('oa-date-filter',      'date'),
     )
     def _update_corners(players, outcomes, h1_range, h2_range,
                         team, comp, venue, match_ids, date_cutoff):
@@ -1212,10 +1212,10 @@ def register_set_pieces_callbacks(app) -> None:
         Output('osp-pen-table', 'children'),
         Input('osp-pen-player',      'value'),
         Input('oa-comp-select',      'value'),
-        State('oa-team-select',      'value'),
-        State('oa-venue-filter',     'value'),
-        State('oa-selected-matches', 'data'),
-        State('oa-date-filter',      'date'),
+        Input('oa-team-select',      'value'),
+        Input('oa-venue-filter',     'value'),
+        Input('oa-selected-matches', 'data'),
+        Input('oa-date-filter',      'date'),
     )
     def _update_penalties(players, comp, team, venue, match_ids, date_cutoff):
 

@@ -10,10 +10,8 @@ import io
 import base64
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as mpe
-from mplsoccer import Pitch
+from mplsoccer import Pitch, VerticalPitch
 import pandas as pd
-import plotly.graph_objects as go
-
 from dash import html, dcc, ctx
 from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
@@ -33,8 +31,6 @@ from page_utils.visualizations import (
     HOME_COLOR,
     AWAY_COLOR,
     GOLD,
-    add_vertical_pitch_background,
-    VPITCH_AXIS,
 )
 
 
@@ -66,7 +62,7 @@ def _ov_period_btn_style(active: bool) -> dict:
 
 
 def _build_controls_bar() -> html.Div:
-    """Period toggle + subs checkbox arranged in one neat horizontal row."""
+    """Period toggle buttons."""
     return html.Div([
         html.Span("Period:", style={
             'color': COLORS['text_secondary'], 'fontSize': '0.85rem',
@@ -80,26 +76,6 @@ def _build_controls_bar() -> html.Div:
                         style=_ov_period_btn_style(active=(val == 'full')))
             for label, val in _OV_PERIOD_OPTIONS
         ], style={'display': 'flex', 'gap': '6px', 'alignItems': 'center'}),
-        # Vertical divider
-        html.Div(style={
-            'width': '1px', 'height': '22px',
-            'backgroundColor': COLORS['dark_border'],
-            'margin': '0 16px', 'alignSelf': 'center', 'flexShrink': '0',
-        }),
-        dcc.Checklist(
-            id='pma-ov-subs-toggle',
-            options=[{'label': '  Show substitutes', 'value': 'subs'}],
-            value=[],
-            labelStyle={
-                'color': COLORS['text_secondary'], 'fontSize': '0.85rem',
-                'cursor': 'pointer', 'userSelect': 'none',
-                'alignSelf': 'center', 'whiteSpace': 'nowrap',
-            },
-            inputStyle={
-                'marginRight': '6px', 'accentColor': GOLD,
-                'cursor': 'pointer', 'width': '14px', 'height': '14px',
-            },
-        ),
     ], style={
         'display': 'flex', 'alignItems': 'center',
         'flexWrap': 'wrap', 'gap': '4px',
@@ -330,42 +306,31 @@ def _format_formation(formation_str: str) -> str:
 
 
 # =============================================================================
-# Lineup pitch image generator (pitch only — side panels are HTML)
+# Per-team vertical lineup pitch image
 # =============================================================================
 
-def _generate_lineup_pitch_image(
-    lineup_df: pd.DataFrame,
-    home_team: str,
-    away_team: str,
-    home_color: str,
-    away_color: str,
+def _generate_team_lineup_image(
+    starters: pd.DataFrame,
+    formation: str,
+    color: str,
 ) -> str | None:
     """
-    Render a compact horizontal mplsoccer pitch with both starting XIs.
+    Render a portrait VerticalPitch for one team.
 
-    Side panels (starters list + subs) are handled as HTML components,
-    so this function draws only the pitch itself.
+    GK sits at the bottom, attack goes upward. Formation slot coordinates are
+    scaled from the half-pitch range [4, 48] to the full-pitch range [8, 96]
+    so the team occupies the full pitch height.
+
     Returns a base64-encoded PNG string, or None on failure.
     """
-    if lineup_df is None or lineup_df.empty:
+    if starters is None or starters.empty:
         return None
 
-    home = lineup_df[lineup_df['team_position'] == 'home']
-    away = lineup_df[lineup_df['team_position'] == 'away']
-
-    home_start = home[home['role'] == 'Start'].copy()
-    away_start = away[away['role'] == 'Start'].copy()
-
-    home_fmt = home_start['formation'].iloc[0] if not home_start.empty else ''
-    away_fmt = away_start['formation'].iloc[0] if not away_start.empty else ''
-
-    # ── Figure — pitch only ───────────────────────────────────────────────────
-    fig, ax_p = plt.subplots(figsize=(15, 7.5), facecolor='#0A0E27')
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.90, bottom=0.02)
+    fig, ax_p = plt.subplots(figsize=(5, 8), facecolor='#0A0E27')
+    fig.subplots_adjust(left=0.01, right=0.99, top=0.92, bottom=0.02)
     ax_p.set_facecolor('#0A0E27')
 
-    # ── Draw pitch ────────────────────────────────────────────────────────────
-    pitch = Pitch(
+    pitch = VerticalPitch(
         pitch_type='opta',
         pitch_color='#3a7d44',
         line_color='white',
@@ -373,79 +338,87 @@ def _generate_lineup_pitch_image(
         stripe_color='#2e6b39',
         goal_type='box',
         goal_alpha=0.85,
-        pad_top=5, pad_bottom=5, pad_left=3, pad_right=3,
+        pad_top=10,
+        pad_bottom=5,
+        pad_left=3,
+        pad_right=3,
     )
     pitch.draw(ax=ax_p)
 
-    # ── "Starting XI" title above the pitch ───────────────────────────────────
-    fig.text(0.5, 0.97, 'Starting XI',
-             ha='center', va='top',
-             fontsize=16, color='white', fontweight='bold',
-             path_effects=[mpe.withStroke(linewidth=3, foreground='#0A0E27')])
-
-    # ── Player dots renderer ──────────────────────────────────────────────────
-    def _draw_players(starters, formation, is_home, dot_color):
-        xs, ys, jerseys, names, caps = [], [], [], [], []
-
-        for _, row in starters.iterrows():
-            slot = int(row['formation_slot'])
-            name = str(row.get('player_name', '') or '').strip()
-            try:
-                jersey = int(row['jersey_number'])
-            except (ValueError, TypeError):
-                jersey = ''
-            is_cap = bool(row.get('is_captain', False))
-            x, y = _get_slot_coords(formation, slot, is_home)
-            xs.append(x); ys.append(y)
-            jerseys.append(str(jersey)); names.append(name); caps.append(is_cap)
-
-        if not xs:
-            return
-
-        # Glow rings
-        pitch.scatter(xs, ys, s=900, c=dot_color, ax=ax_p,
-                      zorder=4, alpha=0.22, edgecolors='none')
-        # Main filled circles
-        pitch.scatter(xs, ys, s=650, c=dot_color, ax=ax_p,
-                      zorder=5, alpha=0.95, edgecolors='white', linewidths=1.6)
-
-        # Jersey numbers, names, and captain badges
-        for i, (x, y) in enumerate(zip(xs, ys)):
-            # Jersey number inside dot
-            ax_p.text(x, y, jerseys[i],
-                      ha='center', va='center',
-                      fontsize=9, fontweight='bold', color='white', zorder=7)
-            # Player name below dot — larger, readable
-            short = _shorten_name(names[i])
-            ax_p.text(x, y - 5.2, short,
-                      ha='center', va='top',
-                      fontsize=8.5, color='white', zorder=7,
-                      path_effects=[mpe.withStroke(linewidth=2.5,
-                                                    foreground='#0A0E27')])
-            # Captain badge
-            if caps[i]:
-                bx = x + (3.0 if is_home else -3.0)
-                by = y + 3.0
-                pitch.scatter([bx], [by], s=160, c=GOLD, ax=ax_p,
-                              zorder=8, edgecolors='none')
-                ax_p.text(bx, by, 'C',
-                          ha='center', va='center',
-                          fontsize=5.5, fontweight='bold', color='#0A0E27', zorder=9)
-
-    _draw_players(home_start, home_fmt, True,  home_color)
-    _draw_players(away_start, away_fmt, False, away_color)
-
-    # ── Formation labels ──────────────────────────────────────────────────────
-    for tx, fmt, col in [
-        (14,  _format_formation(home_fmt),  home_color),
-        (86,  _format_formation(away_fmt),  away_color),
-    ]:
-        ax_p.text(tx, 107, fmt,
+    # Formation label above the pitch
+    fmt_label = _format_formation(formation)
+    if fmt_label:
+        ax_p.text(50, 108, fmt_label,
                   ha='center', va='bottom',
-                  fontsize=13, color=col, fontweight='bold',
+                  fontsize=12, color=color, fontweight='bold',
                   path_effects=[mpe.withStroke(linewidth=2.5, foreground='#0A0E27')])
 
-    # ── Export ────────────────────────────────────────────────────────────────
+    # VerticalPitch coordinate convention (mplsoccer transposes internally):
+    #   pitch.scatter(x, y)  →  x = along-pitch / depth (opta_x * 2),
+    #                            y = lateral              (opta_y)
+    #   ax_p.text(x, y)      →  x = lateral (figure horizontal = opta_y),
+    #                            y = depth   (figure vertical   = opta_x * 2)
+    #
+    # So pitch.scatter(depth, lateral) and ax_p.text(lateral, depth) land on the same spot.
+    sc_xs:   list[float] = []   # along-pitch / depth  (for pitch.scatter first arg)
+    sc_ys:   list[float] = []   # lateral               (for pitch.scatter second arg)
+    tx_xs:   list[float] = []   # lateral               (for ax_p.text first arg)
+    tx_ys:   list[float] = []   # depth                 (for ax_p.text second arg)
+    jerseys: list[str]   = []
+    names:   list[str]   = []
+    caps:    list[bool]  = []
+
+    for _, row in starters.iterrows():
+        slot = int(row['formation_slot'])
+        name = str(row.get('player_name', '') or '').strip()
+        try:
+            jersey = int(row['jersey_number'])
+        except (ValueError, TypeError):
+            jersey = ''
+        is_cap = bool(row.get('is_captain', False))
+        opta_x, opta_y = _get_slot_coords(formation, slot, True)
+        depth   = float(opta_x) * 2.0   # scale half-pitch [4,48] → full pitch [8,96]
+        lateral = float(opta_y)
+        sc_xs.append(depth)
+        sc_ys.append(lateral)
+        tx_xs.append(lateral)
+        tx_ys.append(depth)
+        jerseys.append(str(jersey))
+        names.append(name)
+        caps.append(is_cap)
+
+    if not sc_xs:
+        plt.close(fig)
+        return None
+
+    # Glow rings
+    pitch.scatter(sc_xs, sc_ys, s=700, c=color, ax=ax_p,
+                  zorder=4, alpha=0.22, edgecolors='none')
+    # Main filled circles
+    pitch.scatter(sc_xs, sc_ys, s=500, c=color, ax=ax_p,
+                  zorder=5, alpha=0.95, edgecolors='white', linewidths=1.4)
+
+    for i in range(len(sc_xs)):
+        lat = tx_xs[i]   # lateral  (figure horizontal)
+        dep = tx_ys[i]   # depth    (figure vertical)
+        # Jersey number inside circle
+        ax_p.text(lat, dep, jerseys[i],
+                  ha='center', va='center',
+                  fontsize=8, fontweight='bold', color='white', zorder=7)
+        # Player name below circle (dep - offset moves toward own-goal end = lower in figure)
+        short = _shorten_name(names[i])
+        ax_p.text(lat, dep - 5.5, short,
+                  ha='center', va='top',
+                  fontsize=7, color='white', zorder=7,
+                  path_effects=[mpe.withStroke(linewidth=2, foreground='#0A0E27')])
+        # Captain badge — scatter(depth+offset, lateral+offset), text(lateral+offset, depth+offset)
+        if caps[i]:
+            pitch.scatter([dep + 4.0], [lat + 5.0], s=120, c=GOLD, ax=ax_p,
+                          zorder=8, edgecolors='none')
+            ax_p.text(lat + 5.0, dep + 4.0, 'C',
+                      ha='center', va='center',
+                      fontsize=4.5, fontweight='bold', color='#0A0E27', zorder=9)
+
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=130,
                 facecolor=fig.get_facecolor(), edgecolor='none',
@@ -811,362 +784,94 @@ def _build_stat_bars(home_kpis: dict, away_kpis: dict) -> html.Div:
 
 
 # =============================================================================
-# Average position pitch helpers
-# =============================================================================
-
-def _compute_avg_positions(
-    events: pd.DataFrame,
-    lineup_df: pd.DataFrame,
-    team_position: str,
-    include_subs: bool = False,
-) -> list:
-    """
-    Compute per-player average x, y positions from event coordinates.
-
-    Opta event x is always from the acting team's perspective (0 = own goal,
-    100 = opponent goal), so both home and away player lists can be plotted
-    with the same orientation (attack left→right / bottom→top).
-
-    Returns a list of dicts keyed: player_name, jersey_number, avg_x, avg_y,
-    role ('Start'/'Sub'), is_captain.
-    """
-    if events is None or events.empty:
-        return []
-
-    team_evts = events[events['team_position'] == team_position].copy()
-    # Drop system events that have null coordinates (x=0, y=0 together)
-    team_evts = team_evts[~((team_evts['x'] == 0) & (team_evts['y'] == 0))]
-    team_evts = team_evts[
-        team_evts['player_name'].notna() & (team_evts['player_name'] != '')
-    ]
-    if team_evts.empty:
-        return []
-
-    # Build per-player metadata lookup from lineup
-    player_info: dict = {}
-    if lineup_df is not None and not lineup_df.empty:
-        for _, row in lineup_df[lineup_df['team_position'] == team_position].iterrows():
-            name = str(row.get('player_name', '') or '').strip()
-            if not name:
-                continue
-            player_info[name] = {
-                'jersey_number': row.get('jersey_number', ''),
-                'is_captain':    bool(row.get('is_captain', False)),
-                'role':          str(row.get('role', 'Start')),
-                'sub_on_minute': row.get('sub_on_minute', None),
-            }
-
-    result = []
-    for name, grp in team_evts.groupby('player_name'):
-        info    = player_info.get(str(name), {})
-        role    = info.get('role', 'Start')
-        if role == 'Sub' and not include_subs:
-            continue
-
-        # For subs, only average events after they came on
-        sub_min = info.get('sub_on_minute', None)
-        if role == 'Sub' and sub_min is not None and pd.notna(sub_min):
-            grp = grp[grp['time_min'] >= float(sub_min)]
-
-        if len(grp) < 3:
-            continue
-
-        result.append({
-            'player_name':   str(name),
-            'jersey_number': info.get('jersey_number', ''),
-            'avg_x':         float(grp['x'].mean()),
-            'avg_y':         float(grp['y'].mean()),
-            'role':          role,
-            'is_captain':    info.get('is_captain', False),
-        })
-
-    # Sort by avg_x ascending: GK → defenders → midfield → forwards
-    result.sort(key=lambda p: p['avg_x'])
-    return result
-
-
-def _build_avg_pos_fig(
-    players: list,
-    color: str,
-    team_name: str = '',
-    is_home: bool = True,
-) -> go.Figure:
-    """
-    Build an interactive Plotly figure showing per-player average positions.
-
-    A grass vertical pitch background (via shared.add_vertical_pitch_background)
-    is overlaid with Plotly scatter traces so jersey numbers appear as text and
-    hovering reveals the full player name.
-
-    Home team attacks upward (pitch_x = 0 at bottom = own goal).
-    Away team is flipped so they attack downward (own goal at top).
-
-    Direction of attack is shown as a gradient shadow on the pitch itself —
-    darkest near the own-goal end, fading to transparent toward the attack end.
-
-    Coordinate mapping:
-      Plotly x = pitch_y (0-100 width)
-      Plotly y = pitch_x (0-100 length) for home,  or  100 - pitch_x for away
-    """
-    fig = go.Figure()
-
-    # ── Pitch background (shared utility from shared.py) ──────────────────────
-    add_vertical_pitch_background(fig)
-
-    # ── Direction-of-attack shadow (rendered on the pitch, not outside it) ────
-    # Home: shadow darkens toward y_min (bottom = own goal).
-    # Away: shadow darkens toward y_max (top = own goal after y-flip).
-    x_min, x_max = VPITCH_AXIS['xaxis']['range']
-    y_min, y_max = VPITCH_AXIS['yaxis']['range']
-    sy = y_max - y_min
-    n_bands = 30
-    band_h  = sy / n_bands
-    for i in range(n_bands):
-        alpha = 0.22 * (1.0 - i / n_bands)
-        if alpha < 0.005:
-            continue
-        if is_home:
-            y0 = y_min + i * band_h
-        else:
-            y0 = y_max - (i + 1) * band_h
-        fig.add_shape(
-            type='rect',
-            x0=x_min, x1=x_max,
-            y0=y0, y1=y0 + band_h,
-            fillcolor=f'rgba(0,0,0,{alpha:.3f})',
-            line_width=0, layer='below',
-        )
-
-    # ── Direction-of-attack indicator ─────────────────────────────────────────
-    # Home attacks upward → label near top goal; away attacks downward → near bottom goal.
-    fig.add_annotation(
-        x=3, y=96 if is_home else 4,
-        xref='x', yref='y',
-        xanchor='left',
-        text='⬆ Attacking Direction' if is_home else '⬇ Attacking Direction',
-        showarrow=False,
-        font=dict(color='black', size=16, family='Arial'),
-        align='left',
-        bgcolor='rgba(255,255,255,0.7)',
-        borderpad=3,
-    )
-
-    # ── Player dots (starters then subs) ──────────────────────────────────────
-    for is_sub in (False, True):
-        group = [p for p in players if (p.get('role') == 'Sub') == is_sub]
-        if not group:
-            continue
-
-        # Home y is from home's attacking perspective (y=0 = their right touchline),
-        # which is the mirror of the display's x-axis (x=0 = left touchline), so flip.
-        # Away y is already consistent with the absolute display orientation.
-        if is_home:
-            py_arr = [100.0 - float(p['avg_y']) for p in group]
-        else:
-            py_arr = [float(p['avg_y']) for p in group]
-        px_arr = [float(p['avg_x']) for p in group]   # pitch length
-        plot_y = px_arr if is_home else [100.0 - v for v in px_arr]
-
-        jerseys = [str(p.get('jersey_number', '') or '') for p in group]
-        names   = [str(p.get('player_name', ''))         for p in group]
-
-        fig.add_trace(go.Scatter(
-            x=py_arr, y=plot_y,
-            mode='markers+text',
-            marker=dict(
-                size=20 if not is_sub else 14,
-                color=color,
-                opacity=0.90 if not is_sub else 0.55,
-                line=dict(color='white', width=2 if not is_sub else 1.2),
-            ),
-            text=jerseys,
-            textfont=dict(color='white', size=9 if not is_sub else 7,
-                          family='Arial, sans-serif'),
-            textposition='middle center',
-            customdata=names,
-            hovertemplate='<b>%{customdata}</b><extra></extra>',
-            showlegend=False,
-        ))
-
-
-    # ── Figure layout ─────────────────────────────────────────────────────────
-    fig.update_layout(
-        paper_bgcolor='#0A0E27',
-        plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=0, r=0, t=26 if team_name else 4, b=0),
-        height=780,
-        **VPITCH_AXIS,
-        title=dict(
-            text=f'<b>{team_name}</b>',
-            x=0.5, y=0.995, xanchor='center', yanchor='top',
-            font=dict(size=11, color=color),
-        ) if team_name else {},
-        hoverlabel=dict(bgcolor='#1A1D2E', font_color='white', font_size=12),
-        dragmode=False,
-    )
-    return fig
-
-
-def _build_avg_pos_component(
-    fig: 'go.Figure | None',
-    team_name: str = '',
-    color: str = GOLD,
-) -> html.Div:
-    """Wrap an average-position Plotly figure in a styled card."""
-    if fig is None:
-        return html.Div('Position data unavailable', style={
-            'textAlign': 'center', 'color': COLORS['text_secondary'],
-            'fontSize': '0.82rem', 'padding': '20px 0',
-        })
-    return html.Div([
-        html.Div('Average Positions', style={
-            'textAlign': 'center',
-            'color': COLORS['text_secondary'],
-            'fontSize': '0.72rem', 'fontWeight': '600',
-            'textTransform': 'uppercase', 'letterSpacing': '0.06em',
-            'marginBottom': '4px',
-        }),
-        dcc.Graph(
-            figure=fig,
-            config={'displayModeBar': False},
-            style={'width': '100%'},
-        ),
-    ], style={
-        'backgroundColor': COLORS['dark_secondary'],
-        'borderRadius': '4px',
-        'border': f"1px solid {COLORS['dark_border']}",
-        'padding': '4px',
-        'height': '100%',
-    })
-
-
-# =============================================================================
 # Public tab builder
 # =============================================================================
 
 def build_overview_tab(events):
     """Render the Match Overview tab."""
-    meta       = get_match_metadata(events)
-    home_kpis  = compute_team_kpis(events, 'home')
-    away_kpis  = compute_team_kpis(events, 'away')
+    meta      = get_match_metadata(events)
+    home_kpis = compute_team_kpis(events, 'home')
+    away_kpis = compute_team_kpis(events, 'away')
 
-    home_team  = meta.get('home_team', 'Home')
-    away_team  = meta.get('away_team', 'Away')
-    match_id   = str(meta.get('match_id', ''))
+    home_team = meta.get('home_team', 'Home')
+    away_team = meta.get('away_team', 'Away')
+    match_id  = str(meta.get('match_id', ''))
 
-    # ── Lineup section ────────────────────────────────────────────────────────
     lineup_df = get_match_lineup(match_id) if match_id else pd.DataFrame()
     subs      = get_substitutions(events)
-    pitch_img = None
 
+    # ── Centre column: period controls + stat bars ────────────────────────────
+    center_col = html.Div([
+        _build_controls_bar(),
+        dcc.Store(id='pma-ov-active-period', data='full'),
+        html.Div(id='pma-ov-stat-bars', children=_build_stat_bars(home_kpis, away_kpis)),
+    ])
+
+    # ── Side columns: per-team Starting XI pitch + substitutions ──────────────
     if not lineup_df.empty:
+        home_df    = lineup_df[lineup_df['team_position'] == 'home']
+        away_df    = lineup_df[lineup_df['team_position'] == 'away']
+        home_start = home_df[home_df['role'] == 'Start'].copy()
+        away_start = away_df[away_df['role'] == 'Start'].copy()
+        home_fmt   = home_start['formation'].iloc[0] if not home_start.empty else ''
+        away_fmt   = away_start['formation'].iloc[0] if not away_start.empty else ''
+
+        home_img = away_img = None
         try:
-            pitch_img = _generate_lineup_pitch_image(
-                lineup_df, home_team, away_team, HOME_COLOR, AWAY_COLOR
-            )
+            home_img = _generate_team_lineup_image(home_start, home_fmt, HOME_COLOR)
         except Exception:
-            pitch_img = None
+            pass
+        try:
+            away_img = _generate_team_lineup_image(away_start, away_fmt, AWAY_COLOR)
+        except Exception:
+            pass
 
-    if pitch_img:
-        home_panel = _build_lineup_html_panel(
-            subs.get('home', []), HOME_COLOR, align='left'
-        )
-        away_panel = _build_lineup_html_panel(
-            subs.get('away', []), AWAY_COLOR, align='right'
-        )
-
-        lineup_section = html.Div([
-            section_header('Line-Ups'),
-            dbc.Row([
-                dbc.Col(home_panel, lg=3, md=6, xs=12, className='mb-3'),
-                dbc.Col(
-                    dbc.Card([
-                        dbc.CardBody([
-                            html.Img(
-                                src=f'data:image/png;base64,{pitch_img}',
-                                style={
-                                    'width': '100%', 'display': 'block',
-                                    'borderRadius': '6px',
-                                },
-                            )
-                        ], style={'padding': '8px'})
-                    ], style={
-                        'backgroundColor': COLORS['dark_secondary'],
-                        'border': f"1px solid {COLORS['dark_border']}",
-                    }),
-                    lg=6, md=12, xs=12, className='mb-3',
+        def _xi_img_card(img_b64):
+            if not img_b64:
+                return html.Div()
+            return html.Div(
+                html.Img(
+                    src=f'data:image/png;base64,{img_b64}',
+                    style={'width': '100%', 'display': 'block', 'borderRadius': '6px'},
                 ),
-                dbc.Col(away_panel, lg=3, md=6, xs=12, className='mb-3'),
-            ], align='start'),
-        ], className='mb-4')
+                style={
+                    'backgroundColor': COLORS['dark_secondary'],
+                    'borderRadius': '8px',
+                    'border': f"1px solid {COLORS['dark_border']}",
+                    'padding': '6px',
+                    'marginBottom': '12px',
+                },
+            )
+
+        left_col = html.Div([
+            _xi_img_card(home_img),
+            _build_lineup_html_panel(subs.get('home', []), HOME_COLOR, align='left'),
+        ])
+        right_col = html.Div([
+            _xi_img_card(away_img),
+            _build_lineup_html_panel(subs.get('away', []), AWAY_COLOR, align='right'),
+        ])
 
     else:
-        # Fallback: text-based lineups side by side
+        # Fallback: text-based lineup cards
         lineups = get_starting_lineups(events)
-        lineup_section = html.Div([
-            section_header('Line-Ups'),
-            dbc.Row([
-                dbc.Col([
-                    html.H6("Starting XI", style={
-                        'color': HOME_COLOR, 'fontWeight': '700', 'marginBottom': '8px',
-                        'textTransform': 'uppercase', 'letterSpacing': '0.05em',
-                        'fontSize': '0.8rem',
-                    }),
-                    _build_lineup_card(home_team, lineups.get('home', {}),
-                                       HOME_COLOR, align='start'),
-                    _build_subs_section(home_team, subs.get('home', []), HOME_COLOR),
-                ], lg=6, md=12, className='mb-3'),
-                dbc.Col([
-                    html.H6("Starting XI", style={
-                        'color': AWAY_COLOR, 'fontWeight': '700', 'marginBottom': '8px',
-                        'textAlign': 'right', 'textTransform': 'uppercase',
-                        'letterSpacing': '0.05em', 'fontSize': '0.8rem',
-                    }),
-                    _build_lineup_card(away_team, lineups.get('away', {}),
-                                       AWAY_COLOR, align='end'),
-                    _build_subs_section(away_team, subs.get('away', []), AWAY_COLOR),
-                ], lg=6, md=12, className='mb-3'),
-            ], className='mb-3'),
-        ], className='mb-4')
-
-    # ── Average positions (initial: full match, starters only) ────────────────
-    home_avg_players = _compute_avg_positions(events, lineup_df, 'home')
-    away_avg_players = _compute_avg_positions(events, lineup_df, 'away')
-    home_avg_fig = _build_avg_pos_fig(home_avg_players, HOME_COLOR, home_team, is_home=True)
-    away_avg_fig = _build_avg_pos_fig(away_avg_players, AWAY_COLOR, away_team, is_home=False)
+        left_col = html.Div([
+            _build_lineup_card(home_team, lineups.get('home', {}), HOME_COLOR, align='start'),
+            _build_subs_section(home_team, subs.get('home', []), HOME_COLOR),
+        ])
+        right_col = html.Div([
+            _build_lineup_card(away_team, lineups.get('away', {}), AWAY_COLOR, align='end'),
+            _build_subs_section(away_team, subs.get('away', []), AWAY_COLOR),
+        ])
 
     # ── Assemble ──────────────────────────────────────────────────────────────
     return html.Div([
-        lineup_section,
-        _build_controls_bar(),
-        dcc.Store(id='pma-ov-active-period', data='full'),
+        section_header('Line-Ups & Match Stats'),
         dbc.Row([
-            dbc.Col(
-                html.Div(
-                    id='pma-ov-avg-pos-home',
-                    children=_build_avg_pos_component(
-                        home_avg_fig, home_team, HOME_COLOR
-                    ),
-                ),
-                lg=4, md=6, xs=12, className='mb-3',
-            ),
-            dbc.Col(
-                html.Div(
-                    id='pma-ov-stat-bars',
-                    children=_build_stat_bars(home_kpis, away_kpis),
-                ),
-                lg=4, md=12, xs=12, className='mb-3',
-            ),
-            dbc.Col(
-                html.Div(
-                    id='pma-ov-avg-pos-away',
-                    children=_build_avg_pos_component(
-                        away_avg_fig, away_team, AWAY_COLOR
-                    ),
-                ),
-                lg=4, md=6, xs=12, className='mb-3',
-            ),
-        ], className='g-2'),
+            dbc.Col(left_col,   lg=3, md=6, xs=12, className='mb-3'),
+            dbc.Col(center_col, lg=6, md=12, xs=12, className='mb-3'),
+            dbc.Col(right_col,  lg=3, md=6, xs=12, className='mb-3'),
+        ], align='start'),
     ])
 
 
@@ -1182,34 +887,22 @@ def register_overview_callbacks(app):
         Output('pma-ov-period-btn-full',  'style'),
         Output('pma-ov-period-btn-1',     'style'),
         Output('pma-ov-period-btn-2',     'style'),
-        Output('pma-ov-avg-pos-home',     'children'),
-        Output('pma-ov-avg-pos-away',     'children'),
         Output('pma-ov-active-period',    'data'),
         Input('pma-ov-period-btn-full',   'n_clicks'),
         Input('pma-ov-period-btn-1',      'n_clicks'),
         Input('pma-ov-period-btn-2',      'n_clicks'),
-        Input('pma-ov-subs-toggle',       'value'),
         State('pma-selected-match',       'data'),
         State('pma-ov-active-period',     'data'),
         prevent_initial_call=True,
     )
-    def _update_overview(_n_full, _n_1, _n_2, subs_value, match_id, current_period):
+    def _update_overview(_n_full, _n_1, _n_2, match_id, current_period):
         triggered = ctx.triggered_id or 'pma-ov-period-btn-full'
 
-        # Only update the active period when a period button was clicked;
-        # for all other triggers (e.g. subs toggle) keep the stored period.
-        if triggered in ('pma-ov-period-btn-full',
-                         'pma-ov-period-btn-1',
-                         'pma-ov-period-btn-2'):
-            period = {
-                'pma-ov-period-btn-full': 'full',
-                'pma-ov-period-btn-1':    '1',
-                'pma-ov-period-btn-2':    '2',
-            }[triggered]
-        else:
-            period = current_period or 'full'
-
-        include_subs = bool(subs_value and 'subs' in subs_value)
+        period = {
+            'pma-ov-period-btn-full': 'full',
+            'pma-ov-period-btn-1':    '1',
+            'pma-ov-period-btn-2':    '2',
+        }.get(triggered, current_period or 'full')
 
         button_styles = (
             _ov_period_btn_style(active=(period == 'full')),
@@ -1217,25 +910,13 @@ def register_overview_callbacks(app):
             _ov_period_btn_style(active=(period == '2')),
         )
 
-        _empty_home = _build_avg_pos_component(None)
-        _empty_away = _build_avg_pos_component(None)
-
         if not match_id:
-            return (
-                _build_stat_bars({}, {}),
-                *button_styles,
-                _empty_home, _empty_away, period,
-            )
+            return (_build_stat_bars({}, {}), *button_styles, period)
 
         events = get_match_events(match_id)
         if events.empty:
-            return (
-                _build_stat_bars({}, {}),
-                *button_styles,
-                _empty_home, _empty_away, period,
-            )
+            return (_build_stat_bars({}, {}), *button_styles, period)
 
-        # Apply period filter
         if period != 'full' and 'period_id' in events.columns:
             filtered = events[events['period_id'] == int(period)]
         else:
@@ -1244,21 +925,4 @@ def register_overview_callbacks(app):
         home_kpis = compute_team_kpis(filtered, 'home')
         away_kpis = compute_team_kpis(filtered, 'away')
 
-        # Average positions
-        lineup_df = get_match_lineup(match_id)
-        home_team = str(events['home_team'].iloc[0]) if 'home_team' in events.columns else 'Home'
-        away_team = str(events['away_team'].iloc[0]) if 'away_team' in events.columns else 'Away'
-
-        home_players = _compute_avg_positions(filtered, lineup_df, 'home', include_subs)
-        away_players = _compute_avg_positions(filtered, lineup_df, 'away', include_subs)
-
-        home_fig = _build_avg_pos_fig(home_players, HOME_COLOR, home_team, is_home=True)
-        away_fig = _build_avg_pos_fig(away_players, AWAY_COLOR, away_team, is_home=False)
-
-        return (
-            _build_stat_bars(home_kpis, away_kpis),
-            *button_styles,
-            _build_avg_pos_component(home_fig, home_team, HOME_COLOR),
-            _build_avg_pos_component(away_fig, away_team, AWAY_COLOR),
-            period,
-        )
+        return (_build_stat_bars(home_kpis, away_kpis), *button_styles, period)

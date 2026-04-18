@@ -115,6 +115,41 @@ def _compute(events: pd.DataFrame) -> dict:
         else:
             key_passes = pd.DataFrame()
 
+        # Carry / dribble lines: dotted path from pass-end → shot
+        carry_lines: list[dict] = []
+        if not key_passes.empty:
+            _carry_types = {'Take On', 'Carry', 'Ball touch'}
+            for ki in key_passes.index:
+                kp = sorted_te.iloc[ki]
+                pe_x = pd.to_numeric(kp.get('Pass End X'), errors='coerce')
+                pe_y = pd.to_numeric(kp.get('Pass End Y'), errors='coerce')
+                if pd.isna(pe_x) or pd.isna(pe_y):
+                    continue
+                shot_pos, shot_row = None, None
+                for j in range(ki + 1, min(ki + 8, len(sorted_te))):
+                    if sorted_te.iloc[j]['event_type'] in _SHOT_TYPES:
+                        shot_pos, shot_row = j, sorted_te.iloc[j]
+                        break
+                if shot_pos is None:
+                    continue
+                sx = pd.to_numeric(shot_row.get('x'), errors='coerce')
+                sy = pd.to_numeric(shot_row.get('y'), errors='coerce')
+                if pd.isna(sx) or pd.isna(sy):
+                    continue
+                if ((float(sx) - float(pe_x)) ** 2 + (float(sy) - float(pe_y)) ** 2) ** 0.5 < 4.0:
+                    continue
+                shooter = shot_row.get('player_name')
+                mid_pts: list[tuple[float, float]] = []
+                for k in range(ki + 1, shot_pos):
+                    ev = sorted_te.iloc[k]
+                    if ev['event_type'] in _carry_types and ev.get('player_name') == shooter:
+                        mx = pd.to_numeric(ev.get('x'), errors='coerce')
+                        my = pd.to_numeric(ev.get('y'), errors='coerce')
+                        if pd.notna(mx) and pd.notna(my):
+                            mid_pts.append((float(mx), float(my)))
+                pts = [(float(pe_x), float(pe_y))] + mid_pts + [(float(sx), float(sy))]
+                carry_lines.append({'points': pts, 'is_goal': shot_row['event_type'] == 'Goal'})
+
         shooter_counts = (
             shots['player_name'].dropna().value_counts().head(5).reset_index()
         )
@@ -149,6 +184,7 @@ def _compute(events: pd.DataFrame) -> dict:
             'on_target':    len(te[te['event_type'] == 'Saved Shot']) + len(goals),
             'from_box':     _count_from_box(shots),
             'top_shooters': shooter_counts,
+            'carry_lines':  carry_lines,
         }
     return out
 
@@ -236,7 +272,8 @@ def _team_stats_table(
 
 
 def _shot_map_fig(shots: pd.DataFrame, key_passes: pd.DataFrame,
-                  team_color: str, team_name: str) -> go.Figure:
+                  team_color: str, team_name: str,
+                  carry_lines: list | None = None) -> go.Figure:
     fig = go.Figure()
     add_vertical_half_pitch_background(fig)
 
@@ -296,6 +333,28 @@ def _shot_map_fig(shots: pd.DataFrame, key_passes: pd.DataFrame,
                                 line=dict(color='white', width=1.5 if is_goal else 1)),
                     showlegend=True, hoverinfo='skip',
                 ))
+
+    # ── Carry / dribble lines (dotted, pass-end → shot) ─────────────────────
+    if carry_lines:
+        _legend_added: dict[str, bool] = {'goal': False, 'other': False}
+        for cl in carry_lines:
+            is_goal = cl['is_goal']
+            color   = GOLD if is_goal else 'rgba(220,220,220,0.55)'
+            opacity = 0.85 if is_goal else 0.55
+            pts     = cl['points']
+            fig_xs  = [100 - p[1] for p in pts]
+            fig_ys  = [p[0]       for p in pts]
+            key     = 'goal' if is_goal else 'other'
+            show_lg = not _legend_added[key]
+            fig.add_trace(go.Scatter(
+                x=fig_xs, y=fig_ys, mode='lines',
+                line=dict(color=color, width=2, dash='dot'),
+                opacity=opacity,
+                name=('Carry (goal)' if is_goal else 'Carry') if show_lg else '',
+                showlegend=show_lg,
+                hoverinfo='skip',
+            ))
+            _legend_added[key] = True
 
     for outcome, group in shots.groupby('event_type'):
         valid = group[group['x'].notna() & group['y'].notna()].copy()
@@ -427,9 +486,9 @@ def build_attacking_output_tab(events: pd.DataFrame, **_) -> html.Div:
             ('■', 'Blocked', '#cc5de8'),
         ]),
         dbc.Row([
-            dbc.Col(dcc.Graph(figure=_shot_map_fig(hs['shots'],  hs.get('key_passes',  pd.DataFrame()), HOME_COLOR, hs['team']),
+            dbc.Col(dcc.Graph(figure=_shot_map_fig(hs['shots'],  hs.get('key_passes',  pd.DataFrame()), HOME_COLOR, hs['team'],  hs.get('carry_lines',  [])),
                               config=CHART_CONFIG), md=6, className='mb-3'),
-            dbc.Col(dcc.Graph(figure=_shot_map_fig(as_['shots'], as_.get('key_passes', pd.DataFrame()), AWAY_COLOR, as_['team']),
+            dbc.Col(dcc.Graph(figure=_shot_map_fig(as_['shots'], as_.get('key_passes', pd.DataFrame()), AWAY_COLOR, as_['team'], as_.get('carry_lines', [])),
                               config=CHART_CONFIG), md=6, className='mb-3'),
         ], className='g-2'),
     ], style={'marginBottom': '36px'})

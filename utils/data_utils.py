@@ -52,20 +52,32 @@ def clear_events_cache() -> None:
 
 
 # ── Centralised own-goal helpers ─────────────────────────────────────────────
-# In Opta data, own goals are tagged with the ``own goal`` column == ``'Si'``.
-# They are attributed to the player/team that scored them, so an own goal by
-# the home team counts as a goal for the away team and vice-versa.
+# NOTE: The ``own goal`` qualifier column is **always 'N/A'** in the Opta
+# parquet data — it is never populated in practice.  Own goals cannot be
+# reliably identified via this qualifier.  Use ``filter_out_opponent_goals``
+# from ``utils.event_utils`` to restrict Goal events to a specific team_code.
+#
+# The helpers below are retained for backwards compatibility, but they are
+# effectively no-ops because the qualifier they test is never set.
 
 def is_own_goal(row):
-    """Check if a single event row is an own goal."""
+    """Check if a single event row is tagged as an own goal.
+
+    .. warning::
+        The ``own goal`` qualifier is never populated in the Opta parquet
+        data, so this function always returns False.  Prefer filtering by
+        ``team_code`` to identify which team scored.
+    """
     return str(row.get('own goal', '')).strip() == 'Si'
 
 
 def filter_own_goals(goals_df):
-    """Remove own goals from a goals DataFrame.
+    """Remove rows where the ``own goal`` qualifier is ``'Si'``.
 
-    Useful when counting a player's "real" goals — own goals should not be
-    credited to the scoring player.
+    .. warning::
+        The ``own goal`` qualifier is never set in practice; this function
+        returns the input unchanged.  Prefer filtering Goal events by
+        ``team_code`` to restrict to a specific team's goals.
     """
     if goals_df.empty or 'own goal' not in goals_df.columns:
         return goals_df
@@ -73,14 +85,12 @@ def filter_own_goals(goals_df):
 
 
 def exclude_own_goals(events_df):
-    """Remove own-goal rows from a mixed event DataFrame.
+    """Remove Goal rows flagged as own goals from a mixed event DataFrame.
 
-    Unlike ``filter_own_goals`` (which expects a goals-only DataFrame), this
-    works on any event DataFrame that may contain multiple event types.  Only
-    Goal rows flagged as own goals are dropped; all other event types are kept.
-
-    Use this when building shot maps or attacking stats so that own goals — which
-    are credited to the opposing team — do not appear in the acting team's plots.
+    .. warning::
+        The ``own goal`` qualifier is never set in practice; this function
+        returns the input unchanged.  Prefer ``filter_out_opponent_goals``
+        from ``utils.event_utils`` to drop opponent Goal events.
     """
     if events_df.empty or 'own goal' not in events_df.columns:
         return events_df
@@ -256,6 +266,9 @@ def get_match_results():
 
 def count_assists(events_df):
     """Count goal assists (passes with Assist qualifier == 16) per player.
+
+    The ``Assist`` qualifier stores the event-type ID of the resulting shot:
+    16 = Goal assist, 13/14/15 = key pass (non-goal).
 
     Returns a Series indexed by player_name.
     """

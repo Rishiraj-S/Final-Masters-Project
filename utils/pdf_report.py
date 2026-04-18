@@ -342,7 +342,7 @@ def generate_match_report_pdf(match_id) -> bytes:
     from utils.data_utils import get_match_events, get_match_lineup
     from utils.match_data_adapter import get_match_metadata, compute_team_kpis, get_substitutions
     from utils.logos import TEAM_LOGOS
-    from pages.match_analysis_tabs.shared import HOME_COLOR, AWAY_COLOR, render_lsc_heatmap_img
+    from page_utils.visualizations import HOME_COLOR, AWAY_COLOR, render_lsc_heatmap_img
     from pages.match_analysis_tabs.overview import (
         _generate_lineup_pitch_image,
         _compute_avg_positions,

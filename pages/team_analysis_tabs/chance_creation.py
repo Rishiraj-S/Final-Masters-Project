@@ -24,6 +24,7 @@ from page_utils.visualizations import (
     add_vertical_half_pitch_background,
     VPITCH_AXIS_HALF,
     PITCH_BG,
+    render_lsc_heatmap_img,
 )
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
@@ -328,118 +329,98 @@ def _get_key_passes_for_map(bar: pd.DataFrame, map_shots: pd.DataFrame) -> pd.Da
     return result.dropna(subset=['x', 'y', 'end_x', 'end_y']).reset_index(drop=True)
 
 
-_PRE_SHOT_TOUCH_TYPES = {'Pass', 'Take On', 'Ball touch', 'Carry'}
-
-
-def _get_pre_shot_touches(events: pd.DataFrame,
-                          map_shots: pd.DataFrame,
-                          window: int = 20) -> pd.DataFrame:
+def _get_carry_lines(events: pd.DataFrame, map_shots: pd.DataFrame) -> list[dict]:
     """
-    For each shot in map_shots, walk backwards through the sorted event
-    sequence (all teams) and collect BAR touch events belonging to the
-    unbroken possession chain that ended in that shot.
+    For each key pass whose shot is in map_shots, trace any carry/dribble events
+    (Take On / Carry / Ball touch by the shooter) between pass-end and shot.
 
-    Stops at:
-      - the first non-BAR event (possession lost), or
-      - `window` BAR touches collected (whichever comes first).
-
-    Touches from multiple shot sequences accumulate: zones that contribute
-    to many shots receive proportionally more weight in the heatmap.
-
-    Returns DataFrame with columns: x, y
+    Returns list of {'points': [(opta_x, opta_y), …], 'led_to_goal': bool}.
+    Only included when distance from pass-end to shot >= 4 Opta units.
     """
     if events.empty or map_shots.empty:
-        return pd.DataFrame()
+        return []
 
     sort_cols = [c for c in ['match_id', 'period_id', 'time_min', 'time_sec']
                  if c in events.columns]
-    te = events.sort_values(sort_cols).reset_index()  # 'index' = original events index
-
-    # Fast NumPy arrays for the inner loop
-    is_bar        = (te['team_code'] == 'BAR').values if 'team_code' in te.columns \
-                    else np.ones(len(te), dtype=bool)
-    etype_arr     = te['event_type'].values
-    match_arr     = te['match_id'].values if 'match_id' in te.columns \
-                    else np.zeros(len(te))
-    x_arr         = pd.to_numeric(te['x'], errors='coerce').values
-    y_arr         = pd.to_numeric(te['y'], errors='coerce').values
-    orig_idx_arr  = te['index'].values
+    te = events.sort_values(sort_cols).reset_index()  # 'index' = original events idx
 
     map_orig_idx  = set(map_shots.index.tolist())
-    shot_set      = set(_SHOT_TYPES)
-    touch_set     = _PRE_SHOT_TOUCH_TYPES
-
-    # Positions of shots in map_shots within the sorted sequence
-    shot_positions = [
-        i for i, (et, oi) in enumerate(zip(etype_arr, orig_idx_arr))
-        if et in shot_set and oi in map_orig_idx
-    ]
-
-    collected_x, collected_y = [], []
-
-    for shot_pos in shot_positions:
-        shot_match = match_arr[shot_pos]
-        count = 0
-        lo = max(shot_pos - window - 5, 0)   # small extra buffer
-        for back in range(shot_pos - 1, lo - 1, -1):
-            if match_arr[back] != shot_match:
-                break
-            if not is_bar[back]:
-                break                         # possession lost — stop sequence
-            if etype_arr[back] in touch_set:
-                xv, yv = x_arr[back], y_arr[back]
-                if not (np.isnan(xv) or np.isnan(yv)):
-                    collected_x.append(xv)
-                    collected_y.append(yv)
-                    count += 1
-                    if count >= window:
-                        break
-
-    if not collected_x:
-        return pd.DataFrame()
-    return pd.DataFrame({'x': collected_x, 'y': collected_y})
-
-
-def _pre_shot_heatmap_fig(touches: pd.DataFrame) -> go.Figure:
-    """
-    Vertical half-pitch density heatmap of pre-shot possession touches.
-    Uses the same coordinate mapping as the shot map:
-      fig_x = 100 − Opta_y,  fig_y = Opta_x
-    """
-    fig = go.Figure()
-    add_vertical_half_pitch_background(fig)
-
-    _layout = dict(
-        **VPITCH_AXIS_HALF,
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor=PITCH_BG,
-        height=400, margin=dict(l=0, r=0, t=8, b=0),
+    goal_orig_idx = set(
+        map_shots[map_shots['event_type'] == 'Goal'].index.tolist()
     )
+    _carry_types = {'Take On', 'Carry', 'Ball touch'}
 
-    if not touches.empty and len(touches) >= 2:
-        # Clamp to the attacking half visible in the plot (Opta x ≥ 50)
-        half = touches[touches['x'] >= 50].copy()
-        if not half.empty:
-            fig.add_trace(go.Histogram2dContour(
-                x=(100 - half['y']).tolist(),
-                y=half['x'].tolist(),
-                colorscale=[
-                    [0.00, 'rgba(80,  0,  25, 0.00)'],
-                    [0.20, 'rgba(120, 0,  40, 0.30)'],
-                    [0.50, 'rgba(165, 0,  68, 0.60)'],
-                    [0.80, 'rgba(210, 30, 90, 0.82)'],
-                    [1.00, 'rgba(255, 90, 150, 0.95)'],
-                ],
-                ncontours=14,
-                contours=dict(coloring='fill', showlines=False),
-                showscale=False,
-                hoverinfo='skip',
-                line=dict(width=0),
-                xbins=dict(size=6),
-                ybins=dict(size=6),
-            ))
+    is_shot_in_map = te['event_type'].isin(_SHOT_TYPES) & te['index'].isin(map_orig_idx)
+    same_match_fwd = (
+        (te['match_id'] == te['match_id'].shift(-1, fill_value=''))
+        if 'match_id' in te.columns else pd.Series(True, index=te.index)
+    )
+    te['_next_in_map'] = is_shot_in_map.shift(-1, fill_value=False)
+    kp_mask = (te['event_type'] == 'Pass') & te['_next_in_map'] & same_match_fwd
 
-    fig.update_layout(**_layout)
-    return fig
+    _SP_PASS_PRESENT = [c for c in _SP_PASS_COLS if c in te.columns]
+    _SP_SHOT_PRESENT = [c for c in _SP_SHOT_COLS if c in te.columns]
+    if _SP_PASS_PRESENT and _SP_SHOT_PRESENT:
+        sp_qual = pd.Series(False, index=te.index)
+        for col in _SP_SHOT_PRESENT:
+            sp_qual |= te[col].eq('Si')
+        is_sp_shot_in_map = is_shot_in_map & sp_qual
+        is_sp_pass = pd.Series(False, index=te.index)
+        for col in _SP_PASS_PRESENT:
+            is_sp_pass |= te[col].eq('Si')
+        is_sp_pass = is_sp_pass & (te['event_type'] == 'Pass')
+        for offset in range(1, 7):
+            same_match_back = (
+                (te['match_id'] == te['match_id'].shift(offset, fill_value=''))
+                if 'match_id' in te.columns else pd.Series(True, index=te.index)
+            )
+            kp_mask = kp_mask | (
+                is_sp_pass &
+                is_sp_shot_in_map.shift(-offset, fill_value=False) &
+                same_match_back
+            )
+
+    kp_positions = te.index[kp_mask].tolist()
+    if not kp_positions:
+        return []
+
+    carry_lines: list[dict] = []
+    for ki in kp_positions:
+        kp_row = te.iloc[ki]
+        pe_x = pd.to_numeric(kp_row.get('Pass End X'), errors='coerce')
+        pe_y = pd.to_numeric(kp_row.get('Pass End Y'), errors='coerce')
+        if pd.isna(pe_x) or pd.isna(pe_y):
+            continue
+        shot_pos, shot_row = None, None
+        for j in range(ki + 1, min(ki + 8, len(te))):
+            ev = te.iloc[j]
+            if 'match_id' in te.columns and ev.get('match_id') != kp_row.get('match_id'):
+                break
+            if ev['event_type'] in _SHOT_TYPES and ev['index'] in map_orig_idx:
+                shot_pos, shot_row = j, ev
+                break
+        if shot_pos is None:
+            continue
+        sx = pd.to_numeric(shot_row.get('x'), errors='coerce')
+        sy = pd.to_numeric(shot_row.get('y'), errors='coerce')
+        if pd.isna(sx) or pd.isna(sy):
+            continue
+        if ((float(sx) - float(pe_x)) ** 2 + (float(sy) - float(pe_y)) ** 2) ** 0.5 < 4.0:
+            continue
+        shooter = shot_row.get('player_name')
+        led_to_goal = shot_row['index'] in goal_orig_idx
+        mid_pts: list[tuple[float, float]] = []
+        for k in range(ki + 1, shot_pos):
+            ev = te.iloc[k]
+            if ev['event_type'] in _carry_types and ev.get('player_name') == shooter:
+                mx = pd.to_numeric(ev.get('x'), errors='coerce')
+                my = pd.to_numeric(ev.get('y'), errors='coerce')
+                if pd.notna(mx) and pd.notna(my):
+                    mid_pts.append((float(mx), float(my)))
+        pts = [(float(pe_x), float(pe_y))] + mid_pts + [(float(sx), float(sy))]
+        carry_lines.append({'points': pts, 'led_to_goal': led_to_goal})
+
+    return carry_lines
 
 
 def _apply_shot_filters(shots: pd.DataFrame, *,
@@ -556,12 +537,15 @@ def _kpi_children(shots: pd.DataFrame, kp_stats: pd.DataFrame) -> list:
 # =============================================================================
 
 def _shot_map_fig(shots: pd.DataFrame,
-                  key_passes: pd.DataFrame | None = None) -> go.Figure:
+                  key_passes: pd.DataFrame | None = None,
+                  carry_lines: list | None = None) -> go.Figure:
     """Vertical half-pitch shot map. Dot size proportional to xG; goals are stars.
 
     key_passes: optional DataFrame (x, y, end_x, end_y, led_to_goal) —
                 when provided, draws pass lines behind the shot markers.
                 Gold thick line = pass led to goal; dim white = other key pass.
+    carry_lines: optional list of {'points': [(opta_x, opta_y), …], 'led_to_goal': bool} —
+                 when provided, draws dotted lines for carries between pass-end and shot.
     """
     fig = go.Figure()
     add_vertical_half_pitch_background(fig)
@@ -624,6 +608,28 @@ def _shot_map_fig(shots: pd.DataFrame,
                 ),
                 hoverinfo='skip',
             ))
+
+    # ── Carry / dribble lines (dotted, pass-end → shot) ─────────────────────
+    if carry_lines:
+        _legend_added: dict[str, bool] = {'goal': False, 'other': False}
+        for cl in carry_lines:
+            led_to_goal = cl['led_to_goal']
+            color   = GOLD if led_to_goal else 'rgba(220,220,220,0.55)'
+            opacity = 0.85 if led_to_goal else 0.55
+            pts     = cl['points']
+            fig_xs  = [100 - p[1] for p in pts]
+            fig_ys  = [p[0]       for p in pts]
+            key     = 'goal' if led_to_goal else 'other'
+            show_lg = not _legend_added[key]
+            fig.add_trace(go.Scatter(
+                x=fig_xs, y=fig_ys, mode='lines',
+                line=dict(color=color, width=2, dash='dot'),
+                opacity=opacity,
+                name=('Carry (goal)' if led_to_goal else 'Carry') if show_lg else '',
+                showlegend=show_lg,
+                hoverinfo='skip',
+            ))
+            _legend_added[key] = True
 
     # ── Shot markers ───────────────────────────────────────────────────────
     if not shots.empty and 'x' in shots.columns:
@@ -913,21 +919,13 @@ def build_chance_creation_tab(season, competitions, match_ids=None) -> html.Div:
                 ),
                 html.Hr(style={'borderColor': COLORS['dark_border'],
                                'margin': '14px 0 10px'}),
-                html.Div("Pre-Shot Possession",
+                html.Div("Shooting Zones",
                          style={**_SECTION_TITLE, 'fontSize': '0.75rem',
                                 'borderBottom': 'none', 'paddingBottom': '4px'}),
-                html.Div("Touches in the possession sequence leading to each shot",
+                html.Div("Shot density by pitch zone — count and share per zone",
                          style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
                                 'fontStyle': 'italic', 'marginBottom': '6px'}),
-                dcc.Loading(
-                    type='circle', color=GOLD,
-                    children=dcc.Graph(
-                        id='cc-pre-shot-heatmap',
-                        figure=_skel_fig(400),
-                        config=CHART_CFG,
-                        style={'width': '100%'},
-                    ),
-                ),
+                html.Img(id='cc-zone-map', style={'width': '100%', 'borderRadius': '6px'}),
             ], md=8),
 
             dbc.Col([
@@ -968,7 +966,7 @@ def register_chance_creation_callbacks(app) -> None:
     @app.callback(
         Output('cc-kpi-bar',            'children'),
         Output('cc-shot-map',           'figure'),
-        Output('cc-pre-shot-heatmap',   'figure'),
+        Output('cc-zone-map',           'src'),
         Output('cc-scorers-table',      'children'),
         Output('cc-assisters-table',    'children'),
         Input('cc-player-filter',    'value'),
@@ -987,7 +985,7 @@ def register_chance_creation_callbacks(app) -> None:
                 competition, venue, match_ids, match_data):
 
         def _empty():
-            return [], _skel_fig(520), _skel_fig(400), [], []
+            return [], _skel_fig(520), '', [], []
 
         events = get_all_events(CURRENT_SEASON)
         if events.empty:
@@ -1051,10 +1049,22 @@ def register_chance_creation_callbacks(app) -> None:
             _get_key_passes_for_map(bar, map_shots)
             if show_kp else None
         )
-        fig        = _shot_map_fig(map_shots, kp_for_map)
-        pre_touches = _get_pre_shot_touches(events, map_shots)
-        heatmap    = _pre_shot_heatmap_fig(pre_touches)
-        scors      = _scorers_table_children(kpi_shots)
-        assts      = _assisters_table_children(kp_stats)
+        carry_lines_data = (
+            _get_carry_lines(bar, map_shots)
+            if show_kp else []
+        )
+        fig        = _shot_map_fig(map_shots, kp_for_map, carry_lines_data)
 
-        return kpi, fig, heatmap, scors, assts
+        zone_src = ''
+        if not map_shots.empty and 'x' in map_shots.columns:
+            xs = map_shots['x'].dropna().tolist()
+            ys = map_shots['y'].dropna().tolist()
+            if len(xs) >= 2:
+                zone_src = render_lsc_heatmap_img(
+                    xs, ys, HOME_COLOR, half=True, show_zone_pcts=True, vertical=True,
+                )
+
+        scors = _scorers_table_children(kpi_shots)
+        assts = _assisters_table_children(kp_stats)
+
+        return kpi, fig, zone_src, scors, assts

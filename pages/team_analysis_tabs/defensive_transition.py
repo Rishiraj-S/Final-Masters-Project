@@ -386,7 +386,7 @@ def _pitch_map_fig(losses: pd.DataFrame) -> go.Figure:
                     'Time: %{customdata[1]}<br>'
                     'How: %{customdata[2]}'
                     '%{customdata[3]}<br>'
-                    '<b>Next 15s:</b> %{customdata[4]}'
+                    '<b>Next 30s:</b> %{customdata[4]}'
                     '%{customdata[5]}'
                     '<extra></extra>'
                 ),
@@ -510,7 +510,7 @@ def _tag_loss_outcomes(
 ) -> pd.DataFrame:
     """
     Tag each possession-loss row with a 'window_outcome' string describing
-    what happened in the 15-second window that followed.
+    what happened in the 30-second window that followed.
 
     Priority (highest wins): Goal Conceded > Shot Conceded > BAR Recovery > No Incident.
     Also stores 'window_detail': first opponent shot player name (if any).
@@ -939,7 +939,7 @@ def build_defending_transition_skeleton() -> html.Div:
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
                 html.Div("Transition Outcome", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
                 html.Div(
-                    "How each 15s window resolved",
+                    "How each 30s window resolved",
                     style={'color': COLORS['text_secondary'], 'fontSize': '0.60rem',
                            'fontStyle': 'italic', 'marginBottom': '6px'},
                 ),

@@ -22,6 +22,13 @@ from __future__ import annotations
 import pandas as pd
 from scipy.stats import percentileofscore
 
+from utils.event_utils import (
+    get_passes, get_goals, get_shots, get_shots_on_target,
+    get_goal_assists, get_key_passes,
+    get_take_ons, get_aerials,
+    get_tackles, get_interceptions, get_ball_recoveries, get_clearances,
+)
+
 
 # ---------------------------------------------------------------------------
 # Metric definitions per role
@@ -201,55 +208,39 @@ def compute_player_stats(events: pd.DataFrame) -> dict | None:
         return round(n / apps, 3)
 
     # Passes
-    pass_rows = events[events["event_type"] == "Pass"]
+    pass_rows = get_passes(events)
     n_passes  = len(pass_rows)
     pass_acc  = round(pass_rows["outcome"].eq(1).sum() / max(n_passes, 1) * 100, 1)
 
-    # Goals (own-goal filtering is responsibility of the caller;
-    # we count all Goal events here to stay dependency-free)
-    goals = len(events[events["event_type"] == "Goal"])
+    # Goals
+    goals = len(get_goals(events))
 
     # Shots
-    shot_rows       = events[events["event_type"].isin(["Miss", "Saved Shot", "Goal"])]
-    shots           = len(shot_rows)
-    shots_on_target = len(events[events["event_type"].isin(["Saved Shot", "Goal"])])
+    shots           = len(get_shots(events))
+    shots_on_target = len(get_shots_on_target(events))
     shot_acc        = round(shots_on_target / max(shots, 1) * 100, 1)
 
-    # Assists (qualifier type 16)
-    assists = 0
-    if "Assist" in pass_rows.columns:
-        assists = int(pd.to_numeric(pass_rows["Assist"], errors="coerce").eq(16).sum())
-
-    # Key passes (qualifier 1)
-    key_passes = 0
-    if "Key Pass" in pass_rows.columns:
-        key_passes = int(pd.to_numeric(pass_rows["Key Pass"], errors="coerce").eq(1).sum())
+    # Assists and key passes via canonical Assist qualifier encoding
+    assists    = len(get_goal_assists(events))
+    key_passes = len(get_key_passes(events))
 
     # Take-ons
-    takeon_rows = events[events["event_type"] == "Take On"]
+    takeon_rows = get_take_ons(events)
     takeon_att  = len(takeon_rows)
-    takeon_succ = (
-        int(takeon_rows["outcome"].eq(1).sum())
-        if "outcome" in takeon_rows.columns and takeon_att > 0
-        else 0
-    )
-    takeon_pct = round(takeon_succ / max(takeon_att, 1) * 100, 1)
+    takeon_succ = int(takeon_rows["outcome"].eq(1).sum()) if takeon_att > 0 else 0
+    takeon_pct  = round(takeon_succ / max(takeon_att, 1) * 100, 1)
 
     # Aerial duels
-    aerial_rows  = events[events["event_type"] == "Aerial"]
-    aerial_att   = len(aerial_rows)
-    aerial_won   = (
-        int(aerial_rows["outcome"].eq(1).sum())
-        if "outcome" in aerial_rows.columns and aerial_att > 0
-        else 0
-    )
+    aerial_rows    = get_aerials(events)
+    aerial_att     = len(aerial_rows)
+    aerial_won     = int(aerial_rows["outcome"].eq(1).sum()) if aerial_att > 0 else 0
     aerial_win_pct = round(aerial_won / max(aerial_att, 1) * 100, 1)
 
     # Defensive actions
-    tackles    = len(events[events["event_type"] == "Tackle"])
-    intercepts = len(events[events["event_type"] == "Interception"])
-    recoveries = len(events[events["event_type"] == "Ball Recovery"])
-    clearances = len(events[events["event_type"] == "Clearance"])
+    tackles    = len(get_tackles(events))
+    intercepts = len(get_interceptions(events))
+    recoveries = len(get_ball_recoveries(events))
+    clearances = len(get_clearances(events))
 
     return {
         "apps":           apps,
@@ -304,7 +295,7 @@ def compute_5d_scores(
     Compute 5-dimension percentile scores for a player vs their positional peers.
 
     Weights for Attack and Defense are loaded from the Wyscout position files
-    (assets/wyscout_things/).  Technical and Physical use equal weights.
+    (assets/wyscout_weights/).  Technical and Physical use equal weights.
     Overall is the simple average of all four dimensions.
 
     Returns

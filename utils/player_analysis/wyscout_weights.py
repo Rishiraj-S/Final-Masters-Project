@@ -1,7 +1,7 @@
 """
 Wyscout position-based metric weights for CuléVision's 5-dimension performance radar.
 
-Weights are derived from the position-specific Excel files in assets/wyscout_things/,
+Weights are derived from the position-specific Excel files in assets/wyscout_weights/,
 translated from Spanish to English.  Each Excel file encodes per-position importance
 scores (0-100) for two axes:
   column "0"   -> offensive / attack relevance
@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 import pandas as pd
 
-_ASSETS_DIR = Path(__file__).parent.parent.parent / "assets" / "wyscout_things"
+_ASSETS_DIR = Path(__file__).parent.parent.parent / "assets" / "wyscout_weights"
 
 # Role -> Excel file stem
 _ROLE_TO_FILE: dict[str, str] = {

@@ -684,20 +684,32 @@ def build_transitions(team: str | None = None,
             def_player_opts = _opts(opp_ev[loss_mask])
 
     return dbc.Tabs(
-        active_tab='otr-tab-attack',
+        active_tab='otr-tab-defend',
         children=[
             dbc.Tab(
-                _build_attacking_skeleton(atk_player_opts),
-                label='Attacking Transition',
-                tab_id='otr-tab-attack',
+                html.Div([
+                    html.Div('Transition from Attack to Defense',
+                             style={'fontSize': '0.95rem', 'color': GOLD,
+                                    'fontStyle': 'italic', 'marginBottom': '12px',
+                                    'letterSpacing': '0.3px'}),
+                    _build_defensive_skeleton(def_player_opts),
+                ]),
+                label='Defensive Transition',
+                tab_id='otr-tab-defend',
                 tab_style={'flex': '1'},
                 label_style=_BTN_INACTIVE,
                 active_label_style=_BTN_ACTIVE,
             ),
             dbc.Tab(
-                _build_defensive_skeleton(def_player_opts),
-                label='Defensive Transition',
-                tab_id='otr-tab-defend',
+                html.Div([
+                    html.Div('Transition from Defense to Attack',
+                             style={'fontSize': '0.95rem', 'color': GOLD,
+                                    'fontStyle': 'italic', 'marginBottom': '12px',
+                                    'letterSpacing': '0.3px'}),
+                    _build_attacking_skeleton(atk_player_opts),
+                ]),
+                label='Attacking Transition',
+                tab_id='otr-tab-attack',
                 tab_style={'flex': '1'},
                 label_style=_BTN_INACTIVE,
                 active_label_style=_BTN_ACTIVE,
@@ -735,11 +747,11 @@ def register_transitions_callbacks(app) -> None:
         Input('oat-outcome-filter',  'value'),
         Input('oat-h1-time',         'value'),
         Input('oat-h2-time',         'value'),
-        State('oa-team-select',      'value'),
-        State('oa-comp-select',      'value'),
-        State('oa-venue-filter',     'value'),
-        State('oa-selected-matches', 'data'),
-        State('oa-date-filter',      'date'),
+        Input('oa-team-select',      'value'),
+        Input('oa-comp-select',      'value'),
+        Input('oa-venue-filter',     'value'),
+        Input('oa-selected-matches', 'data'),
+        Input('oa-date-filter',      'date'),
     )
     def _update_atk(players, gain_types, outcome_types, h1_range, h2_range,
                     team, comp, venue, match_ids, date_cutoff):
@@ -802,11 +814,11 @@ def register_transitions_callbacks(app) -> None:
         Input('odt-outcome-filter',  'value'),
         Input('odt-h1-time',         'value'),
         Input('odt-h2-time',         'value'),
-        State('oa-team-select',      'value'),
-        State('oa-comp-select',      'value'),
-        State('oa-venue-filter',     'value'),
-        State('oa-selected-matches', 'data'),
-        State('oa-date-filter',      'date'),
+        Input('oa-team-select',      'value'),
+        Input('oa-comp-select',      'value'),
+        Input('oa-venue-filter',     'value'),
+        Input('oa-selected-matches', 'data'),
+        Input('oa-date-filter',      'date'),
     )
     def _update_def(players, loss_types, outcome_types, h1_range, h2_range,
                     team, comp, venue, match_ids, date_cutoff):
