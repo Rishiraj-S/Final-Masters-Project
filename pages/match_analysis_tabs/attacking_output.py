@@ -419,7 +419,8 @@ def _player_table(df: pd.DataFrame, color: str) -> html.Div:
             'color': COLORS['text_secondary'], 'fontSize': '0.7rem',
             'fontWeight': '600', 'padding': '6px 10px',
             'borderBottom': f'1px solid {COLORS["dark_border"]}',
-            'textTransform': 'uppercase', 'letterSpacing': '0.04em',
+            'textTransform': 'none' if col.startswith('x') else 'uppercase',
+            'letterSpacing': '0' if col.startswith('x') else '0.04em',
         }) for col in df.columns
     ]
     rows = []

@@ -163,7 +163,7 @@ def _kpi_stat_box(label: str, value, color: str) -> html.Div:
     """A compact KPI box for the side-by-side layout."""
     return html.Div([
         html.Div(str(value), style={'fontSize': '1.1rem', 'fontWeight': 'bold', 'color': color, 'lineHeight': '1'}),
-        html.Div(label, style={'fontSize': '0.65rem', 'textTransform': 'uppercase', 'color': COLORS['text_secondary'], 'letterSpacing': '0.04em'})
+        html.Div(label, style={'fontSize': '0.65rem', 'textTransform': 'none' if label.startswith('x') else 'uppercase', 'color': COLORS['text_secondary'], 'letterSpacing': '0' if label.startswith('x') else '0.04em'})
     ], style={
         'backgroundColor': COLORS['dark_tertiary'],
         'padding': '6px 8px',
