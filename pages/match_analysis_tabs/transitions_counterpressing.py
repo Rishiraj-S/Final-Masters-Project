@@ -23,7 +23,7 @@ from page_utils.visualizations import (
     GOLD,
     add_pitch_background,
     PITCH_AXIS_FULL,
-    render_lsc_heatmap_img,
+    render_xt_heatmap_img,
     PITCH_BG,
 )
 
@@ -1152,8 +1152,8 @@ def build_transitions_counterpressing_tab(events: pd.DataFrame, **_) -> html.Div
         valid = df.dropna(subset=['x', 'y'])
         if len(valid) < 2:
             return _SKEL_SRC
-        return render_lsc_heatmap_img(valid['x'].values, valid['y'].values,
-                                      color_hex=color, half=False)
+        return render_xt_heatmap_img(valid['x'].values, valid['y'].values,
+                                     [1.0] * len(valid))
 
     def _name(label, color):
         return html.Div(label, style={

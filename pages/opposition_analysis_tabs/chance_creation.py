@@ -25,7 +25,7 @@ from page_utils.visualizations import (
     add_vertical_half_pitch_background,
     VPITCH_AXIS_HALF,
     PITCH_BG,
-    render_lsc_heatmap_img,
+    render_xt_heatmap_img,
 )
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
@@ -1012,9 +1012,7 @@ def register_chance_creation_callbacks(app) -> None:
             xs = map_shots['x'].dropna().tolist()
             ys = map_shots['y'].dropna().tolist()
             if len(xs) >= 2:
-                zone_src = render_lsc_heatmap_img(
-                    xs, ys, '#ff6b6b', half=True, show_zone_pcts=True, vertical=True,
-                )
+                zone_src = render_xt_heatmap_img(xs, ys, [1.0] * len(xs))
 
         scors = _scorers_table_children(kpi_shots)
         assts = _assisters_table_children(kp_stats)

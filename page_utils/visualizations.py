@@ -649,7 +649,7 @@ def render_xt_heatmap_img(x_vals, y_vals, xt_vals) -> str:
                         cx, cy, f'{val:.2f}',
                         ha='center', va='center',
                         fontsize=7, fontweight='bold',
-                        color=GOLD, zorder=5,
+                        color='#004D98', zorder=5,
                     )
 
     ax_main.text(

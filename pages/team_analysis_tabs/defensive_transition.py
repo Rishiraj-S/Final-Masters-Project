@@ -38,7 +38,7 @@ from page_utils.competitions import normalize_competitions as _normalize_competi
 from page_utils.visualizations import (
     add_pitch_background,
     PITCH_AXIS_FULL,
-    render_lsc_heatmap_img,
+    render_xt_heatmap_img,
     PITCH_BG,
 )
 
@@ -487,11 +487,10 @@ def _heatmap_src(losses: pd.DataFrame) -> str:
     coords = losses.dropna(subset=['x', 'y'])
     if len(coords) < 2:
         return _SKEL_SRC
-    return render_lsc_heatmap_img(
+    return render_xt_heatmap_img(
         coords['x'].values,
         coords['y'].values,
-        color_hex=AWAY_COLOR,
-        half=False,
+        [1.0] * len(coords),
     )
 
 

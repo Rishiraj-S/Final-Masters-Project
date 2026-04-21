@@ -34,7 +34,7 @@ from page_utils.visualizations import (
     layout_config,
     add_pitch_background,
     PITCH_AXIS_FULL,
-    render_lsc_heatmap_img,
+    render_xt_heatmap_img,
 )
 from page_utils.event_filters import DEF_ACTION_TYPES as _DEF_ACTION_TYPES
 _PITCH_HEIGHT = 480
@@ -404,7 +404,7 @@ def _def_action_heatmap(x_vals: list, y_vals: list,
         return html.Div([label, html.Div("Not enough data", style={
             'color': COLORS['text_secondary'], 'textAlign': 'center', 'fontSize': '0.8rem',
         })], style=CARD_STYLE)
-    img_src = render_lsc_heatmap_img(x_vals, y_vals, color, show_zone_pcts=True)
+    img_src = render_xt_heatmap_img(x_vals, y_vals, [1.0] * len(x_vals))
     return html.Div([
         label,
         html.Img(src=img_src, style={'width': '100%', 'borderRadius': '6px'}),

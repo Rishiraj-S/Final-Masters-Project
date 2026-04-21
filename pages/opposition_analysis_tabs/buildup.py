@@ -30,7 +30,7 @@ import dash_bootstrap_components as dbc
 from utils.config import COLORS
 from utils.opposition_data_utils import load_opp_events, SEASON
 from page_utils import PassMap, GOLD, HOME_COLOR, AWAY_COLOR
-from page_utils.visualizations import render_lsc_heatmap_img, PITCH_BG, CHART_CONFIG
+from page_utils.visualizations import render_xt_heatmap_img, PITCH_BG, CHART_CONFIG
 
 
 # =============================================================================
@@ -652,9 +652,9 @@ def register_buildup_callbacks(app) -> None:
         if players and 'player_name' in touches.columns:
             touches = touches[touches['player_name'].isin(players)]
         touch_src = (
-            render_lsc_heatmap_img(
+            render_xt_heatmap_img(
                 touches['x'].tolist(), touches['y'].tolist(),
-                COLORS['garnet'], show_zone_pcts=True, text_color=COLORS['gold'],
+                [1.0] * len(touches),
             )
             if not touches.empty else _SKEL_SRC
         )

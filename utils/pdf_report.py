@@ -342,7 +342,7 @@ def generate_match_report_pdf(match_id) -> bytes:
     from utils.data_utils import get_match_events, get_match_lineup
     from utils.match_data_adapter import get_match_metadata, compute_team_kpis, get_substitutions
     from utils.logos import TEAM_LOGOS
-    from page_utils.visualizations import HOME_COLOR, AWAY_COLOR, render_lsc_heatmap_img
+    from page_utils.visualizations import HOME_COLOR, AWAY_COLOR, render_xt_heatmap_img
     from pages.match_analysis_tabs.overview import (
         _generate_lineup_pitch_image,
         _compute_avg_positions,
@@ -739,7 +739,7 @@ def generate_match_report_pdf(match_id) -> bytes:
             hx = d[pos]["heatmap_x"]
             hy = d[pos]["heatmap_y"]
             if hx and hy and len(hx) > 1:
-                b64 = render_lsc_heatmap_img(hx, hy, color, show_zone_pcts=True)
+                b64 = render_xt_heatmap_img(hx, hy, [1.0] * len(hx))
                 raw = base64.b64decode(b64.split(",")[1])
                 pngs.append(raw)
             else:
@@ -1022,12 +1022,12 @@ def generate_match_report_pdf(match_id) -> bytes:
                 png_t = png_d = None
                 if len(hx) > 1:
                     try:
-                        b_t = render_lsc_heatmap_img(hx, hy, hex_color)
+                        b_t = render_xt_heatmap_img(hx, hy, [1.0] * len(hx))
                         png_t = base64.b64decode(b_t.split(',')[1])
                     except: pass
                 if len(dx) > 1:
                     try:
-                        b_d = render_lsc_heatmap_img(dx, dy, hex_color)
+                        b_d = render_xt_heatmap_img(dx, dy, [1.0] * len(dx))
                         png_d = base64.b64decode(b_d.split(',')[1])
                     except: pass
                 

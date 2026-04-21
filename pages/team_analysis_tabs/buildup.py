@@ -29,7 +29,7 @@ from utils.data_utils import get_all_events, CURRENT_SEASON
 from page_utils import PassMap, GOLD, HOME_COLOR, AWAY_COLOR
 from page_utils.competitions import normalize_competitions as _normalize_competitions
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
-from page_utils.visualizations import render_lsc_heatmap_img, PITCH_BG, CHART_CONFIG
+from page_utils.visualizations import render_xt_heatmap_img, PITCH_BG, CHART_CONFIG
 
 
 # =============================================================================
@@ -503,12 +503,10 @@ def _filter_touches(bar_events: pd.DataFrame, *,
 
 
 def _touch_map_src(touches: pd.DataFrame) -> str:
-    return render_lsc_heatmap_img(
+    return render_xt_heatmap_img(
         touches['x'].tolist(),
         touches['y'].tolist(),
-        COLORS['garnet'],
-        show_zone_pcts=True,
-        text_color=COLORS['gold'],
+        [1.0] * len(touches),
     )
 
 

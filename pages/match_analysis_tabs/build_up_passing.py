@@ -42,7 +42,7 @@ from page_utils.visualizations import (
     layout_config,
     add_pitch_background,
     PITCH_AXIS_FULL,
-    render_lsc_heatmap_img,
+    render_xt_heatmap_img,
 )
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
@@ -1160,7 +1160,7 @@ def _render_possession(events: pd.DataFrame) -> html.Div:
     as_ = d['away']
 
     def _heatmap_card(team, color, touch_x, touch_y):
-        img_src = render_lsc_heatmap_img(touch_x, touch_y, color, show_zone_pcts=True)
+        img_src = render_xt_heatmap_img(touch_x, touch_y, [1.0] * len(touch_x))
         return html.Div([
             html.Div(team, style={
                 'color': color, 'fontWeight': '700',

@@ -676,7 +676,7 @@ def create_player_analysis_layout():
             dbc.Col(
                 dbc.Card([
                     dbc.CardBody([
-                        html.Div("Positional xT Heatmap", style=_section_title_style),
+                        html.Div("Positional xT Heatmap", style={**_section_title_style, "textTransform": "none"}),
                         dcc.Loading(
                             type="circle", color=_GOLD,
                             children=html.Img(

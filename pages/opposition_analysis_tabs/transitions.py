@@ -25,7 +25,7 @@ from page_utils import PassMap, GOLD, HOME_COLOR, AWAY_COLOR
 from page_utils.visualizations import (
     add_pitch_background,
     PITCH_AXIS_FULL,
-    render_lsc_heatmap_img,
+    render_xt_heatmap_img,
     PITCH_BG,
 )
 _TRANSITION_WINDOW_SEC = 30
@@ -791,8 +791,8 @@ def register_transitions_callbacks(app) -> None:
 
         coords = gains_filtered.dropna(subset=['x', 'y'])
         heatmap_src = (
-            render_lsc_heatmap_img(coords['x'].values, coords['y'].values,
-                                   color_hex=HOME_COLOR, half=False)
+            render_xt_heatmap_img(coords['x'].values, coords['y'].values,
+                                  [1.0] * len(coords))
             if len(coords) >= 2 else _SKEL_SRC
         )
 
@@ -858,8 +858,8 @@ def register_transitions_callbacks(app) -> None:
 
         coords = losses_filtered.dropna(subset=['x', 'y'])
         heatmap_src = (
-            render_lsc_heatmap_img(coords['x'].values, coords['y'].values,
-                                   color_hex=AWAY_COLOR, half=False)
+            render_xt_heatmap_img(coords['x'].values, coords['y'].values,
+                                  [1.0] * len(coords))
             if len(coords) >= 2 else _SKEL_SRC
         )
 

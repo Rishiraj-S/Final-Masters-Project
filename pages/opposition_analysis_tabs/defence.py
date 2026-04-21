@@ -35,7 +35,7 @@ from page_utils.visualizations import (
     add_pitch_background,
     PITCH_AXIS_FULL,
     PITCH_AXIS_HALF,
-    render_lsc_heatmap_img,
+    render_xt_heatmap_img,
     PITCH_BG,
 )
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
@@ -296,8 +296,8 @@ def _def_heatmap_src(def_events: pd.DataFrame) -> str:
     coords = def_events.dropna(subset=['x', 'y'])
     if len(coords) < 2:
         return _SKEL_SRC
-    return render_lsc_heatmap_img(
-        coords['x'].values, coords['y'].values, color_hex=AWAY_COLOR, half=False,
+    return render_xt_heatmap_img(
+        coords['x'].values, coords['y'].values, [1.0] * len(coords),
     )
 
 
