@@ -83,10 +83,11 @@ Home  |  Barça DNA  |  Barça IQ  |  Match Report  |  Opposition Analysis
 |--------|---------|
 | `utils/event_utils.py` | Canonical event-extraction functions — **always use these, never filter inline** |
 | `utils/match_data_adapter.py` | Phase-tagged match analysis: possession, transitions, set pieces, counterpress, pass networks |
-| `utils/player_analysis/metrics.py` | Per-player stat computation, percentiles, A–D rating dimensions |
+| `utils/player_analysis/metrics.py` | Per-player stat computation, percentiles, A–D rating dimensions; includes `xT_app` |
 | `utils/player_analysis/wyscout_weights.py` | Wyscout position weights loaded from `assets/wyscout_weights/*.xlsx` |
 | `utils/logos.py` | `get_team_logo_path()`, `get_tournament_logo_path()`, `get_country_flag_path()` — maps data names to asset paths |
 | `utils/xg_utils.py` | `add_xg_column(shots_df)` bridge to the xG model |
+| `utils/xt_utils.py` | `add_xt_column(passes_df)` bridge to the xT model — adds `xT` column to pass DataFrames |
 | `utils/config.py` | `COLORS`, `APP_CONFIG`, `NAV_LINKS` only |
 
 ### Event Helpers — `utils/event_utils.py`
@@ -144,7 +145,7 @@ Key `compute_event_stats` output keys: `apps`, `total_minutes`, `mins_per_app`, 
 `page_utils/` contains canonical definitions that must be imported, never redefined locally:
 - `competitions.py` — `ALL_COMPETITIONS`, `COMP_SHORT`, `normalize_competitions()`, `build_match_selector_options()`
 - `event_filters.py` — `SHOT_TYPES`, `DEF_ACTION_TYPES`, `DEF_COLORS`, `SHOT_OUTCOME_COLOR`, `SHOT_OUTCOME_SYMBOL`, `filter_by_period()`, `split_by_halves()`
-- `visualizations.py` — `HOME_COLOR`, `AWAY_COLOR`, `GOLD`, `CHART_CONFIG`, `CHART_LAYOUT_DEFAULTS`, and all pitch-drawing utilities
+- `visualizations.py` — `HOME_COLOR`, `AWAY_COLOR`, `GOLD`, `CHART_CONFIG`, `CHART_LAYOUT_DEFAULTS`, and all pitch-drawing utilities. Key renderers: `render_lsc_heatmap_img` (positional KDE heatmap), `render_xt_heatmap_img(x, y, xt)` (16×12 grid xT heatmap, gold colormap)
 - `pitch_zones.py` — `PitchZone`, `ZoneBoundaries`, `get_zone()`, `is_in_penalty_box()`
 - `possession_utils.py` — `annotate_possession()`, `compute_vertical_speed()`, `is_stable_possession()`
 - `time_utils.py` — `to_seconds()`, `format_seconds()`, `events_within_window()`
@@ -153,15 +154,15 @@ Key `compute_event_stats` output keys: `apps`, `total_minutes`, `mins_per_app`, 
 
 **match_analysis_tabs/** (7 tabs, used by `match_report.py`):
 
-| File | Builder | Callbacks |
-|------|---------|-----------|
-| `overview.py` | `build_overview_tab` | `register_overview_callbacks` |
-| `attacking_output.py` | `build_attacking_output_tab` | — |
-| `build_up_passing.py` | `build_build_up_passing_tab` | `register_build_up_passing_callbacks` |
-| `defensive_structure.py` | `build_defensive_structure_tab` | `register_defensive_structure_callbacks` |
-| `transitions_counterpressing.py` | `build_transitions_counterpressing_tab` | `register_transitions_counterpressing_callbacks` |
-| `goalkeeping.py` | `build_goalkeeping_tab` | `register_goalkeeping_callbacks` |
-| `player_stats.py` | `build_player_stats_tab` | `register_player_stats_callbacks` |
+| File | Builder | Callbacks | Notes |
+|------|---------|-----------|-------|
+| `overview.py` | `build_overview_tab` | `register_overview_callbacks` | TV stat bars show H1/H2 half splits in brackets |
+| `attacking_output.py` | `build_attacking_output_tab` | — | |
+| `build_up_passing.py` | `build_build_up_passing_tab` | `register_build_up_passing_callbacks` | |
+| `defensive_structure.py` | `build_defensive_structure_tab` | `register_defensive_structure_callbacks` | Defensive action map includes fouls + offsides overlays |
+| `transitions_counterpressing.py` | `build_transitions_counterpressing_tab` | `register_transitions_counterpressing_callbacks` | Two sub-tabs: Defensive Transition + Attacking Transition; 30s windows after possession changes; both teams side-by-side |
+| `goalkeeping.py` | `build_goalkeeping_tab` | `register_goalkeeping_callbacks` | |
+| `player_stats.py` | `build_player_stats_tab` | `register_player_stats_callbacks` | Player table now includes `xT` column per player |
 
 Score headline callback lives in `match_report.py` (not in `overview.py`).
 
@@ -187,6 +188,21 @@ Zone boundaries (both teams, no flip needed):
 ### xG Model
 
 `xg_model/predictor.py` contains `XGPredictor` (open play), `XGDFKPredictor` (direct free kicks), `XGPenaltyPredictor` (penalties), and `XGRouter` which auto-routes. The bridge to Opta data is `utils/xg_utils.py` → `add_xg_column(shots_df)`. The predictor is a lazy singleton loaded once on first call.
+
+### xT Model
+
+Grid-based Expected Threat model following the Soccermatics/Bellman-equation approach.
+
+| File | Purpose |
+|------|---------|
+| `xT_model/train.py` | Training script — loads all Opta parquets (Barcelona + opposition), builds 16×12 grid via Bellman iteration, saves `xt_grid.npy` |
+| `xT_model/predictor.py` | Lazy-singleton inference — `predict_xt(x1,y1,x2,y2)` and `add_xt_column(passes_df)` |
+| `xT_model/xt_grid.npy` | Trained artifact — (16, 12) array of xT values |
+| `utils/xt_utils.py` | Public bridge — `add_xt_column(passes_df)` adding an `xT` column to any Opta pass DataFrame |
+
+**Retrain**: `python xT_model/train.py` — reads from `data/barcelona/result/**/match_event/` and `data/opposition/**/match_event/`.
+
+**Known limitation**: Ball carries are not Opta events. Wingers/progressive midfielders are under-credited vs. pure passers in any per-player xT ranking.
 
 ### Pipeline Architecture
 

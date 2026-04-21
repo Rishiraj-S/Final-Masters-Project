@@ -313,8 +313,8 @@ def _kpi_children(losses: pd.DataFrame, opp_in_windows: pd.DataFrame) -> list:
         _card(def_third,     'Def Third',       AWAY_COLOR),
         _card(att_third,     'Att Third',       GOLD),
         _card(trans_events,  'Trans. Events',   HOME_COLOR),
-        _card(shots_faced,   'Shots Faced',     AWAY_COLOR),
-        _card(goals_faced,   'Goals Conceded',  AWAY_COLOR),
+        _card(shots_faced,   'Led to Shot',     AWAY_COLOR),
+        _card(goals_faced,   'Led to Goal',     AWAY_COLOR),
     ]
     return [html.Div(cards, style={'display': 'flex', 'gap': '6px', 'flexWrap': 'wrap'})]
 

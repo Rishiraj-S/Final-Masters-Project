@@ -566,6 +566,139 @@ def render_lsc_heatmap_img(x_vals, y_vals, color_hex: str, half: bool = False,
     return result
 
 
+def render_xt_heatmap_img(x_vals, y_vals, xt_vals) -> str:
+    """
+    Render a pitch heatmap coloured by total xT generated per zone.
+    Bar plots on top/right show the distribution of pass start positions.
+    Zone labels show the cumulative xT in that area.
+    Returns a base64 PNG data URI.
+    """
+    _x  = np.asarray(x_vals,  dtype=float)
+    _y  = np.asarray(y_vals,  dtype=float)
+    _xt = np.asarray(xt_vals, dtype=float)
+
+    _cache_key = (
+        _hashlib.md5(_x.tobytes()).hexdigest()[:10],
+        _hashlib.md5(_y.tobytes()).hexdigest()[:10],
+        _hashlib.md5(_xt.tobytes()).hexdigest()[:10],
+        'xt',
+    )
+    if _cache_key in _heatmap_cache:
+        return _heatmap_cache[_cache_key]
+
+    # Gold colormap: transparent → dark gold → bright gold
+    cmap = LinearSegmentedColormap.from_list(
+        'xt_cmap',
+        [
+            (0.07, 0.07, 0.14, 0.0),
+            (0.55, 0.42, 0.00, 0.55),
+            (0.93, 0.73, 0.00, 0.85),
+            (1.00, 0.90, 0.20, 1.0),
+        ],
+    )
+    r_c, g_c, b_c = 0.93, 0.73, 0.0  # gold for bar plots
+
+    bg = PITCH_BG
+    fig = plt.figure(figsize=(11, 8.5), facecolor=bg)
+    gs = fig.add_gridspec(
+        2, 2,
+        width_ratios=[5, 1], height_ratios=[1, 5],
+        hspace=0.03, wspace=0.03,
+        left=0.01, right=0.99, top=0.97, bottom=0.01,
+    )
+    ax_main  = fig.add_subplot(gs[1, 0])
+    ax_top   = fig.add_subplot(gs[0, 0])
+    ax_right = fig.add_subplot(gs[1, 1])
+
+    for ax in (ax_top, ax_right):
+        ax.set_facecolor(bg)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+
+    pitch = Pitch(
+        pitch_type='opta', pitch_color=PITCH_BG, line_color=PITCH_LINE_COLOR,
+        linewidth=2.5, stripe=False, goal_type='box', goal_alpha=0.8,
+        pad_top=2, pad_bottom=2, pad_left=5, pad_right=5,
+    )
+    pitch.draw(ax=ax_main)
+
+    ax_xlim = ax_main.get_xlim()
+    ax_ylim = ax_main.get_ylim()
+    ax_top.set_xlim(*ax_xlim)
+    ax_right.set_ylim(*ax_ylim)
+
+    if len(_x) >= 2:
+        bin_stat = pitch.bin_statistic(
+            _x, _y, values=_xt, statistic='sum', bins=(16, 12),
+        )
+        pitch.heatmap(
+            bin_stat, ax=ax_main, cmap=cmap,
+            edgecolors=PITCH_BG, linewidth=0.4, alpha=0.85,
+        )
+        # Label only the top-15 cells by xT to avoid clutter
+        flat_vals = bin_stat['statistic'].flatten()
+        flat_cx   = bin_stat['cx'].flatten()
+        flat_cy   = bin_stat['cy'].flatten()
+        threshold = sorted(flat_vals[flat_vals > 0.005], reverse=True)[:15]
+        if threshold:
+            cutoff = threshold[-1]
+            for val, cx, cy in zip(flat_vals, flat_cx, flat_cy):
+                if val >= cutoff:
+                    ax_main.text(
+                        cx, cy, f'{val:.2f}',
+                        ha='center', va='center',
+                        fontsize=7, fontweight='bold',
+                        color=GOLD, zorder=5,
+                    )
+
+    ax_main.text(
+        0.5, 1.012, '➡  Direction of Attack',
+        transform=ax_main.transAxes,
+        ha='center', va='bottom',
+        fontsize=9.5, fontweight='bold', color='white',
+        bbox=dict(boxstyle='round,pad=0.3', facecolor=PITCH_BG, alpha=0.8,
+                  edgecolor=PITCH_LINE_COLOR),
+        zorder=10,
+    )
+
+    # Marginal bar plots — distribution of pass start positions
+    _s = 1.5
+    _k = max(3, int(6 * _s + 1))
+    if _k % 2 == 0:
+        _k += 1
+    _kern = np.exp(-0.5 * ((np.arange(_k) - _k // 2) / _s) ** 2)
+    _kern /= _kern.sum()
+    N = 20
+
+    x_counts, x_edges = np.histogram(_x, bins=N, range=(0, 100))
+    x_mids   = (x_edges[:-1] + x_edges[1:]) / 2
+    x_smooth = np.convolve(x_counts.astype(float), _kern, mode='same')
+    bw = (x_edges[1] - x_edges[0]) * 0.85
+    ax_top.bar(x_mids, x_counts, width=bw, color=(r_c, g_c, b_c, 0.40), align='center')
+    ax_top.plot(x_mids, x_smooth, color=(r_c, g_c, b_c), linewidth=2)
+    ax_top.fill_between(x_mids, x_smooth, alpha=0.15, color=(r_c, g_c, b_c))
+    ax_top.set_ylim(bottom=0)
+
+    y_counts, y_edges = np.histogram(_y, bins=N, range=(0, 100))
+    y_mids   = (y_edges[:-1] + y_edges[1:]) / 2
+    y_smooth = np.convolve(y_counts.astype(float), _kern, mode='same')
+    bh = (y_edges[1] - y_edges[0]) * 0.85
+    ax_right.barh(y_mids, y_counts, height=bh, color=(r_c, g_c, b_c, 0.40), align='center')
+    ax_right.plot(y_smooth, y_mids, color=(r_c, g_c, b_c), linewidth=2)
+    ax_right.fill_betweenx(y_mids, y_smooth, alpha=0.15, color=(r_c, g_c, b_c))
+    ax_right.set_xlim(left=0)
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=80, bbox_inches='tight', pad_inches=0.05, facecolor=bg)
+    buf.seek(0)
+    img_str = base64.b64encode(buf.read()).decode()
+    plt.close(fig)
+    result = f'data:image/png;base64,{img_str}'
+    _heatmap_cache[_cache_key] = result
+    return result
+
+
 # =============================================================================
 # 5-Dimension Radar Configuration & Utility
 # =============================================================================

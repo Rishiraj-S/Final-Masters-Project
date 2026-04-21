@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pandas as pd
 import plotly.graph_objects as go
-from dash import html, dcc, ctx
+from dash import html, dcc
 from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 
@@ -86,15 +86,11 @@ _OUTCOME_SYMBOL = {
     'Miss':         'x',
 }
 
-_BTN_BASE   = {'borderRadius': '6px', 'padding': '5px 14px', 'cursor': 'pointer',
-               'fontSize': '0.85rem', 'border': f'1px solid {COLORS["dark_border"]}'}
-_BTN_ACTIVE = {**_BTN_BASE, 'backgroundColor': GOLD, 'color': '#1A1D2E',
-               'border': f'1px solid {GOLD}', 'fontWeight': '600'}
-_BTN_IDLE   = {**_BTN_BASE, 'backgroundColor': COLORS['dark_secondary'],
-               'color': COLORS['text_primary']}
-
 # Players whose average x is below this threshold qualify as GK-zone candidates
 _GK_X_THRESHOLD = 20
+
+_BARCA_BLUE   = '#004D98'
+_BARCA_GARNET = '#A50044'
 
 
 # ---------------------------------------------------------------------------
@@ -355,47 +351,93 @@ def _plot_title(team_data: dict, gk_filter: str) -> str:
 # Match statistics tables
 # ---------------------------------------------------------------------------
 
-def _gk_stats_table(team_name: str, color: str, gk_name: str,
-                    full: dict, h1: dict, h2: dict) -> html.Div:
-    """Single-GK stats: Full / 1st Half / 2nd Half columns."""
-    _METRICS = [
-        ('Shots Faced',     'total_shots'),
-        ('Shots on Target', 'shots_on_target'),
-        ('Saves',           'saves'),
-        ('Goals Conceded',  'goals_conceded'),
-        ('xGA',             'xg_against'),
-        ('Save %',          'save_pct'),
-    ]
-    _col = {'textAlign': 'center', 'padding': '6px 12px',
-            'fontSize': '0.82rem', 'fontWeight': '600', 'color': COLORS['text_primary']}
-    _hdr = {'textAlign': 'center', 'padding': '6px 12px',
-            'fontSize': '0.68rem', 'fontWeight': '700',
-            'color': COLORS['text_secondary'],
-            'textTransform': 'uppercase', 'letterSpacing': '0.06em',
-            'borderBottom': f'1px solid {COLORS["dark_border"]}'}
-    _lbl = {'padding': '6px 12px', 'fontSize': '0.8rem',
-            'color': COLORS['text_secondary'], 'whiteSpace': 'nowrap'}
+def _make_donut(values: list, labels: list, colors: list,
+                center_text: str, title: str) -> go.Figure:
+    fig = go.Figure(go.Pie(
+        values=values, labels=labels, hole=0.68,
+        marker=dict(colors=colors, line=dict(color='rgba(0,0,0,0.2)', width=1.5)),
+        textinfo='none',
+        hovertemplate='<b>%{label}</b>: %{value}<extra></extra>',
+        sort=False,
+    ))
+    fig.add_annotation(
+        text=center_text, x=0.5, y=0.5, showarrow=False,
+        font=dict(color='white', size=16, family='Arial Black'),
+        xref='paper', yref='paper',
+    )
+    fig.update_layout(
+        title=dict(text=f'<b>{title}</b>', x=0.5,
+                   font=dict(color=COLORS['text_secondary'], size=10)),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        showlegend=True,
+        legend=dict(
+            orientation='h', x=0.5, xanchor='center', y=-0.08,
+            font=dict(color=COLORS['text_primary'], size=9),
+            bgcolor='rgba(0,0,0,0)', itemsizing='constant',
+        ),
+        margin=dict(l=5, r=5, t=32, b=30),
+        height=190,
+    )
+    return fig
 
-    def _fmt(key, d):
-        v = d.get(key, 0)
-        if key == 'save_pct':   return f"{v:.1f}%"
-        if key == 'xg_against': return f"{v:.2f}"
-        return str(int(v))
+
+def _gk_donut_card(team_name: str, color: str, gk_name: str,
+                   full: dict, h1: dict, h2: dict) -> html.Div:
+    """Single-GK stats: two donuts (save rate, shot breakdown) + half-split table."""
+    saves  = full.get('saves', 0)
+    goals  = full.get('goals_conceded', 0)
+    sot    = full.get('shots_on_target', 0)
+    total  = full.get('total_shots', 0)
+    off_t  = max(total - sot, 0)
+    sv_pct = full.get('save_pct', 0.0)
+
+    fig_save = _make_donut(
+        values=[saves, goals] if (saves + goals) > 0 else [1, 0],
+        labels=['Saves', 'Goals'],
+        colors=[_BARCA_BLUE, _BARCA_GARNET],
+        center_text=f"{sv_pct:.0f}%",
+        title='Save Rate',
+    )
+    fig_shots = _make_donut(
+        values=[sot, off_t] if total > 0 else [0, 1],
+        labels=['On Target', 'Off Target'],
+        colors=[_BARCA_GARNET, 'rgba(140,140,140,0.35)'],
+        center_text=f"{sot}/{total}",
+        title='Shots Faced',
+    )
+
+    _METRICS_T = [
+        ('Shots Faced', 'total_shots',     lambda v: str(int(v))),
+        ('SOT',         'shots_on_target', lambda v: str(int(v))),
+        ('xGA',         'xg_against',      lambda v: f"{v:.2f}"),
+        ('Save %',      'save_pct',        lambda v: f"{v:.1f}%"),
+    ]
+    _hdr = {
+        'textAlign': 'center', 'padding': '4px 10px',
+        'fontSize': '0.64rem', 'fontWeight': '700',
+        'color': COLORS['text_secondary'],
+        'textTransform': 'uppercase', 'letterSpacing': '0.06em',
+        'borderBottom': f'1px solid {COLORS["dark_border"]}',
+    }
+    _col = {'textAlign': 'center', 'padding': '4px 10px',
+            'fontSize': '0.78rem', 'fontWeight': '600', 'color': COLORS['text_primary']}
+    _lbl = {'padding': '4px 10px', 'fontSize': '0.76rem',
+            'color': COLORS['text_secondary'], 'whiteSpace': 'nowrap'}
 
     header = html.Tr([
         html.Th('', style=_hdr),
         html.Th('Full', style=_hdr),
-        html.Th('1st Half', style=_hdr),
-        html.Th('2nd Half', style=_hdr),
+        html.Th('1H', style=_hdr),
+        html.Th('2H', style=_hdr),
     ])
     rows = []
-    for i, (label, key) in enumerate(_METRICS):
-        bg = COLORS.get('dark_tertiary', 'rgba(255,255,255,0.03)') if i % 2 == 0 else 'transparent'
+    for i, (label, key, fmt) in enumerate(_METRICS_T):
+        bg = 'rgba(255,255,255,0.03)' if i % 2 else 'transparent'
         rows.append(html.Tr([
             html.Td(label, style=_lbl),
-            html.Td(_fmt(key, full), style=_col),
-            html.Td(_fmt(key, h1),   style=_col),
-            html.Td(_fmt(key, h2),   style=_col),
+            html.Td(fmt(full.get(key, 0)), style=_col),
+            html.Td(fmt(h1.get(key, 0)),   style=_col),
+            html.Td(fmt(h2.get(key, 0)),   style=_col),
         ], style={'backgroundColor': bg}))
 
     return html.Div([
@@ -406,10 +448,16 @@ def _gk_stats_table(team_name: str, color: str, gk_name: str,
         }),
         html.Div(f"GK: {gk_name}", style={
             'color': COLORS['text_secondary'], 'fontSize': '0.82rem',
-            'marginBottom': '10px',
+            'marginBottom': '8px',
         }),
-        html.Table([html.Thead(header), html.Tbody(rows)],
-                   style={'width': '100%', 'borderCollapse': 'collapse'}),
+        dbc.Row([
+            dbc.Col(dcc.Graph(figure=fig_save,  config=CHART_CONFIG), width=6, className='p-0'),
+            dbc.Col(dcc.Graph(figure=fig_shots, config=CHART_CONFIG), width=6, className='p-0'),
+        ], className='g-0 mb-2'),
+        html.Table(
+            [html.Thead(header), html.Tbody(rows)],
+            style={'width': '100%', 'borderCollapse': 'collapse'},
+        ),
     ], style=CARD_STYLE)
 
 
@@ -478,7 +526,7 @@ def _match_stats_section(hs: dict, as_: dict,
         if len(gk_list) == 1:
             full = {k: td[k] for k in ('total_shots', 'shots_on_target',
                                         'saves', 'goals_conceded', 'xg_against', 'save_pct')}
-            return _gk_stats_table(td['team'], color, gk_list[0]['name'], full, h1, h2)
+            return _gk_donut_card(td['team'], color, gk_list[0]['name'], full, h1, h2)
         return _gk_stats_table_multi(td['team'], color, gk_list)
 
     return html.Div([
@@ -737,27 +785,6 @@ def _gk_pass_map(gk_passes_df: pd.DataFrame, team_color: str, gk_name: str) -> g
 
 
 # ---------------------------------------------------------------------------
-# Half filter bar
-# ---------------------------------------------------------------------------
-
-def _filter_bar_gk(active: str = 'full') -> html.Div:
-    return html.Div([
-        dcc.Store(id='gk-half-store', data=active),
-        html.Span("Half:", style={
-            'color': COLORS['text_secondary'], 'fontSize': '0.85rem',
-            'marginRight': '10px', 'alignSelf': 'center',
-        }),
-        html.Button("Full Match", id='gk-half-full', n_clicks=0,
-                    style=_BTN_ACTIVE if active == 'full' else _BTN_IDLE),
-        html.Button("1st Half",   id='gk-half-1',    n_clicks=0,
-                    style=_BTN_ACTIVE if active == '1' else _BTN_IDLE),
-        html.Button("2nd Half",   id='gk-half-2',    n_clicks=0,
-                    style=_BTN_ACTIVE if active == '2' else _BTN_IDLE),
-    ], style={'display': 'flex', 'gap': '8px', 'alignItems': 'center',
-              'marginBottom': '16px'})
-
-
-# ---------------------------------------------------------------------------
 # GK selector row
 # ---------------------------------------------------------------------------
 
@@ -903,7 +930,6 @@ def build_goalkeeping_tab(events: pd.DataFrame, **_) -> html.Div:
 
     return html.Div([
         stats_section,
-        _filter_bar_gk(),
         _build_gk_selector_row(d),
         html.Div(id='gk-plots-content', children=_render_gk_plots(events)),
     ], style={'marginTop': '16px'})
@@ -916,36 +942,16 @@ def build_goalkeeping_tab(events: pd.DataFrame, **_) -> html.Div:
 def register_goalkeeping_callbacks(app) -> None:
 
     @app.callback(
-        Output('gk-half-full', 'style'),
-        Output('gk-half-1',    'style'),
-        Output('gk-half-2',    'style'),
-        Output('gk-half-store', 'data'),
-        Input('gk-half-full', 'n_clicks'),
-        Input('gk-half-1',    'n_clicks'),
-        Input('gk-half-2',    'n_clicks'),
-        State('gk-half-store', 'data'),
-        prevent_initial_call=True,
-    )
-    def _toggle_gk_half(_f, _1, _2, current):
-        triggered = ctx.triggered_id or 'gk-half-full'
-        val       = {'gk-half-full': 'full', 'gk-half-1': '1', 'gk-half-2': '2'}.get(triggered, current)
-        styles    = [_BTN_ACTIVE if val == k else _BTN_IDLE for k in ('full', '1', '2')]
-        return (*styles, val)
-
-    @app.callback(
         Output('gk-plots-content', 'children'),
-        Input('gk-half-store',  'data'),
         Input('gk-home-filter', 'value'),
         Input('gk-away-filter', 'value'),
         State('pma-selected-match', 'data'),
         prevent_initial_call=True,
     )
-    def _update_gk_plots(half, home_gk, away_gk, match_id):
+    def _update_gk_plots(home_gk, away_gk, match_id):
         if not match_id:
             return html.P("No match selected.", style={'color': COLORS['text_secondary']})
         events = get_match_events(match_id)
         if events.empty:
             return html.P("No data.", style={'color': COLORS['text_secondary']})
-        if half != 'full' and 'period_id' in events.columns:
-            events = events[events['period_id'] == int(half)]
         return _render_gk_plots(events, home_gk or 'all', away_gk or 'all')

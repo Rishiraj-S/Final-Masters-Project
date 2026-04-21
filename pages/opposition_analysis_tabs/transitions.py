@@ -255,19 +255,20 @@ def _add_atk_direction(fig: go.Figure) -> None:
 
 
 def _atk_kpi_children(gains: pd.DataFrame) -> list:
-    n       = max(len(gains), 1)
-    goals   = int((gains.get('window_outcome', pd.Series(dtype=str)) == 'Goal Scored').sum()) if 'window_outcome' in gains.columns else 0
-    shots   = int((gains.get('window_outcome', pd.Series(dtype=str)) == 'Shot Taken').sum()) if 'window_outcome' in gains.columns else 0
-    br      = int((gains['gain_type'] == 'Ball Recovery').sum()) if 'gain_type' in gains.columns else 0
-    interc  = int((gains['gain_type'] == 'Interception').sum()) if 'gain_type' in gains.columns else 0
-    tkl     = int((gains['gain_type'] == 'Tackle Won').sum()) if 'gain_type' in gains.columns else 0
+    n              = len(gains)
+    col            = gains['window_outcome'] if not gains.empty and 'window_outcome' in gains.columns else pd.Series(dtype=str)
+    goals          = int((col == 'Goal Scored').sum())
+    shots          = int((col == 'Shot Taken').sum())
+    quick_turnovers = int((col == 'Quick Turnover').sum())
+    own_half       = int((gains['x'] < 50).sum()) if not gains.empty else 0
+    fin_third      = int((gains['x'] >= 66.67).sum()) if not gains.empty else 0
     return _kpi_bar([
-        _kpi_card(n,     'Total Gains', GOLD),
-        _kpi_card(goals, 'Goals',       '#22c55e'),
-        _kpi_card(shots, 'Shots',       GOLD),
-        _kpi_card(br,    'Ball Rec.',   _GAIN_COLORS['Ball Recovery']),
-        _kpi_card(interc,'Interceptions', _GAIN_COLORS['Interception']),
-        _kpi_card(tkl,   'Tackles Won', _GAIN_COLORS['Tackle Won']),
+        _kpi_card(n,               'Total Gains',    GOLD),
+        _kpi_card(goals,           'Led to Goal',    '#22c55e'),
+        _kpi_card(shots,           'Led to Shot',    GOLD),
+        _kpi_card(quick_turnovers, 'Quick Turnover', AWAY_COLOR),
+        _kpi_card(own_half,        'Own-Half Gains', HOME_COLOR),
+        _kpi_card(fin_third,       'Final Third',    HOME_COLOR),
     ])
 
 
@@ -437,19 +438,20 @@ def _def_pitch_fig(losses: pd.DataFrame) -> go.Figure:
 
 
 def _def_kpi_children(losses: pd.DataFrame) -> list:
-    n      = max(len(losses), 1)
-    goals  = int((losses.get('window_outcome', pd.Series(dtype=str)) == 'Goal Conceded').sum()) if 'window_outcome' in losses.columns else 0
-    shots  = int((losses.get('window_outcome', pd.Series(dtype=str)) == 'Shot Conceded').sum()) if 'window_outcome' in losses.columns else 0
-    fp     = int((losses['loss_type'] == 'Failed Pass').sum()) if 'loss_type' in losses.columns else 0
-    mc     = int((losses['loss_type'] == 'Miscontrol').sum()) if 'loss_type' in losses.columns else 0
-    dp     = int((losses['loss_type'] == 'Dispossessed').sum()) if 'loss_type' in losses.columns else 0
+    n          = len(losses)
+    col        = losses['window_outcome'] if not losses.empty and 'window_outcome' in losses.columns else pd.Series(dtype=str)
+    goals      = int((col == 'Goal Conceded').sum())
+    shots      = int((col == 'Shot Conceded').sum())
+    recovered  = int((col == 'Opp Recovered').sum())
+    own_half   = int((losses['x'] < 50).sum()) if not losses.empty else 0
+    def_third  = int((losses['x'] < 33.33).sum()) if not losses.empty else 0
     return _kpi_bar([
-        _kpi_card(n,    'Total Losses', GOLD),
-        _kpi_card(goals,'Goals Conc.',  AWAY_COLOR),
-        _kpi_card(shots,'Shots Conc.',  '#f97316'),
-        _kpi_card(fp,   'Failed Pass',  _LOSS_COLORS['Failed Pass']),
-        _kpi_card(mc,   'Miscontrol',   _LOSS_COLORS['Miscontrol']),
-        _kpi_card(dp,   'Dispossessed', _LOSS_COLORS['Dispossessed']),
+        _kpi_card(n,         'Total Losses',  AWAY_COLOR),
+        _kpi_card(goals,     'Led to Goal',   AWAY_COLOR),
+        _kpi_card(shots,     'Led to Shot',   '#f97316'),
+        _kpi_card(recovered, 'Opp Recovered', HOME_COLOR),
+        _kpi_card(own_half,  'Own-Half Loss', AWAY_COLOR),
+        _kpi_card(def_third, 'Def Third',     AWAY_COLOR),
     ])
 
 

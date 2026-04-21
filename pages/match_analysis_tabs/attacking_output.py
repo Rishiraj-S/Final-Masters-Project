@@ -14,6 +14,7 @@ import dash_bootstrap_components as dbc
 from utils.config import COLORS
 from utils.data_utils import exclude_own_goals
 from utils.xg_utils import add_xg_column
+from utils.xt_utils import add_xt_column
 from page_utils.pitch_zones import BOX_X_MIN, BOX_Y_MIN, BOX_Y_MAX
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
@@ -172,6 +173,16 @@ def _compute(events: pd.DataFrame) -> dict:
             xg_per_player = shots.groupby('player_name')['xg'].sum().round(2)
             shooter_counts['xG'] = (
                 shooter_counts['Player'].map(xg_per_player).fillna(0.0).round(2)
+            )
+
+        te_passes = sorted_te[sorted_te['event_type'] == 'Pass'].copy()
+        if not te_passes.empty:
+            xt_per_player = (
+                add_xt_column(te_passes)
+                .groupby('player_name')['xT'].sum().round(3)
+            )
+            shooter_counts['Pos xT'] = (
+                shooter_counts['Player'].map(xt_per_player).fillna(0.0).round(3)
             )
 
         out[pos] = {

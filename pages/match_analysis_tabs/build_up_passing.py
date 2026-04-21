@@ -23,19 +23,16 @@ import matplotlib.pyplot as plt
 from mplsoccer import Pitch as _MplPitch
 from sklearn.preprocessing import MinMaxScaler
 from dash import html, dcc
-from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
-from utils.data_utils import get_match_events
+from utils.xt_utils import add_xt_column as _add_xt_column
 from .shared import (
     build_legend_box,
     build_info_box,
     build_team_stats_table,
     CARD_STYLE,
     section_header,
-    HALF_BTN_ACTIVE as _BTN_ACTIVE,
-    HALF_BTN_IDLE   as _BTN_IDLE,
 )
 from page_utils.visualizations import (
     HOME_COLOR,
@@ -229,6 +226,50 @@ def _build_3player_combos(te: pd.DataFrame) -> pd.DataFrame:
 
 
 
+def _build_4player_combos(te: pd.DataFrame) -> pd.DataFrame:
+    """Top 8 four-player passer chains (A → B → C → D), with full / 1H / 2H counts."""
+    ev = te[['player_name', 'event_type', 'outcome',
+             'period_id', 'time_min', 'time_sec']].copy()
+    ev = ev.dropna(subset=['player_name'])
+    ev = ev.sort_values(['period_id', 'time_min', 'time_sec']).reset_index(drop=True)
+    combos: dict[tuple, int] = {}
+    combos_h1: dict[tuple, int] = {}
+    combos_h2: dict[tuple, int] = {}
+    for i in range(len(ev) - 3):
+        r1 = ev.iloc[i]
+        r2 = ev.iloc[i + 1]
+        r3 = ev.iloc[i + 2]
+        r4 = ev.iloc[i + 3]
+        if (r1['event_type'] == 'Pass' and r1.get('outcome') == 1
+                and r2['event_type'] == 'Pass' and r2.get('outcome') == 1
+                and r3['event_type'] == 'Pass' and r3.get('outcome') == 1
+                and pd.notna(r2.get('player_name'))
+                and pd.notna(r3.get('player_name'))
+                and pd.notna(r4.get('player_name'))):
+            a = str(r1['player_name']).split()[-1]
+            b = str(r2['player_name']).split()[-1]
+            c = str(r3['player_name']).split()[-1]
+            d = str(r4['player_name']).split()[-1]
+            if a != b and b != c and c != d:
+                key = (a, b, c, d)
+                combos[key] = combos.get(key, 0) + 1
+                if r1['period_id'] == 1:
+                    combos_h1[key] = combos_h1.get(key, 0) + 1
+                elif r1['period_id'] == 2:
+                    combos_h2[key] = combos_h2.get(key, 0) + 1
+    if not combos:
+        return pd.DataFrame(columns=['Combo', 'Total', 'H1', 'H2'])
+    rows = [
+        {'Combo': f'{a} -> {b} -> {c} -> {d}', 'Total': cnt,
+         'H1': combos_h1.get((a, b, c, d), 0), 'H2': combos_h2.get((a, b, c, d), 0)}
+        for (a, b, c, d), cnt in combos.items()
+    ]
+    return (pd.DataFrame(rows)
+            .sort_values('Total', ascending=False)
+            .head(8)
+            .reset_index(drop=True))
+
+
 def _build_entries(te: pd.DataFrame, zone: str = 'final_third') -> pd.DataFrame:
     """Build a DataFrame of entries (passes, dribbles, carries) into a target zone.
 
@@ -369,6 +410,7 @@ def _compute(events: pd.DataFrame) -> dict:
         nodes, edges = _build_network(te)
         combos = _build_combos(te)
         combos3 = _build_3player_combos(te)
+        combos4 = _build_4player_combos(te)
 
         # Entries data
         entries_ft = _build_entries(te, zone='final_third')
@@ -439,6 +481,7 @@ def _compute(events: pd.DataFrame) -> dict:
             'edges':  edges,
             'combos': combos,
             'combos3': combos3,
+            'combos4': combos4,
             'entries_ft':  entries_ft,
             'entries_z14': entries_z14,
             'touch_x':     touch_x,
@@ -475,6 +518,8 @@ def _compute_half_stats(events: pd.DataFrame, pos: str, period: int | None = Non
     if 'Pass End X' in passes.columns:
         into_ft = int((passes['Pass End X'].dropna() > 66.67).sum())
 
+    total_xt = round(float(_add_xt_column(passes)['xT'].sum()), 3) if total_p > 0 else 0.0
+
     return {
         'team':       team,
         'passes':     total_p,
@@ -483,6 +528,7 @@ def _compute_half_stats(events: pd.DataFrame, pos: str, period: int | None = Non
         'crosses':    _count_si(passes, 'Cross'),
         'thru_balls': _count_si(passes, 'Through ball'),
         'into_ft':    into_ft,
+        'total_xt':   total_xt,
         'carries':    len(carries),
         'dribbles':   total_d,
         'drib_succ':  len(succ_d),
@@ -1056,45 +1102,13 @@ def _player_possession_table(poss_df: pd.DataFrame, color: str) -> html.Div:
 
 
 # =============================================================================
-# Filter bar  (placed between stats and pitch sections)
-# =============================================================================
-
-def _filter_bar() -> html.Div:
-    lbl_style = {'color': COLORS['text_secondary'], 'fontSize': '0.72rem',
-                 'fontWeight': '600', 'textTransform': 'uppercase',
-                 'letterSpacing': '0.06em', 'marginRight': '6px',
-                 'whiteSpace': 'nowrap'}
-
-    return html.Div([
-        # Half buttons
-        html.Div([
-            html.Span('Half', style=lbl_style),
-            html.Div(id='bup-half-btns', style={'display': 'flex', 'gap': '6px'},
-                     children=[
-                         html.Button('Full', id='bup-half-full', n_clicks=0,
-                                     style=_BTN_ACTIVE),
-                         html.Button('1st Half', id='bup-half-1', n_clicks=0,
-                                     style=_BTN_IDLE),
-                         html.Button('2nd Half', id='bup-half-2', n_clicks=0,
-                                     style=_BTN_IDLE),
-                     ]),
-            dcc.Store(id='bup-half-store', data='all'),
-        ], style={'display': 'flex', 'alignItems': 'center'}),
-    ], style={
-        **CARD_STYLE,
-        'display': 'flex', 'alignItems': 'center',
-        'flexWrap': 'wrap', 'gap': '8px',
-        'marginBottom': '20px', 'marginTop': '8px', 'padding': '12px 16px',
-    })
-
-
-# =============================================================================
 # Stats metrics definition
 # =============================================================================
 
 _BUP_METRICS = [
     ('Total Passes',     'passes',     False),
     ('Pass Accuracy',    'pass_acc',   True),
+    ('Positional xT',    'total_xt',   False),
     ('Into Final Third', 'into_ft',    False),
     ('Long Balls',       'long_balls', False),
     ('Crosses',          'crosses',    False),
@@ -1253,7 +1267,27 @@ def _render_combos(events: pd.DataFrame) -> html.Div:
             ], style=CARD_STYLE), md=6, className='mb-3'),
         ], className='g-3'),
     ], style={'marginBottom': '24px'})
-    return html.Div([combo_section, combo3_section])
+    combo4_section = html.Div([
+        section_header('Top 4-Player Combinations'),
+        build_info_box('Most frequent four-player passing chains (A → B → C → D) · N (1H / 2H)'),
+        dbc.Row([
+            dbc.Col(html.Div([
+                html.Div(hs['team'], style={
+                    'color': HOME_COLOR, 'fontWeight': '700',
+                    'fontSize': '0.85rem', 'marginBottom': '8px',
+                }),
+                _combo_table(hs['combos4'], HOME_COLOR),
+            ], style=CARD_STYLE), md=6, className='mb-3'),
+            dbc.Col(html.Div([
+                html.Div(as_['team'], style={
+                    'color': AWAY_COLOR, 'fontWeight': '700',
+                    'fontSize': '0.85rem', 'marginBottom': '8px',
+                }),
+                _combo_table(as_['combos4'], AWAY_COLOR),
+            ], style=CARD_STYLE), md=6, className='mb-3'),
+        ], className='g-3'),
+    ], style={'marginBottom': '24px'})
+    return html.Div([combo_section, combo3_section, combo4_section])
 
 
 def _render_entries(events: pd.DataFrame) -> html.Div:
@@ -1350,77 +1384,14 @@ def build_build_up_passing_tab(events: pd.DataFrame, **_) -> html.Div:
         return html.P('No event data.', style={'color': COLORS['text_secondary']})
 
     return html.Div([
-        # Stats section — static, never affected by filters
         _render_stats(events),
-        # Filters — positioned between stats and pitch plots
-        _filter_bar(),
-        # Possession heatmap + player touch table — static, above pass network
         _render_possession(events),
-        # Pass Network — updated by filter callback
-        html.Div(id='bup-network-content', children=_render_network(events)),
-        # Top Combinations — static, right under pass network
-        html.Div(id='bup-combos-content', children=_render_combos(events)),
-        # Entry plots — updated by filter callback
-        html.Div(id='bup-entries-content', children=_render_entries(events)),
-        # Dribblers table — static
-        html.Div(id='bup-tables-content', children=_render_tables(events)),
+        _render_network(events),
+        _render_combos(events),
+        _render_entries(events),
+        _render_tables(events),
     ], style={'marginTop': '16px'})
 
 
 def register_build_up_passing_callbacks(app) -> None:
-    """Register the filter callbacks for the Build-Up & Passing tab."""
-
-    # ── Half toggle buttons ────────────────────────────────────────────────
-    @app.callback(
-        [
-            Output('bup-half-store', 'data'),
-            Output('bup-half-full', 'style'),
-            Output('bup-half-1',    'style'),
-            Output('bup-half-2',    'style'),
-        ],
-        [
-            Input('bup-half-full', 'n_clicks'),
-            Input('bup-half-1',    'n_clicks'),
-            Input('bup-half-2',    'n_clicks'),
-        ],
-        prevent_initial_call=True,
-    )
-    def _toggle_half(nc_full, nc_1, nc_2):
-        from dash import ctx as _ctx
-        triggered = _ctx.triggered_id
-        mapping = {
-            'bup-half-full': 'all',
-            'bup-half-1':    '1',
-            'bup-half-2':    '2',
-        }
-        val = mapping.get(triggered, 'all')
-        styles = [
-            _BTN_ACTIVE if val == 'all' else _BTN_IDLE,
-            _BTN_ACTIVE if val == '1'   else _BTN_IDLE,
-            _BTN_ACTIVE if val == '2'   else _BTN_IDLE,
-        ]
-        return [val] + styles
-
-    # ── Network + entries update (half filter affects both) ───────────────
-    @app.callback(
-        [Output('bup-network-content', 'children'),
-         Output('bup-entries-content', 'children')],
-        Input('bup-half-store', 'data'),
-        State('pma-selected-match', 'data'),
-        prevent_initial_call=True,
-    )
-    def _update_pitches(half, match_id):
-        if not match_id:
-            msg = html.P('No match selected.', style={'color': COLORS['text_secondary']})
-            return msg, msg
-        events = get_match_events(match_id)
-        if events.empty:
-            msg = html.P('No event data.', style={'color': COLORS['text_secondary']})
-            return msg, msg
-        filtered = _apply_filters(
-            events,
-            half   = half or 'all',
-            zones  = list(_ZONE_RANGES.keys()),
-            flanks = list(_FLANK_RANGES.keys()),
-        )
-        return _render_network(filtered), _render_entries(filtered)
+    pass

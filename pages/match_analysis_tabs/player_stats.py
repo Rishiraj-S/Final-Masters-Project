@@ -9,12 +9,13 @@ The full player comparison table remains at the bottom.
 from __future__ import annotations
 
 import pandas as pd
-from dash import html, dcc
+from dash import html
 import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
-from utils.data_utils import get_match_events, exclude_own_goals
+from utils.data_utils import exclude_own_goals
 from utils.xg_utils import add_xg_column
+from utils.xt_utils import add_xt_column
 
 from .shared import (
     CARD_STYLE,
@@ -24,11 +25,10 @@ from page_utils.visualizations import (
     HOME_COLOR,
     AWAY_COLOR,
     GOLD,
-    render_lsc_heatmap_img,
 )
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
-_DEF_TYPES  = {'Tackle', 'Interception', 'Ball Recovery', 'Clearance'}
+_DEF_TYPES  = {'Tackle', 'Interception', 'Ball recovery', 'Clearance'}
 
 # ---------------------------------------------------------------------------
 # Data helpers
@@ -73,6 +73,7 @@ def _compute_player_stats(events: pd.DataFrame, player_name: str) -> dict:
 
     passes     = pe[pe['event_type'] == 'Pass']
     succ_pass  = passes[passes['outcome'] == 1]
+    xT_val     = round(add_xt_column(passes)['xT'].sum(), 3) if not passes.empty else 0.0
     shots      = add_xg_column(exclude_own_goals(pe[pe['event_type'].isin(_SHOT_TYPES)].copy()))
     goals      = shots[shots['event_type'] == 'Goal']
     goal_assists = int((pd.to_numeric(passes['Assist'], errors='coerce') == 16).sum()) if 'Assist' in passes.columns else 0
@@ -80,7 +81,7 @@ def _compute_player_stats(events: pd.DataFrame, player_name: str) -> dict:
     tackles    = pe[pe['event_type'] == 'Tackle']
     tackles_w  = tackles[tackles['outcome'] == 1]
     ints       = pe[pe['event_type'] == 'Interception']
-    recoveries = pe[pe['event_type'] == 'Ball Recovery']
+    recoveries = pe[pe['event_type'] == 'Ball recovery']
     clearances = pe[pe['event_type'] == 'Clearance']
     aerials    = pe[pe['event_type'] == 'Aerial']
     aerials_w  = aerials[aerials['outcome'] == 1]
@@ -112,6 +113,7 @@ def _compute_player_stats(events: pd.DataFrame, player_name: str) -> dict:
         'touches':     len(pe),
         'passes':      len(passes),
         'pass_acc':    pass_acc,
+        'xT':          xT_val,
         'shots':       len(shots),
         'goals':       len(goals),
         'xg':          round(shots['xg'].sum(), 2) if 'xg' in shots.columns else 0.0,
@@ -156,127 +158,156 @@ def _build_all_player_stats(events: pd.DataFrame) -> tuple[list[dict], list[dict
 
 
 # ---------------------------------------------------------------------------
-# UI helpers — player cards
+# Top-5 data computation
 # ---------------------------------------------------------------------------
 
-def _kpi_stat_box(label: str, value, color: str) -> html.Div:
-    """A compact KPI box for the side-by-side layout."""
-    return html.Div([
-        html.Div(str(value), style={'fontSize': '1.1rem', 'fontWeight': 'bold', 'color': color, 'lineHeight': '1'}),
-        html.Div(label, style={'fontSize': '0.65rem', 'textTransform': 'none' if label.startswith('x') else 'uppercase', 'color': COLORS['text_secondary'], 'letterSpacing': '0' if label.startswith('x') else '0.04em'})
+def _compute_top5(events: pd.DataFrame) -> dict:
+    out = {}
+    for pos in ('home', 'away'):
+        te = events[events['team_position'] == pos].copy()
+        if 'position' in te.columns:
+            te = te[te['position'] != 'GK']
+
+        # Shots & shots on target
+        shots_df = te[te['event_type'].isin(_SHOT_TYPES)].copy()
+        if not shots_df.empty and 'player_name' in shots_df.columns:
+            shots_df['sot'] = shots_df['event_type'].isin(['Saved Shot', 'Goal']).astype(int)
+            shot_grp = (
+                shots_df.groupby('player_name')
+                .agg(shots=('event_type', 'count'), sot=('sot', 'sum'))
+                .reset_index()
+            )
+        else:
+            shot_grp = pd.DataFrame(columns=['player_name', 'shots', 'sot'])
+
+        # Progressive passes & key passes
+        passes = te[te['event_type'] == 'Pass'].copy()
+        if not passes.empty and 'player_name' in passes.columns:
+            passes['x'] = pd.to_numeric(passes['x'], errors='coerce')
+            if 'Pass End X' in passes.columns:
+                passes['Pass End X'] = pd.to_numeric(passes['Pass End X'], errors='coerce')
+                passes['is_prog'] = ((passes['Pass End X'] - passes['x']) > 10).astype(int)
+            else:
+                passes['is_prog'] = 0
+            if 'Assist' in passes.columns:
+                second_assist = (
+                    passes['2nd assist'] if '2nd assist' in passes.columns
+                    else pd.Series('N/A', index=passes.index)
+                )
+                passes['is_kp'] = (
+                    passes['Assist'].isin(['13', '14', '15', '16']) | (second_assist == 'Si')
+                ).astype(int)
+            else:
+                passes['is_kp'] = 0
+            pass_grp = (
+                passes.groupby('player_name')
+                .agg(prog=('is_prog', 'sum'), kp=('is_kp', 'sum'))
+                .reset_index()
+            )
+            pass_grp[['prog', 'kp']] = pass_grp[['prog', 'kp']].astype(int)
+        else:
+            pass_grp = pd.DataFrame(columns=['player_name', 'prog', 'kp'])
+
+        # Recoveries & tackles won
+        rec_df  = te[te['event_type'] == 'Ball recovery']
+        tkl_df  = te[(te['event_type'] == 'Tackle') & (te['outcome'] == 1)]
+        rec_grp = (rec_df.groupby('player_name').size().rename('rec')
+                   if not rec_df.empty else pd.Series(dtype=int, name='rec'))
+        tkl_grp = (tkl_df.groupby('player_name').size().rename('tw')
+                   if not tkl_df.empty else pd.Series(dtype=int, name='tw'))
+        def_grp = pd.concat([rec_grp, tkl_grp], axis=1).fillna(0).astype(int).reset_index()
+
+        out[pos] = {'shots': shot_grp, 'passes': pass_grp, 'defensive': def_grp}
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Top-5 UI helpers
+# ---------------------------------------------------------------------------
+
+def _top5_card(metric_title: str, team_name: str, df: pd.DataFrame,
+               col: str, color: str) -> html.Div:
+    """Standalone top-5 card with its own heading."""
+    header = html.Div([
+        html.Div(metric_title, style={
+            'color': GOLD, 'fontSize': '0.68rem', 'fontWeight': '700',
+            'textTransform': 'uppercase', 'letterSpacing': '0.06em',
+        }),
+        html.Div(team_name, style={
+            'color': color, 'fontSize': '0.70rem', 'fontWeight': '700',
+            'marginTop': '2px',
+        }),
     ], style={
-        'backgroundColor': COLORS['dark_tertiary'],
-        'padding': '6px 8px',
-        'borderRadius': '6px',
-        'textAlign': 'center',
-        'border': f'1px solid {COLORS["dark_border"]}'
+        'marginBottom': '8px', 'paddingBottom': '8px',
+        'borderBottom': f'2px solid {color}40',
     })
 
-def _build_player_card(stats: dict) -> html.Div:
-    """Builds a single player's vertical dashboard card."""
-    color = stats['color']
-    name = stats['player_name']
-    jersey_val = stats.get('jersey')
-    jersey = f" #{jersey_val}" if jersey_val else ""
+    if df.empty or col not in df.columns:
+        return html.Div([header, html.Div('No data', style={
+            'color': COLORS['text_secondary'], 'fontSize': '0.78rem',
+        })], style=CARD_STYLE)
 
-    raw_pos = stats.get('display_position', stats['team_position'])
-    if str(raw_pos).lower() in ['home', 'away']:
-        display_pos = str(raw_pos).capitalize()
-    elif len(str(raw_pos)) <= 3:
-        display_pos = str(raw_pos).upper()
-    else:
-        display_pos = str(raw_pos).title()
-        
-    pos_label = f" ({display_pos})" if display_pos else ""
+    top5 = df.sort_values(col, ascending=False).head(5).reset_index(drop=True)
+    rows = [header]
+    for i, row in top5.iterrows():
+        short = str(row['player_name']).split()[-1]
+        val = int(row[col])
+        is_last = i == len(top5) - 1
+        rows.append(html.Div([
+            html.Span(f"{i + 1}. {short}", style={
+                'color': color, 'fontSize': '0.80rem', 'fontWeight': '600', 'flex': '1',
+                'overflow': 'hidden', 'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap',
+            }),
+            html.Span(str(val), style={
+                'color': COLORS['text_primary'], 'fontSize': '0.80rem', 'fontWeight': '700',
+            }),
+        ], style={
+            'display': 'flex', 'alignItems': 'center', 'padding': '3px 0',
+            'borderBottom': 'none' if is_last else f'1px solid {COLORS["dark_border"]}',
+        }))
+    return html.Div(rows, style=CARD_STYLE)
 
-    # Hero/Header Section
-    header = html.Div([
-        html.H4(f"{name}{jersey}{pos_label}", style={'color': color, 'fontWeight': 'bold', 'margin': 0}),
-    ], style={'textAlign': 'center', 'marginBottom': '16px', 'borderBottom': f'1px solid {color}40', 'paddingBottom': '10px'})
-    
-    def _kpi_col(kpis, title):
-        kpi_boxes = []
-        for label, val, c in kpis:
-            kpi_boxes.append(html.Div([
-                _kpi_stat_box(label, val, c)
-            ], style={'marginBottom': '6px'}))
-        
-        return html.Div([
-            html.Div(title, style={'color': color, 'fontWeight': '600', 'fontSize': '0.85rem', 'marginBottom': '10px', 'textAlign': 'center'}),
-            html.Div(kpi_boxes, style={'display': 'flex', 'flexDirection': 'column'})
-        ])
 
-    pos_kpis = [
-        ('Touches', stats['touches'], color),
-        ('Passes', stats['passes'], color),
-        ('Pass Acc', f"{stats['pass_acc']}%", color),
-        ('Dribbles', stats['dribbles'], color)
+def _build_top5_section(events: pd.DataFrame) -> html.Div:
+    d = _compute_top5(events)
+    home_team = events['home_team'].iloc[0]
+    away_team = events['away_team'].iloc[0]
+
+    # Each row: (data_key, [(metric_title, col, team, pos_key, color), ...])
+    rows_def = [
+        ('shots', [
+            ('Shots',           'shots', home_team, 'home', HOME_COLOR),
+            ('Shots on Target', 'sot',   home_team, 'home', HOME_COLOR),
+            ('Shots',           'shots', away_team, 'away', AWAY_COLOR),
+            ('Shots on Target', 'sot',   away_team, 'away', AWAY_COLOR),
+        ]),
+        ('passes', [
+            ('Progressive Passes', 'prog', home_team, 'home', HOME_COLOR),
+            ('Key Passes',         'kp',   home_team, 'home', HOME_COLOR),
+            ('Progressive Passes', 'prog', away_team, 'away', AWAY_COLOR),
+            ('Key Passes',         'kp',   away_team, 'away', AWAY_COLOR),
+        ]),
+        ('defensive', [
+            ('Ball Recoveries', 'rec', home_team, 'home', HOME_COLOR),
+            ('Tackles Won',     'tw',  home_team, 'home', HOME_COLOR),
+            ('Ball Recoveries', 'rec', away_team, 'away', AWAY_COLOR),
+            ('Tackles Won',     'tw',  away_team, 'away', AWAY_COLOR),
+        ]),
     ]
-    
-    att_kpis = [
-        ('Shots',      stats['shots'],                        color),
-        ('Goals',      stats['goals'],                        '#51cf66' if stats['goals'] > 0 else color),
-        ('xG',         stats.get('xg', 0.0),                  color),
-        ('Assists',    stats['assists'],                       GOLD if stats['assists'] > 0 else color),
-        ('Key Passes', stats['key_passes'],                    color),
-    ]
-    
-    def_kpis = [
-        ('Tackles', stats['tackles'], color),
-        ('Interceptions', stats['ints'], color),
-        ('Recoveries', stats['recoveries'], color),
-        ('Clearances', stats['clearances'], color)
-    ]
-    
-    # Heatmaps
-    if len(stats['touch_x']) >= 2:
-        img_src = render_lsc_heatmap_img(stats['touch_x'], stats['touch_y'], color, half=False)
-        touch_heatmap = html.Img(src=img_src, style={'width': '100%', 'borderRadius': '8px', 'border': f'1px solid {COLORS["dark_border"]}'})
-    else:
-        touch_heatmap = html.Div("Not enough touches.", style={'color': COLORS['text_secondary'], 'padding': '10px', 'textAlign': 'center', 'fontSize': '0.8rem'})
 
-    def_x = stats.get('def_x', [])
-    def_y = stats.get('def_y', [])
-    if len(def_x) >= 2:
-        img_src_def = render_lsc_heatmap_img(def_x, def_y, color, half=False)
-        def_heatmap = html.Img(src=img_src_def, style={'width': '100%', 'borderRadius': '8px', 'border': f'1px solid {COLORS["dark_border"]}'})
-    else:
-        def_heatmap = html.Div("Not enough defensive actions.", style={'color': COLORS['text_secondary'], 'padding': '10px', 'textAlign': 'center', 'fontSize': '0.8rem'})
+    blocks = []
+    for key, cards in rows_def:
+        blocks.append(
+            dbc.Row([
+                dbc.Col(
+                    _top5_card(title, team, d[pos][key], col, color),
+                    md=3, className='mb-3',
+                )
+                for title, col, team, pos, color in cards
+            ], className='g-3 mb-4')
+        )
 
-    return html.Div([
-        header,
-        
-        dbc.Row([
-            # Attacking Section
-            dbc.Col(
-                dbc.Row([
-                    dbc.Col([
-                        _kpi_col(att_kpis, "Attacking Stats"),
-                        html.Div(style={'height': '15px'}),
-                        _kpi_col(pos_kpis, "Possession")
-                    ], width=4, xl=3),
-                    dbc.Col(html.Div([
-                        html.Div("Attacking & On-Ball Heatmap", style={'textAlign': 'center', 'color': color, 'fontWeight': 'bold', 'marginBottom': '6px', 'fontSize': '0.8rem'}),
-                        touch_heatmap
-                    ]), width=8, xl=9)
-                ], className="h-100", style={'backgroundColor': 'rgba(255,255,255,0.02)', 'padding': '12px', 'borderRadius': '8px', 'border': f'1px solid {COLORS["dark_border"]}'}),
-                md=6, className="mb-3 mb-md-0"
-            ),
-            
-            # Defensive Section
-            dbc.Col(
-                dbc.Row([
-                    dbc.Col(_kpi_col(def_kpis, "Defensive Stats"), width=4, xl=3),
-                    dbc.Col(html.Div([
-                        html.Div("Defensive Actions Heatmap", style={'textAlign': 'center', 'color': color, 'fontWeight': 'bold', 'marginBottom': '6px', 'fontSize': '0.8rem'}),
-                        def_heatmap
-                    ]), width=8, xl=9)
-                ], className="h-100", style={'backgroundColor': 'rgba(255,255,255,0.02)', 'padding': '12px', 'borderRadius': '8px', 'border': f'1px solid {COLORS["dark_border"]}'}),
-                md=6
-            )
-        ], className="align-items-stretch")
-        
-    ], style={**CARD_STYLE, 'borderTop': f'4px solid {color}'})
+    return html.Div(blocks, style={'marginBottom': '36px'})
 
 
 # ---------------------------------------------------------------------------
@@ -295,6 +326,7 @@ def _full_stats_table(home_stats: list[dict], away_stats: list[dict]) -> html.Di
         ('TCH',         'touches'),
         ('PAS',         'passes'),
         ('PA%',         'pass_acc'),
+        ('Positional xT', 'xT'),
         ('SHT',         'shots'),
         ('G',           'goals'),
         ('AST',         'assists'),
@@ -375,31 +407,10 @@ def build_player_stats_tab(events: pd.DataFrame, **_) -> html.Div:
     if not home_stats and not away_stats:
         return html.P("No player data available.", style={"color": COLORS["text_secondary"]})
 
-    home_team = home_stats[0]['team'] if home_stats else 'Home'
-    away_team = away_stats[0]['team'] if away_stats else 'Away'
-
-    # Render all player cards
-    home_cards = [html.Div(_build_player_card(s), className='mb-4') for s in home_stats]
-    away_cards = [html.Div(_build_player_card(s), className='mb-4') for s in away_stats]
-
-    # ── Full stats table ─────────────────────────────────────────────────────
-    table_section = html.Div([
-        section_header("Full Match Player Stats", subtitle="All players sorted by total touches"),
-        html.Div(_full_stats_table(home_stats, away_stats), style=CARD_STYLE),
-    ])
-
     return html.Div([
-        section_header(f"{home_team} Players", subtitle="Outfield players"),
-        html.Div(home_cards),
-        
-        html.Div(style={'height': '40px'}),
-        
-        section_header(f"{away_team} Players", subtitle="Outfield players"),
-        html.Div(away_cards),
-        
-        html.Div(style={'height': '40px'}),
-        
-        table_section,
+        _build_top5_section(events),
+        section_header("Full Player Stats", subtitle="All outfield players sorted by total touches"),
+        html.Div(_full_stats_table(home_stats, away_stats), style=CARD_STYLE),
     ], style={'marginTop': '16px'})
 
 

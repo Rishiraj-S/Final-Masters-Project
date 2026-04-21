@@ -28,6 +28,7 @@ from utils.event_utils import (
     get_take_ons, get_aerials,
     get_tackles, get_interceptions, get_ball_recoveries, get_clearances,
 )
+from utils.xt_utils import add_xt_column
 
 
 # ---------------------------------------------------------------------------
@@ -211,6 +212,7 @@ def compute_player_stats(events: pd.DataFrame) -> dict | None:
     pass_rows = get_passes(events)
     n_passes  = len(pass_rows)
     pass_acc  = round(pass_rows["outcome"].eq(1).sum() / max(n_passes, 1) * 100, 1)
+    xT_total  = float(add_xt_column(pass_rows)["xT"].sum()) if n_passes > 0 else 0.0
 
     # Goals
     goals = len(get_goals(events))
@@ -250,6 +252,7 @@ def compute_player_stats(events: pd.DataFrame) -> dict | None:
         "assists_app":    _per_app(assists),
         "key_passes_app": _per_app(key_passes),
         "pass_acc":       pass_acc,
+        "xT_app":         round(xT_total / apps, 4),
         "takeon_pct":     takeon_pct,
         "aerial_win_pct": aerial_win_pct,
         "tackles_app":    _per_app(tackles),

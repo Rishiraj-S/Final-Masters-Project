@@ -329,8 +329,8 @@ def _kpi_children(gains: pd.DataFrame, bar_in_windows: pd.DataFrame) -> list:
         _card(own_half,       'Own-Half Gains',  GOLD),
         _card(opp_half,       'Opp-Half Gains',  HOME_COLOR),
         _card(fin_third,      'Final Third',     HOME_COLOR),
-        _card(shots_taken,    'Shots Taken',     GOLD),
-        _card(goals_scored,   'Goals Scored',    '#22c55e'),
+        _card(shots_taken,    'Led to Shot',     GOLD),
+        _card(goals_scored,   'Led to Goal',     '#22c55e'),
         _card(quick_turnovers,'Quick Turnovers', AWAY_COLOR),
     ]
     return [html.Div(cards, style={'display': 'flex', 'gap': '6px', 'flexWrap': 'wrap'})]

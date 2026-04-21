@@ -28,11 +28,13 @@ from utils.player_analysis.metrics import compute_player_stats
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 from page_utils.visualizations import (
     render_lsc_heatmap_img,
+    render_xt_heatmap_img,
     add_vertical_half_pitch_background,
     VPITCH_AXIS_HALF,
     PITCH_BG,
     HOME_COLOR,
 )
+from utils.xt_utils import add_xt_column
 from pages.match_analysis_tabs.shared import page_header
 
 logger = logging.getLogger(__name__)
@@ -54,7 +56,7 @@ _DIM_METRICS = {
     "TEC": ["pass_acc", "takeon_pct"],
     "TAC": ["intercepts_app", "recoveries_app", "clearances_app"],
     "DEF": ["tackles_app", "intercepts_app", "recoveries_app", "clearances_app", "aerial_win_pct"],
-    "CRE": ["key_passes_app", "assists_app", "takeon_pct"],
+    "CRE": ["key_passes_app", "assists_app", "xT_app", "takeon_pct"],
 }
 
 _GOLD             = COLORS.get("gold", "#EDBB00")
@@ -674,7 +676,7 @@ def create_player_analysis_layout():
             dbc.Col(
                 dbc.Card([
                     dbc.CardBody([
-                        html.Div("Heatmap", style=_section_title_style),
+                        html.Div("Positional xT Heatmap", style=_section_title_style),
                         dcc.Loading(
                             type="circle", color=_GOLD,
                             children=html.Img(
@@ -1007,17 +1009,17 @@ def register_player_analysis_callbacks(app):
             if p_ev.empty:
                 return no_update
 
-            x = p_ev["x"].dropna().tolist()
-            y = p_ev["y"].dropna().tolist()
-            if len(x) < 5:
+            passes = p_ev[p_ev["event_type"] == "Pass"].dropna(
+                subset=["x", "y", "Pass End X", "Pass End Y"]
+            ).copy()
+            if len(passes) < 3:
                 return no_update
 
-            return render_lsc_heatmap_img(
-                x, y,
-                COLORS["garnet"],
-                show_zone_pcts=True,
-                text_color=COLORS["gold"],
-            )
+            passes = add_xt_column(passes)
+            x   = passes["x"].tolist()
+            y   = passes["y"].tolist()
+            xt  = passes["xT"].tolist()
+            return render_xt_heatmap_img(x, y, xt)
 
         except Exception:
             logger.exception("update_heatmap failed")

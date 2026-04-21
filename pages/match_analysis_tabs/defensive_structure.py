@@ -14,11 +14,9 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 from dash import html, dcc
-from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
-from utils.data_utils import get_match_events
 from page_utils.pitch_zones import get_zone, PitchZone
 
 from .shared import (
@@ -27,8 +25,6 @@ from .shared import (
     build_team_stats_table,
     CARD_STYLE,
     section_header,
-    HALF_BTN_ACTIVE as _BTN_ACTIVE,
-    HALF_BTN_IDLE   as _BTN_IDLE,
 )
 from page_utils.visualizations import (
     HOME_COLOR,
@@ -46,7 +42,7 @@ _PITCH_HEIGHT = 480
 _DEF_COLORS = {
     'Tackle':        '#4dabf7',
     'Interception':  '#51cf66',
-    'Ball Recovery': '#ffd43b',
+    'Ball recovery': '#ffd43b',
     'Clearance':     '#ff922b',
     'Blocked Shot':  '#cc5de8',
 }
@@ -72,7 +68,7 @@ def _compute_half_stats(events: pd.DataFrame, pos: str, period: int | None = Non
     tackles_won     = tackles[tackles['outcome'] == 1]
     interceptions   = te[te['event_type'] == 'Interception']
     clearances      = te[te['event_type'] == 'Clearance']
-    ball_recoveries = te[te['event_type'] == 'Ball Recovery']
+    ball_recoveries = te[te['event_type'] == 'Ball recovery']
     blocked_shots   = te[te['event_type'] == 'Blocked Shot']
     fouls_committed = te[te['event_type'] == 'Foul']
     if 'outcome' in te.columns:
@@ -114,7 +110,7 @@ def _compute(events: pd.DataFrame) -> dict:
         tackles         = te[te['event_type'] == 'Tackle']
         interceptions   = te[te['event_type'] == 'Interception']
         clearances      = te[te['event_type'] == 'Clearance']
-        ball_recoveries = te[te['event_type'] == 'Ball Recovery']
+        ball_recoveries = te[te['event_type'] == 'Ball recovery']
         blocked_shots   = te[te['event_type'] == 'Blocked Shot']
 
         # All defensive events combined (for heatmap)
@@ -149,7 +145,7 @@ def _compute(events: pd.DataFrame) -> dict:
                     Actions=('event_type', 'count'),
                     Tackles=('event_type', lambda s: (s == 'Tackle').sum()),
                     Interceptions=('event_type', lambda s: (s == 'Interception').sum()),
-                    Recoveries=('event_type', lambda s: (s == 'Ball Recovery').sum()),
+                    Recoveries=('event_type', lambda s: (s == 'Ball recovery').sum()),
                     Clearances=('event_type', lambda s: (s == 'Clearance').sum()),
                     Blocks=('event_type', lambda s: (s == 'Blocked Shot').sum()),
                 )
@@ -230,8 +226,10 @@ def _add_attack_direction(fig: go.Figure) -> None:
     )
 
 
-def _def_action_map(def_events_df: pd.DataFrame, team_color: str) -> dcc.Graph:
-    """Scatter plot of defensive actions on a full pitch."""
+def _def_action_map(def_events_df: pd.DataFrame, team_color: str,
+                    fouls_df: pd.DataFrame | None = None,
+                    offsides_df: pd.DataFrame | None = None) -> dcc.Graph:
+    """Scatter plot of defensive actions, fouls and offsides on a full pitch."""
     fig = go.Figure()
     add_pitch_background(fig)
 
@@ -240,7 +238,6 @@ def _def_action_map(def_events_df: pd.DataFrame, team_color: str) -> dcc.Graph:
             valid = group.dropna(subset=['x', 'y'])
             if valid.empty:
                 continue
-
             customdata = [
                 [name, t, action_type]
                 for name, t in zip(
@@ -248,7 +245,6 @@ def _def_action_map(def_events_df: pd.DataFrame, team_color: str) -> dcc.Graph:
                     valid['time_min'].fillna(0).astype(int).tolist(),
                 )
             ]
-
             fig.add_trace(go.Scatter(
                 x=valid['x'].tolist(), y=valid['y'].tolist(),
                 mode='markers',
@@ -263,6 +259,58 @@ def _def_action_map(def_events_df: pd.DataFrame, team_color: str) -> dcc.Graph:
                     '<b>%{customdata[0]}</b><br>'
                     "Minute: %{customdata[1]}'<br>"
                     'Action: %{customdata[2]}'
+                    '<extra></extra>'
+                ),
+            ))
+
+    if fouls_df is not None and not fouls_df.empty and 'x' in fouls_df.columns:
+        valid = fouls_df.dropna(subset=['x', 'y'])
+        if not valid.empty:
+            zones = (valid['Zone'].fillna('—').where(valid['Zone'] != 'N/A', '—').tolist()
+                     if 'Zone' in valid.columns else ['—'] * len(valid))
+            customdata = [
+                [name, t, 'Foul', z]
+                for name, t, z in zip(
+                    valid['player_name'].fillna('Unknown').tolist(),
+                    valid['time_min'].fillna(0).astype(int).tolist(),
+                    zones,
+                )
+            ]
+            fig.add_trace(go.Scatter(
+                x=valid['x'].tolist(), y=valid['y'].tolist(),
+                mode='markers', name='Foul',
+                marker=dict(color='#ff6b6b', size=10, symbol='x',
+                            opacity=0.85, line=dict(color='white', width=1)),
+                customdata=customdata,
+                hovertemplate=(
+                    '<b>%{customdata[0]}</b><br>'
+                    "Minute: %{customdata[1]}'<br>"
+                    'Event: %{customdata[2]}<br>'
+                    'Zone: %{customdata[3]}'
+                    '<extra></extra>'
+                ),
+            ))
+
+    if offsides_df is not None and not offsides_df.empty and 'x' in offsides_df.columns:
+        valid = offsides_df.dropna(subset=['x', 'y'])
+        if not valid.empty:
+            customdata = [
+                [name, t, 'Offside Pass']
+                for name, t in zip(
+                    valid['player_name'].fillna('Unknown').tolist(),
+                    valid['time_min'].fillna(0).astype(int).tolist(),
+                )
+            ]
+            fig.add_trace(go.Scatter(
+                x=valid['x'].tolist(), y=valid['y'].tolist(),
+                mode='markers', name='Offside',
+                marker=dict(color='#ffd43b', size=10, symbol='triangle-up',
+                            opacity=0.85, line=dict(color='white', width=1)),
+                customdata=customdata,
+                hovertemplate=(
+                    '<b>%{customdata[0]}</b><br>'
+                    "Minute: %{customdata[1]}'<br>"
+                    'Event: %{customdata[2]}'
                     '<extra></extra>'
                 ),
             ))
@@ -440,33 +488,6 @@ def _fouls_offsides_map(fouls_df: pd.DataFrame, offsides_df: pd.DataFrame) -> dc
 
 
 # ---------------------------------------------------------------------------
-# Filter bar
-# ---------------------------------------------------------------------------
-
-def _filter_bar_def() -> html.Div:
-    lbl_style = {'color': COLORS['text_secondary'], 'fontSize': '0.72rem',
-                 'fontWeight': '600', 'textTransform': 'uppercase',
-                 'letterSpacing': '0.06em', 'marginRight': '6px',
-                 'whiteSpace': 'nowrap'}
-    return html.Div([
-        html.Div([
-            html.Span('Half', style=lbl_style),
-            html.Div(style={'display': 'flex', 'gap': '6px'}, children=[
-                html.Button('Full',     id='def-half-full', n_clicks=0, style=_BTN_ACTIVE),
-                html.Button('1st Half', id='def-half-1',    n_clicks=0, style=_BTN_IDLE),
-                html.Button('2nd Half', id='def-half-2',    n_clicks=0, style=_BTN_IDLE),
-            ]),
-            dcc.Store(id='def-half-store', data='all'),
-        ], style={'display': 'flex', 'alignItems': 'center'}),
-    ], style={
-        **CARD_STYLE,
-        'display': 'flex', 'alignItems': 'center',
-        'flexWrap': 'wrap', 'gap': '8px',
-        'marginBottom': '20px', 'marginTop': '8px', 'padding': '12px 16px',
-    })
-
-
-# ---------------------------------------------------------------------------
 # Filterable plot renderer
 # ---------------------------------------------------------------------------
 
@@ -485,17 +506,21 @@ def _render_def_plots(events: pd.DataFrame) -> html.Div:
             ('●', 'Recovery',     '#ffd43b'),
             ('●', 'Clearance',    '#ff922b'),
             ('●', 'Block',        '#cc5de8'),
+            ('✕', 'Foul',         '#ff6b6b'),
+            ('▲', 'Offside',      '#ffd43b'),
         ]),
         dbc.Row([
             dbc.Col(html.Div([
                 html.Div(hs['team'], style={'color': HOME_COLOR, 'fontWeight': '700',
                                             'fontSize': '0.85rem', 'marginBottom': '8px'}),
-                _def_action_map(hs['def_events_df'], HOME_COLOR),
+                _def_action_map(hs['def_events_df'], HOME_COLOR,
+                                hs['fouls_df'], hs['offsides_df']),
             ], style=CARD_STYLE), md=6, className='mb-3'),
             dbc.Col(html.Div([
                 html.Div(as_['team'], style={'color': AWAY_COLOR, 'fontWeight': '700',
                                              'fontSize': '0.85rem', 'marginBottom': '8px'}),
-                _def_action_map(as_['def_events_df'], AWAY_COLOR),
+                _def_action_map(as_['def_events_df'], AWAY_COLOR,
+                                as_['fouls_df'], as_['offsides_df']),
             ], style=CARD_STYLE), md=6, className='mb-3'),
         ], className='g-3'),
     ], style={'marginBottom': '32px'})
@@ -511,28 +536,7 @@ def _render_def_plots(events: pd.DataFrame) -> html.Div:
         ], className='g-3'),
     ], style={'marginBottom': '32px'})
 
-    fouls_offsides = html.Div([
-        section_header("Fouls & Offsides"),
-        build_legend_box([
-            ('✕', 'Foul',    '#ff6b6b'),
-            ('▲', 'Offside', '#ffd43b'),
-        ]),
-        build_info_box('Hover for player name, minute, and zone'),
-        dbc.Row([
-            dbc.Col(html.Div([
-                html.Div(hs['team'], style={'color': HOME_COLOR, 'fontWeight': '700',
-                                            'fontSize': '0.85rem', 'marginBottom': '8px'}),
-                _fouls_offsides_map(hs['fouls_df'], hs['offsides_df']),
-            ], style=CARD_STYLE), md=6, className='mb-3'),
-            dbc.Col(html.Div([
-                html.Div(as_['team'], style={'color': AWAY_COLOR, 'fontWeight': '700',
-                                             'fontSize': '0.85rem', 'marginBottom': '8px'}),
-                _fouls_offsides_map(as_['fouls_df'], as_['offsides_df']),
-            ], style=CARD_STYLE), md=6, className='mb-3'),
-        ], className='g-3'),
-    ], style={'marginBottom': '32px'})
-
-    return html.Div([action_maps, heatmaps, fouls_offsides])
+    return html.Div([action_maps, heatmaps])
 
 
 # ---------------------------------------------------------------------------
@@ -588,8 +592,7 @@ def build_defensive_structure_tab(events: pd.DataFrame, **_) -> html.Div:
 
     return html.Div([
         stats_section,
-        _filter_bar_def(),
-        html.Div(id='def-plots-content', children=_render_def_plots(events)),
+        _render_def_plots(events),
         player_table,
     ], style={'marginTop': '16px'})
 
@@ -599,47 +602,4 @@ def build_defensive_structure_tab(events: pd.DataFrame, **_) -> html.Div:
 # ---------------------------------------------------------------------------
 
 def register_defensive_structure_callbacks(app) -> None:
-    """Register the half-filter callback for the Defensive Structure tab."""
-
-    @app.callback(
-        [
-            Output('def-half-store', 'data'),
-            Output('def-half-full', 'style'),
-            Output('def-half-1',    'style'),
-            Output('def-half-2',    'style'),
-        ],
-        [
-            Input('def-half-full', 'n_clicks'),
-            Input('def-half-1',    'n_clicks'),
-            Input('def-half-2',    'n_clicks'),
-        ],
-        prevent_initial_call=True,
-    )
-    def _toggle_half(nc_full, nc_1, nc_2):
-        from dash import ctx as _ctx
-        mapping = {'def-half-full': 'all', 'def-half-1': '1', 'def-half-2': '2'}
-        val = mapping.get(_ctx.triggered_id, 'all')
-        return (
-            val,
-            _BTN_ACTIVE if val == 'all' else _BTN_IDLE,
-            _BTN_ACTIVE if val == '1'   else _BTN_IDLE,
-            _BTN_ACTIVE if val == '2'   else _BTN_IDLE,
-        )
-
-    @app.callback(
-        Output('def-plots-content', 'children'),
-        Input('def-half-store', 'data'),
-        State('pma-selected-match', 'data'),
-        prevent_initial_call=True,
-    )
-    def _update_plots(half, match_id):
-        if not match_id:
-            return html.P('No match selected.', style={'color': COLORS['text_secondary']})
-        events = get_match_events(match_id)
-        if events.empty:
-            return html.P('No event data.', style={'color': COLORS['text_secondary']})
-        if half == '1':
-            events = events[events['period_id'] == 1]
-        elif half == '2':
-            events = events[events['period_id'] == 2]
-        return _render_def_plots(events)
+    pass

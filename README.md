@@ -13,11 +13,12 @@ CuléVision is a professional football analytics dashboard built specifically fo
 
 ## Key Features
 
-- **Match Analysis**: Automated post-match breakdown across seven tabs — Overview, Attacking Output, Build-Up & Passing, Defensive Structure, Transitions & Counter-pressing, Goalkeeping, and Player Stats
+- **Match Analysis**: Automated post-match breakdown across seven tabs — Overview (with H1/H2 stat splits), Attacking Output, Build-Up & Passing, Defensive Structure (with fouls/offsides overlay), Transitions (Defensive + Attacking sub-tabs, 30 s windows), Goalkeeping, and Player Stats (including xT)
 - **Team Analysis**: KPIs defining Barcelona's playing style and game model across all competitions
-- **Player Analysis**: Match-by-match individual statistics and performance metrics
+- **Player Analysis (Barça DNA)**: Season/match-level stats, attribute radar, Positional xT Heatmap (16×12 grid), shooting map, passing, possession, defending, and discipline panels
 - **Opposition Analysis**: Scouting dashboard for every team Barcelona faced, covering defence, transitions, set pieces, in-possession patterns, and player profiling
 - **xG Model**: Three specialised XGBoost models (open play, direct free kick, penalty) trained on Wyscout data with SHAP feature selection and monotone constraints — an `XGRouter` automatically routes each shot to the correct model. Integrated across all shot visualisations in the app
+- **xT Model**: Grid-based Expected Threat model (Bellman equation, 16×12 grid) trained on all Opta event data. `utils/xt_utils.py` → `add_xt_column(passes_df)` is the public bridge. Used in player stats tables and the Positional xT Heatmap
 - **Data Pipeline (Barca)**: Fully automated Opta data ingestion for Barcelona (scrape → download → transform → store)
 - **Data Pipeline (Opposition)**: Separate pipeline to collect match event data for all teams Barcelona faced, organised by country / team / competition
 - **Live Update Overlay**: UI feedback with real-time pipeline progress while databases are being updated
@@ -63,11 +64,11 @@ CuléVision/
 │
 ├── pages/                          # One module per dashboard page
 │   ├── home.py
-│   ├── match_analysis.py
-│   ├── player_analysis.py
-│   ├── team_analysis.py
-│   ├── opposition_analysis.py
-│   ├── match_analysis_tabs/        # Sub-tabs for Match Analysis page
+│   ├── match_report.py             # /match-report
+│   ├── barca_dna.py                # /barca-dna  (Player Analysis)
+│   ├── barca_iq.py                 # /barca-iq   (Team Analysis)
+│   ├── opposition_analysis.py      # /opposition-analysis
+│   ├── match_analysis_tabs/        # Sub-tabs for Match Report page
 │   │   ├── shared.py
 │   │   ├── overview.py
 │   │   ├── attacking_output.py
@@ -90,6 +91,11 @@ CuléVision/
 │       ├── scouting.py
 │       ├── set_pieces.py
 │       └── transitions.py
+│
+├── xT_model/                       # Grid-based Expected Threat model
+│   ├── train.py                    # Bellman-equation training script — writes xt_grid.npy
+│   ├── predictor.py                # Lazy-singleton inference — predict_xt(), add_xt_column()
+│   └── xt_grid.npy                 # Trained artifact — (16, 12) xT grid
 │
 ├── xg_model/                       # Custom XGBoost expected goals model (3 sub-models)
 │   ├── predictor.py                # Inference classes — XGPredictor, XGDFKPredictor, XGPenaltyPredictor, XGRouter
@@ -115,6 +121,7 @@ CuléVision/
 │   ├── data_utils.py
 │   ├── opposition_data_utils.py
 │   ├── xg_utils.py                 # Opta → xG model bridge (add_xg_column)
+│   ├── xt_utils.py                 # Opta → xT model bridge (add_xt_column)
 │   ├── pdf_report.py
 │   └── player_analysis/
 │
@@ -209,34 +216,38 @@ Each page module exports two functions: `create_*_layout()` which returns the Da
 - Includes a rolling cumulative points trendline chart across the season
 - Admin-only: "Update Databases" button triggers the Barcelona data pipeline (see `app.py`)
 
-### `pages/match_analysis.py`
-**Post-Match Analysis Page**
+### `pages/match_report.py`
+**Match Report Page** (`/match-report`)
 
 - Two dropdowns at the top: competition selector and match selector (filtered by competition)
-- Score headline rendered via a dedicated callback (`pma-score-headline`)
-- On match selection, renders a tabbed layout with five analysis tabs (see `match_analysis_tabs/` below)
+- Score headline rendered via a dedicated callback
+- On match selection, renders a tabbed layout with seven analysis tabs (see `match_analysis_tabs/` below)
 - Passes the selected `match_id` to each tab's layout builder so all tabs read from the same match's event data
 
-### `pages/player_analysis.py`
-**Player Analysis Page**
+### `pages/barca_dna.py`
+**Barça DNA — Player Analysis Page** (`/barca-dna`)
 
-- Season and competition filter dropdowns
-- Player selector populated from all Barcelona players who appeared in the selected season
-- Displays match-by-match stat table: appearances, goals, passes, shots, tackles
-- Visualisations for individual player performance trends
+- Player, competition, and match filters with Total/Per 90 toggle
+- Profile card: player photo, bio, and season headline stats
+- Attribute radar chart (ATT/TEC/TAC/DEF/CRE) scored against squad peers
+- Positional xT Heatmap — 16×12 grid coloured by cumulative xT from passes, with marginal bar plots
+- Shooting panel: shot map, outcome donut, shot stats
+- Passing panel: stats table + accurate/inaccurate donut
+- Possession panel: dribbles, duels, touches, touch-zone donut
+- Defending panel: tackles, interceptions, recoveries, clearances + donut
+- Discipline panel: yellow/red card visual
 
-### `pages/team_analysis.py`
-**Team Analysis Page**
+### `pages/barca_iq.py`
+**Barça IQ — Team Analysis Page** (`/barca-iq`)
 
 - Season and competition filters
-- Aggregate Barcelona team KPIs: shots, shots on target, passes, pass accuracy, possession, corners, fouls, cards, tackles, interceptions, clean sheets
-- Comparison views across competitions
+- Aggregate Barcelona team KPIs across six sub-tabs: Overview, Build-Up, Chance Creation, Defensive Structure, Transitions, Set Pieces
 
 ---
 
-## Match Analysis Tabs (`pages/match_analysis_tabs/`)
+## Match Report Tabs (`pages/match_analysis_tabs/`)
 
-These sub-modules are loaded on demand when a match is selected in Match Analysis. All tabs share common constants and pitch-drawing utilities from `shared.py`.
+These sub-modules are loaded on demand when a match is selected in Match Report. All tabs share common constants and pitch-drawing utilities from `shared.py`.
 
 ### `shared.py`
 Shared constants, colour tokens (`HOME_COLOR`, `AWAY_COLOR`, `GOLD`), and reusable pitch-drawing helpers used by every other tab. Configures Matplotlib to use the `Agg` (non-interactive server-side) backend. Provides functions to render `mplsoccer` pitches as base64-encoded PNG images embedded in Dash `html.Img` elements via Plotly `layout_image`.
@@ -247,7 +258,7 @@ Shared constants, colour tokens (`HOME_COLOR`, `AWAY_COLOR`, `GOLD`), and reusab
 - Renders a horizontal `mplsoccer` pitch with both starting XIs positioned according to their formation and slot using `pitch.scatter()` for circular markers; home team on the left, away team on the right
 - Overlays jersey numbers and player names with path-effect outlines for readability; captain badge displayed next to the captain
 - Substitutes panels flank the pitch on either side, showing player name, jersey number, and the minute of substitution
-- TV-style horizontal bar comparisons below the pitch for key stats: possession, shots, shots on target, passes, pass accuracy, corners, fouls, yellow/red cards
+- TV-style horizontal bar comparisons below the pitch for key stats: possession, shots, shots on target, passes, pass accuracy, corners, fouls, yellow/red cards — each bar now shows H1/H2 half-breakdown in brackets
 
 ### `attacking_output.py`
 **Tab 2 — Attacking Output**
@@ -266,14 +277,16 @@ Shared constants, colour tokens (`HOME_COLOR`, `AWAY_COLOR`, `GOLD`), and reusab
 **Tab 4 — Defensive Structure**
 
 - Defensive action maps: tackles, interceptions, clearances, and blocks plotted by pitch zone
+- Fouls and offsides overlaid on the same pitch map
 - KPIs: defensive actions by zone, defensive duels won, fouls conceded, clean sheet metrics
 
 ### `transitions_counterpressing.py`
-**Tab 5 — Transitions & Counter-pressing**
+**Tab 5 — Transitions**
 
-- Attacking and defensive transition events mapped on pitch
-- Counter-attack sequences identified via Opta `Fast break` qualifier
-- KPIs: counter-attacks initiated, counters resulting in shots/goals, pressing intensity (PPDA), ball recovery locations
+- Two sub-tabs: **Defensive Transition** (30 s windows after possession loss) and **Attacking Transition** (30 s windows after possession gain)
+- Both home and away teams shown side-by-side in each sub-tab
+- Transition event maps on pitch + per-phase KPIs
+- Heatmaps showing where transitions originate
 
 ### `goalkeeping.py`
 **Tab 6 — Goalkeeping**
@@ -285,7 +298,7 @@ Shared constants, colour tokens (`HOME_COLOR`, `AWAY_COLOR`, `GOLD`), and reusab
 **Tab 7 — Player Stats**
 
 - Per-player match statistics table for both teams
-- Stats columns: minutes played, goals, assists, shots, shots on target, passes, pass accuracy, key passes, tackles, interceptions, fouls, cards
+- Stats columns: minutes played, goals, assists, shots, shots on target, passes, pass accuracy, key passes, xT, tackles, interceptions, fouls, cards
 
 ---
 
@@ -373,6 +386,40 @@ Schema-agnostic interface layer between raw Opta event DataFrames and the match 
 - All functions accept a pandas DataFrame of match events and return filtered/enriched DataFrames or summary dicts
 - **Key exported functions**: `get_match_metadata()`, `compute_team_kpis()`, `get_starting_lineups()`, `get_substitutions()`, and phase-specific event extractors
 - Designed to degrade gracefully — if a qualifier column is missing from the data, functions return empty results rather than raising errors
+
+### `xt_utils.py`
+Public bridge between Opta pass data and the xT model.
+
+- `add_xt_column(passes_df)` — accepts any Opta pass DataFrame with `x`, `y`, `Pass End X`, `Pass End Y` columns and returns a copy with an `xT` column added (rows with missing coordinates get xT = 0)
+- Lazy-loads the grid singleton on first call via `xT_model/predictor.py`
+
+**Note**: Ball carries are not Opta events. xT accrues only to the passer, not to a player who carries the ball before passing. Any per-player xT ranking should be caveated accordingly.
+
+---
+
+## xT Model (`xT_model/`)
+
+Grid-based Expected Threat model following the Soccermatics/Bellman-equation approach.
+
+### Architecture
+
+- **16 × 12 grid** divides the pitch into equal cells along x (length) and y (width)
+- Each cell stores the expected threat from controlling the ball there, solved via Bellman iteration:
+
+  ```
+  xT[i,j] = P(shoot | i,j) × P(goal | shoot, i,j)
+           + P(move  | i,j) × Σ T[i,j,k,l] × xT[k,l]
+  ```
+
+- `T` is the transition matrix — probability that a pass from cell (i,j) ends in cell (k,l)
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `train.py` | Training script — loads all Opta parquets (Barcelona + opposition), iterates to convergence, saves `xt_grid.npy`. Run: `python xT_model/train.py` |
+| `predictor.py` | Lazy-singleton inference — `predict_xt(x1,y1,x2,y2)` returns non-negative xT gained; `add_xt_column(passes_df)` adds the column |
+| `xt_grid.npy` | Trained artifact — shape `(16, 12)` |
 
 ---
 
@@ -598,12 +645,15 @@ The application uses FC Barcelona's official color scheme on a dark background:
 
 ## Current Status
 
-**Version**: 0.4.0
+**Version**: 0.5.0
 
 - Barcelona data pipeline fully operational across four competitions (La Liga, UCL, Copa del Rey, Super Cup)
 - Opposition data pipeline built and configured for ~30 opponents across 21 competitions
-- All five dashboard pages implemented: Home, Match Analysis (7 tabs), Player Analysis, Team Analysis, and Opposition Analysis
+- All five dashboard pages implemented: Home, Match Report (7 tabs), Barça DNA, Barça IQ, and Opposition Analysis
 - Three-model xG suite (open play, direct free kick, penalty) with `XGRouter` — predictions displayed across all shot visualisations in the app
+- Grid-based xT model (Bellman equation, 16×12) trained on Opta data; integrated in Barça DNA heatmap, player stats table, and player metrics
+- Transitions tab fully rewritten — Defensive + Attacking sub-tabs with 30 s windows and side-by-side team view
+- Barça DNA Player Analysis page: full tactical profile with xT heatmap, shooting, passing, possession, defending, and discipline panels
 
 ---
 
@@ -611,6 +661,9 @@ The application uses FC Barcelona's official color scheme on a dark background:
 
 - [x] Opposition Analysis page
 - [x] xG model (XGBoost, SHAP feature selection, monotone constraints)
+- [x] xT model (grid-based Bellman equation, 16×12)
+- [x] Barça DNA — full player analysis page (xT heatmap, shooting, passing, possession, defending)
+- [x] Transitions tab — Defensive + Attacking sub-tabs with 30 s windows
 - [ ] Bayesian model for opponent analysis
 
 ---

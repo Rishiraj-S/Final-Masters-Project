@@ -12,12 +12,11 @@ import matplotlib.pyplot as plt
 import matplotlib.patheffects as mpe
 from mplsoccer import Pitch, VerticalPitch
 import pandas as pd
-from dash import html, dcc, ctx
-from dash.dependencies import Input, Output, State
+from dash import html
 import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
-from utils.data_utils import get_match_lineup, get_match_events
+from utils.data_utils import get_match_lineup
 from utils.match_data_adapter import (
     get_match_metadata,
     compute_team_kpis,
@@ -33,54 +32,6 @@ from page_utils.visualizations import (
     GOLD,
 )
 
-
-# =============================================================================
-# Period filter helpers (stat bars only)
-# =============================================================================
-
-_OV_PERIOD_OPTIONS = [
-    ('Full Match', 'full'),
-    ('1st Half',   '1'),
-    ('2nd Half',   '2'),
-]
-
-
-def _ov_period_btn_style(active: bool) -> dict:
-    if active:
-        return {
-            'backgroundColor': GOLD, 'color': '#1A1D2E',
-            'border': f'1px solid {GOLD}',
-            'borderRadius': '6px', 'padding': '5px 14px',
-            'cursor': 'pointer', 'fontSize': '0.85rem', 'fontWeight': '600',
-        }
-    return {
-        'backgroundColor': COLORS['dark_secondary'], 'color': COLORS['text_primary'],
-        'border': f'1px solid {COLORS["dark_border"]}',
-        'borderRadius': '6px', 'padding': '5px 14px',
-        'cursor': 'pointer', 'fontSize': '0.85rem',
-    }
-
-
-def _build_controls_bar() -> html.Div:
-    """Period toggle buttons."""
-    return html.Div([
-        html.Span("Period:", style={
-            'color': COLORS['text_secondary'], 'fontSize': '0.85rem',
-            'marginRight': '10px', 'alignSelf': 'center',
-            'whiteSpace': 'nowrap',
-        }),
-        html.Div([
-            html.Button(label,
-                        id=f'pma-ov-period-btn-{val}',
-                        n_clicks=0,
-                        style=_ov_period_btn_style(active=(val == 'full')))
-            for label, val in _OV_PERIOD_OPTIONS
-        ], style={'display': 'flex', 'gap': '6px', 'alignItems': 'center'}),
-    ], style={
-        'display': 'flex', 'alignItems': 'center',
-        'flexWrap': 'wrap', 'gap': '4px',
-        'marginBottom': '16px',
-    })
 
 
 # =============================================================================
@@ -517,19 +468,16 @@ def _build_lineup_html_panel(
 # TV-style stat bar component
 # =============================================================================
 
-def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False, decimals=0, tooltip=None):
+def _tv_stat_bar(label, home_val, away_val,
+                 home_h1=None, away_h1=None, home_h2=None, away_h2=None,
+                 suffix='', is_percentage=False, decimals=0, tooltip=None):
     """
     Build a single TV-broadcast-style comparison bar.
 
-    Layout:  home_value  [=====|=====]  away_value
-                      stat label
+    Layout:  45 (23/22)  [=====|=====]  45 (23/22)
+                       stat label
 
-    Parameters
-    ----------
-    decimals : int
-        Decimal places for display. 0 = integer (default). Use 2 for xG.
-    tooltip : str | None
-        If provided, shown on hover over the label (native browser title attribute).
+    Half stats (h1/h2) shown in brackets when provided.
     """
     hv = float(home_val) if home_val else 0
     av = float(away_val) if away_val else 0
@@ -538,15 +486,23 @@ def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False, deci
     home_pct = (hv / max_val) * 100
     away_pct = (av / max_val) * 100
 
-    if is_percentage:
-        h_display = f"{hv:.1f}{suffix}"
-        a_display = f"{av:.1f}{suffix}"
-    elif decimals > 0:
-        h_display = f"{hv:.{decimals}f}{suffix}"
-        a_display = f"{av:.{decimals}f}{suffix}"
-    else:
-        h_display = f"{int(hv)}{suffix}"
-        a_display = f"{int(av)}{suffix}"
+    def _fmt(v):
+        if v is None:
+            return None
+        fv = float(v) if v else 0
+        if is_percentage:
+            return f"{fv:.1f}{suffix}"
+        elif decimals > 0:
+            return f"{fv:.{decimals}f}{suffix}"
+        else:
+            return f"{int(fv)}{suffix}"
+
+    h_display = _fmt(hv)
+    a_display = _fmt(av)
+    hh1 = _fmt(home_h1)
+    hh2 = _fmt(home_h2)
+    ah1 = _fmt(away_h1)
+    ah2 = _fmt(away_h2)
 
     h_weight = 'bold' if hv >= av else 'normal'
     a_weight = 'bold' if av >= hv else 'normal'
@@ -576,13 +532,33 @@ def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False, deci
         style={'textAlign': 'center', 'marginBottom': '4px'} if tooltip else label_style,
     )
 
+    def _val_block(main, h1, h2, color, weight, align):
+        children = [
+            html.Span(main, style={'fontWeight': weight, 'fontSize': '1.0rem', 'color': color}),
+        ]
+        if h1 is not None and h2 is not None:
+            children.append(html.Span(
+                f" ({h1}/{h2})",
+                style={
+                    'fontSize': '0.7rem',
+                    'color': COLORS['text_secondary'],
+                    'fontWeight': 'normal',
+                    'opacity': '0.8',
+                },
+            ))
+        return html.Div(children, style={
+            'minWidth': '110px',
+            'textAlign': align,
+            'paddingRight': '10px' if align == 'right' else '0',
+            'paddingLeft': '10px' if align == 'left' else '0',
+            'whiteSpace': 'nowrap',
+            'flexShrink': '0',
+        })
+
     return html.Div([
         label_el,
         html.Div([
-            html.Div(h_display, style={
-                'width': '65px', 'textAlign': 'right', 'fontWeight': h_weight,
-                'color': HOME_COLOR, 'fontSize': '1.05rem', 'paddingRight': '10px',
-            }),
+            _val_block(h_display, hh1, hh2, HOME_COLOR, h_weight, 'right'),
             html.Div([
                 html.Div([
                     html.Div(style={
@@ -610,10 +586,7 @@ def _tv_stat_bar(label, home_val, away_val, suffix='', is_percentage=False, deci
                     })
                 ], style={**bar_track, 'width': '50%', 'borderRadius': '0 7px 7px 0'}),
             ], style={'display': 'flex', 'alignItems': 'center', 'flex': '1'}),
-            html.Div(a_display, style={
-                'width': '65px', 'textAlign': 'left', 'fontWeight': a_weight,
-                'color': AWAY_COLOR, 'fontSize': '1.05rem', 'paddingLeft': '10px',
-            }),
+            _val_block(a_display, ah1, ah2, AWAY_COLOR, a_weight, 'left'),
         ], style={'display': 'flex', 'alignItems': 'center'}),
     ], style={'marginBottom': '14px'})
 
@@ -735,50 +708,100 @@ def _build_subs_section(team_name, subs_list, color):
 
 
 # =============================================================================
-# Stat bars builder (extracted so the period-filter callback can call it)
+# Stat bars builder
 # =============================================================================
 
-def _build_stat_bars(home_kpis: dict, away_kpis: dict) -> html.Div:
-    """Build the TV-style stat comparison bars for the given KPI dicts."""
+def _build_stat_bars(home_kpis: dict, away_kpis: dict,
+                     home_h1=None, away_h1=None,
+                     home_h2=None, away_h2=None) -> html.Div:
+    """Build the TV-style stat comparison bars with per-half breakdowns in brackets."""
+    h1h = home_h1 or {}
+    a1h = away_h1 or {}
+    h2h = home_h2 or {}
+    a2h = away_h2 or {}
+
+    has_halves = bool(h1h or h2h)
+
+    legend = html.Div([
+        html.Span("Full  ", style={'color': COLORS['text_secondary'], 'fontSize': '0.75rem'}),
+        html.Span("(1st Half / 2nd Half)", style={
+            'color': COLORS['text_secondary'], 'fontSize': '0.72rem', 'opacity': '0.65',
+        }),
+    ], style={
+        'textAlign': 'center',
+        'marginBottom': '16px',
+        'paddingBottom': '12px',
+        'borderBottom': f"1px solid {COLORS['dark_border']}",
+    }) if has_halves else html.Div()
+
     return html.Div([
+        legend,
         _tv_stat_bar('Possession',
                      home_kpis.get('possession', 50), away_kpis.get('possession', 50),
+                     h1h.get('possession'), a1h.get('possession'),
+                     h2h.get('possession'), a2h.get('possession'),
                      '%', is_percentage=True),
         _tv_stat_bar('Shots',
-                     home_kpis.get('shots', 0), away_kpis.get('shots', 0)),
+                     home_kpis.get('shots', 0), away_kpis.get('shots', 0),
+                     h1h.get('shots'), a1h.get('shots'),
+                     h2h.get('shots'), a2h.get('shots')),
         _tv_stat_bar('Shots on Target',
-                     home_kpis.get('shots_on_target', 0), away_kpis.get('shots_on_target', 0)),
+                     home_kpis.get('shots_on_target', 0), away_kpis.get('shots_on_target', 0),
+                     h1h.get('shots_on_target'), a1h.get('shots_on_target'),
+                     h2h.get('shots_on_target'), a2h.get('shots_on_target')),
         _tv_stat_bar('xG',
                      home_kpis.get('xg', 0.0), away_kpis.get('xg', 0.0),
+                     h1h.get('xg'), a1h.get('xg'),
+                     h2h.get('xg'), a2h.get('xg'),
                      decimals=2,
                      tooltip='Expected goals (xG) — how many goals a team should have scored on average based on the number and quality of shots taken.'),
         _tv_stat_bar('Assists',
-                     home_kpis.get('assists', 0), away_kpis.get('assists', 0)),
+                     home_kpis.get('assists', 0), away_kpis.get('assists', 0),
+                     h1h.get('assists'), a1h.get('assists'),
+                     h2h.get('assists'), a2h.get('assists')),
         _tv_stat_bar('Blocked Shots',
-                     home_kpis.get('blocked_shots', 0), away_kpis.get('blocked_shots', 0)),
+                     home_kpis.get('blocked_shots', 0), away_kpis.get('blocked_shots', 0),
+                     h1h.get('blocked_shots'), a1h.get('blocked_shots'),
+                     h2h.get('blocked_shots'), a2h.get('blocked_shots')),
         _tv_stat_bar('Passes',
-                     home_kpis.get('passes', 0), away_kpis.get('passes', 0)),
+                     home_kpis.get('passes', 0), away_kpis.get('passes', 0),
+                     h1h.get('passes'), a1h.get('passes'),
+                     h2h.get('passes'), a2h.get('passes')),
         _tv_stat_bar('Pass Accuracy',
                      home_kpis.get('pass_accuracy', 0), away_kpis.get('pass_accuracy', 0),
+                     h1h.get('pass_accuracy'), a1h.get('pass_accuracy'),
+                     h2h.get('pass_accuracy'), a2h.get('pass_accuracy'),
                      '%', is_percentage=True),
         _tv_stat_bar('Fouls Committed',
-                     home_kpis.get('fouls', 0), away_kpis.get('fouls', 0)),
+                     home_kpis.get('fouls', 0), away_kpis.get('fouls', 0),
+                     h1h.get('fouls'), a1h.get('fouls'),
+                     h2h.get('fouls'), a2h.get('fouls')),
         _tv_stat_bar('Corners',
-                     home_kpis.get('corners', 0), away_kpis.get('corners', 0)),
+                     home_kpis.get('corners', 0), away_kpis.get('corners', 0),
+                     h1h.get('corners'), a1h.get('corners'),
+                     h2h.get('corners'), a2h.get('corners')),
         _tv_stat_bar('Offsides',
-                     home_kpis.get('offsides', 0), away_kpis.get('offsides', 0)),
+                     home_kpis.get('offsides', 0), away_kpis.get('offsides', 0),
+                     h1h.get('offsides'), a1h.get('offsides'),
+                     h2h.get('offsides'), a2h.get('offsides')),
         _tv_stat_bar('Interceptions',
-                     home_kpis.get('interceptions', 0), away_kpis.get('interceptions', 0)),
+                     home_kpis.get('interceptions', 0), away_kpis.get('interceptions', 0),
+                     h1h.get('interceptions'), a1h.get('interceptions'),
+                     h2h.get('interceptions'), a2h.get('interceptions')),
         _tv_stat_bar('Yellow Cards',
-                     home_kpis.get('yellow_cards', 0), away_kpis.get('yellow_cards', 0)),
+                     home_kpis.get('yellow_cards', 0), away_kpis.get('yellow_cards', 0),
+                     h1h.get('yellow_cards'), a1h.get('yellow_cards'),
+                     h2h.get('yellow_cards'), a2h.get('yellow_cards')),
         _tv_stat_bar('Red Cards',
-                     home_kpis.get('red_cards', 0), away_kpis.get('red_cards', 0)),
+                     home_kpis.get('red_cards', 0), away_kpis.get('red_cards', 0),
+                     h1h.get('red_cards'), a1h.get('red_cards'),
+                     h2h.get('red_cards'), a2h.get('red_cards')),
     ], style={
         'padding': '24px',
         'backgroundColor': COLORS['dark_secondary'],
         'borderRadius': '8px',
         'border': f"1px solid {COLORS['dark_border']}",
-        'maxWidth': '640px',
+        'maxWidth': '700px',
         'margin': '0 auto',
     })
 
@@ -800,12 +823,23 @@ def build_overview_tab(events):
     lineup_df = get_match_lineup(match_id) if match_id else pd.DataFrame()
     subs      = get_substitutions(events)
 
-    # ── Centre column: period controls + stat bars ────────────────────────────
-    center_col = html.Div([
-        _build_controls_bar(),
-        dcc.Store(id='pma-ov-active-period', data='full'),
-        html.Div(id='pma-ov-stat-bars', children=_build_stat_bars(home_kpis, away_kpis)),
-    ])
+    # ── Per-half KPIs ─────────────────────────────────────────────────────────
+    if 'period_id' in events.columns:
+        h1_evts = events[events['period_id'] == 1]
+        h2_evts = events[events['period_id'] == 2]
+        home_h1_kpis = compute_team_kpis(h1_evts, 'home')
+        away_h1_kpis = compute_team_kpis(h1_evts, 'away')
+        home_h2_kpis = compute_team_kpis(h2_evts, 'home')
+        away_h2_kpis = compute_team_kpis(h2_evts, 'away')
+    else:
+        home_h1_kpis = away_h1_kpis = home_h2_kpis = away_h2_kpis = {}
+
+    # ── Centre column: stat bars with half breakdowns ─────────────────────────
+    center_col = html.Div(
+        _build_stat_bars(home_kpis, away_kpis,
+                         home_h1_kpis, away_h1_kpis,
+                         home_h2_kpis, away_h2_kpis)
+    )
 
     # ── Side columns: per-team Starting XI pitch + substitutions ──────────────
     if not lineup_df.empty:
@@ -880,49 +914,5 @@ def build_overview_tab(events):
 # =============================================================================
 
 def register_overview_callbacks(app):
-    """Register period-filter and average-position callbacks for Match Overview."""
-
-    @app.callback(
-        Output('pma-ov-stat-bars',        'children'),
-        Output('pma-ov-period-btn-full',  'style'),
-        Output('pma-ov-period-btn-1',     'style'),
-        Output('pma-ov-period-btn-2',     'style'),
-        Output('pma-ov-active-period',    'data'),
-        Input('pma-ov-period-btn-full',   'n_clicks'),
-        Input('pma-ov-period-btn-1',      'n_clicks'),
-        Input('pma-ov-period-btn-2',      'n_clicks'),
-        State('pma-selected-match',       'data'),
-        State('pma-ov-active-period',     'data'),
-        prevent_initial_call=True,
-    )
-    def _update_overview(_n_full, _n_1, _n_2, match_id, current_period):
-        triggered = ctx.triggered_id or 'pma-ov-period-btn-full'
-
-        period = {
-            'pma-ov-period-btn-full': 'full',
-            'pma-ov-period-btn-1':    '1',
-            'pma-ov-period-btn-2':    '2',
-        }.get(triggered, current_period or 'full')
-
-        button_styles = (
-            _ov_period_btn_style(active=(period == 'full')),
-            _ov_period_btn_style(active=(period == '1')),
-            _ov_period_btn_style(active=(period == '2')),
-        )
-
-        if not match_id:
-            return (_build_stat_bars({}, {}), *button_styles, period)
-
-        events = get_match_events(match_id)
-        if events.empty:
-            return (_build_stat_bars({}, {}), *button_styles, period)
-
-        if period != 'full' and 'period_id' in events.columns:
-            filtered = events[events['period_id'] == int(period)]
-        else:
-            filtered = events
-
-        home_kpis = compute_team_kpis(filtered, 'home')
-        away_kpis = compute_team_kpis(filtered, 'away')
-
-        return (_build_stat_bars(home_kpis, away_kpis), *button_styles, period)
+    """No-op: period filter removed; half stats shown inline in stat bars."""
+    pass
