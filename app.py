@@ -28,6 +28,7 @@ import sys
 
 from utils.config import COLORS, APP_CONFIG, NAV_LINKS
 from utils.data_utils import clear_events_cache
+from utils.opposition_data_utils import clear_opp_events_cache
 from pages import (
     create_home_layout,
     register_home_callbacks,
@@ -826,6 +827,7 @@ def handle_database_update(n_clicks, opp_clicks, n_intervals,
             new_barca = {'updating': False, 'finished': True}
 
         if new_opp.get('updating') and not opp_alive:
+            clear_opp_events_cache()
             new_opp = {'updating': False, 'finished': True}
 
         interval_disabled = not (barca_alive or opp_alive)

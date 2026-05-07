@@ -574,8 +574,8 @@ def main():
             if stats['status'] == 'empty':
                 print(f"     ⚠️  Not in {comp_name} (0 matches found)")
             else:
-                print(f"     ✅ Downloaded: {stats['downloaded']} | "
-                      f"Skipped: {stats['skipped']} | "
+                print(f"     ✅ Processed: {stats['downloaded']} | "
+                      f"Failed: {stats['skipped']} | "
                       f"Parquets: {stats['transformed']}")
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -589,8 +589,8 @@ def main():
     print(f"\n{'='*80}")
     print("📈 FINAL SUMMARY")
     print(f"{'='*80}")
-    print(f"✅ Matches downloaded : {total_dl}")
-    print(f"⏭️  Matches skipped   : {total_sk}  (already existed)")
+    print(f"✅ Matches processed : {total_dl}  (new downloads + already existed)")
+    print(f"❌ Matches failed    : {total_sk}  (no coverage / download error)")
     print(f"🔄 Parquets written  : {total_tr}")
     print(f"⚠️  Empty results    : {empty_cnt}  (team not found in that competition)")
     print(f"\n📁 Output: data/opposition/{{country}}/{{team}}/{{competition}}/")
