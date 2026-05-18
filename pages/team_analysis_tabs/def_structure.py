@@ -60,6 +60,7 @@ _DEF_COLORS = {
     'Ball Recovery': '#ffd43b',
     'Clearance':     '#ff922b',
     'Blocked Shot':  '#cc5de8',
+    'Foul':          '#ff6b6b',
 }
 _ALL_DEF_TYPES = list(_DEF_COLORS.keys())
 _SHOT_COLORS = {
@@ -668,6 +669,69 @@ def _def_zone_summary(def_events: pd.DataFrame) -> list:
     ]
 
 
+def _def_zone_donut_fig(def_events: pd.DataFrame) -> go.Figure:
+    """Donut chart: pressing height — where Barca wins the ball back."""
+    labels = ['Def Third (Z1)', 'Mid Third (Z2)', 'Att Third (Z3)']
+    colors = [AWAY_COLOR, GOLD, HOME_COLOR]
+    if def_events.empty:
+        z1 = z2 = z3 = 0
+    else:
+        z1 = int((def_events['x'] < 33.33).sum())
+        z2 = int(((def_events['x'] >= 33.33) & (def_events['x'] < 66.67)).sum())
+        z3 = int((def_events['x'] >= 66.67).sum())
+    fig = go.Figure(go.Pie(
+        labels=labels, values=[z1, z2, z3],
+        marker=dict(colors=colors, line=dict(color=PITCH_BG, width=2)),
+        hole=0.55, textinfo='percent', textfont=dict(color='white', size=11),
+        hovertemplate='<b>%{label}</b><br>%{value} actions (%{percent})<extra></extra>',
+        sort=False,
+    ))
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+        height=220, margin=dict(l=0, r=0, t=10, b=0), showlegend=True,
+        legend=dict(orientation='v', x=1.0, y=0.5, xanchor='left', yanchor='middle',
+                    font=dict(color=COLORS['text_primary'], size=9), bgcolor='rgba(0,0,0,0)'),
+        uirevision='ds-def-zone-donut',
+    )
+    return fig
+
+
+def _offsides_only_fig(offside_ev: pd.DataFrame) -> go.Figure:
+    """Full-pitch scatter of offsides provoked only."""
+    fig = go.Figure()
+    add_pitch_background(fig, half=False)
+    offside_ev = offside_ev.dropna(subset=['x', 'y'])
+    if not offside_ev.empty:
+        custom = [
+            [row.get('player_name', '') or 'Unknown', f"{int(row.get('time_min', 0))}'"]
+            for _, row in offside_ev.iterrows()
+        ]
+        fig.add_trace(go.Scatter(
+            x=offside_ev['x'], y=offside_ev['y'],
+            mode='markers', name='Offside Provoked',
+            marker=dict(color=_OFFSIDE_COLOR, size=8, symbol='diamond', opacity=0.85,
+                        line=dict(color='white', width=0.5)),
+            customdata=custom,
+            hovertemplate='<b>%{customdata[0]}</b>  %{customdata[1]}<br>Offside Provoked<extra></extra>',
+        ))
+    _add_attack_direction(fig)
+    fig.update_layout(
+        **PITCH_AXIS_FULL,
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=12, family='Arial, sans-serif'),
+        height=540, hovermode='closest', uirevision='ds-offside-map',
+        legend=dict(
+            orientation='v', x=1.01, y=1.0, xanchor='left', yanchor='top',
+            bgcolor='rgba(21,25,50,0.88)',
+            bordercolor=COLORS['dark_border'], borderwidth=1,
+            font=dict(color=COLORS['text_primary'], size=10),
+        ),
+        margin=dict(l=0, r=130, t=36, b=0),
+    )
+    return fig
+
+
 def _gk_stats_children(shots: pd.DataFrame, gk_events: pd.DataFrame | None = None) -> list:
     """Goalkeeper stats block shown below the Shot Map / Shooting Zones row.
 
@@ -788,8 +852,35 @@ def _def_filter_panel(player_opts=None) -> html.Div:
         ),
 
         *PassMap.dash_controls(
-            show=['outcome', 'start_third', 'end_third', 'bands', 'h1_time', 'h2_time'],
+            show=['outcome', 'bands', 'h1_time', 'h2_time'],
             id_prefix='ds-def',
+        ),
+
+        html.Div("Zone of Action", style=_LABEL_STYLE),
+        dcc.Checklist(
+            id='ds-def-start-third',
+            options=[
+                {'label': ' Zone 1', 'value': 'defensive'},
+                {'label': ' Zone 2', 'value': 'middle'},
+                {'label': ' Zone 3', 'value': 'final'},
+            ],
+            value=['defensive', 'middle', 'final'],
+            inputStyle={'marginRight': '4px'},
+            labelStyle={'display': 'flex', 'alignItems': 'center',
+                        'fontSize': '0.72rem', 'color': COLORS['text_primary'],
+                        'marginBottom': '3px'},
+            style={'marginBottom': '8px'},
+        ),
+        html.Div("Action Type", style=_LABEL_STYLE),
+        dcc.Checklist(
+            id='ds-def-action-type',
+            options=[{'label': f' {t}', 'value': t} for t in _ALL_DEF_TYPES],
+            value=list(_ALL_DEF_TYPES),
+            inputStyle={'marginRight': '4px'},
+            labelStyle={'display': 'flex', 'alignItems': 'center',
+                        'fontSize': '0.72rem', 'color': COLORS['text_primary'],
+                        'marginBottom': '3px'},
+            style={'marginBottom': '8px'},
         ),
     ], style=_PANEL_STYLE)
 
@@ -829,8 +920,17 @@ def _build_our_defense_skeleton(player_opts=None) -> html.Div:
             dbc.Col([
                 html.Div("By Player", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
                 html.Div(style={'marginBottom': '6px'}),
-                html.Div(id='ds-def-table',        children=[]),
-                html.Div(id='ds-def-zone-summary', children=[]),
+                html.Div(id='ds-def-table', children=[]),
+
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
+                html.Div("Pressing Height", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
+                html.Div(
+                    "Where Barca wins the ball back",
+                    style={'color': COLORS['text_secondary'], 'fontSize': '0.60rem',
+                           'fontStyle': 'italic', 'marginBottom': '4px'},
+                ),
+                dcc.Graph(id='ds-def-zone-donut', figure=_skel_fig(220), config=CHART_CFG,
+                          style={'width': '100%'}),
 
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
                 html.Div("Vulnerable Flanks", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
@@ -854,9 +954,9 @@ def _build_our_defense_skeleton(player_opts=None) -> html.Div:
 
         dbc.Row([
             dbc.Col([
-                html.Div("Fouls & Offsides", style=_SECTION_TITLE),
+                html.Div("Offsides Provoked", style=_SECTION_TITLE),
                 html.Div(
-                    "Fouls committed (●) and offsides provoked (◆) — hover for player and minute",
+                    "Offsides provoked (◆) — hover for player and minute",
                     style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
                            'fontStyle': 'italic', 'marginBottom': '8px'},
                 ),
@@ -867,7 +967,7 @@ def _build_our_defense_skeleton(player_opts=None) -> html.Div:
             ], md=8),
 
             dbc.Col([
-                html.Div("Fouls, Offsides & Cards", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
+                html.Div("Discipline", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
                 html.Div(style={'marginBottom': '6px'}),
                 html.Div(id='ds-foul-table', children=[]),
             ], md=4, style={
@@ -932,11 +1032,10 @@ def _build_our_defense_skeleton(player_opts=None) -> html.Div:
                 dcc.Loading(type='circle', color=GOLD, children=html.Img(
                     id='ds-opp-zone-donut', src='',
                     style={
+                        'width': '100%',
                         'height': '480px',
-                        'width': 'auto',
-                        'maxWidth': '100%',
+                        'objectFit': 'contain',
                         'display': 'block',
-                        'margin': '0 auto',
                         'borderRadius': '4px',
                     },
                 )),
@@ -1552,7 +1651,7 @@ def register_def_structure_callbacks(app) -> None:
         Output('ds-def-pitch',         'figure'),
         Output('ds-def-heatmap',       'src'),
         Output('ds-def-table',         'children'),
-        Output('ds-def-zone-summary',  'children'),
+        Output('ds-def-zone-donut',    'figure'),
         Output('ds-foul-map',          'figure'),
         Output('ds-foul-table',        'children'),
         Output('ds-def-flank-fig',     'figure'),
@@ -1566,21 +1665,21 @@ def register_def_structure_callbacks(app) -> None:
         Input('ds-def-player',         'value'),
         Input('ds-def-outcome',        'value'),
         Input('ds-def-start-third',    'value'),
-        Input('ds-def-end-third',      'value'),
         Input('ds-def-bands',          'value'),
         Input('ds-def-h1-time',        'value'),
         Input('ds-def-h2-time',        'value'),
+        Input('ds-def-action-type',    'value'),
         State('ta-competition-selector', 'value'),
         State('ta-venue-selector',       'value'),
         State('ta-selected-matches',     'data'),
         State('ta-match-data',           'data'),
     )
-    def _update_our_defense(players, outcomes, start_thirds, end_thirds, bands,
-                             h1_range, h2_range,
+    def _update_our_defense(players, outcomes, start_thirds, bands,
+                             h1_range, h2_range, action_types,
                              competition, venue, match_ids, match_data):
 
         def _empty():
-            return ([], _skel_fig(540), _SKEL_SRC, [], [], _skel_fig(420), [],
+            return ([], _skel_fig(540), _SKEL_SRC, [], _skel_fig(220), _skel_fig(420), [],
                     _skel_fig(180), _skel_fig(480), [], _skel_fig(480), [], _skel_fig(480), '', [])
 
         events = get_all_events(CURRENT_SEASON)
@@ -1594,8 +1693,9 @@ def register_def_structure_callbacks(app) -> None:
         bar     = events[events['team_code'] == 'BAR']
         bar_def = bar[bar['event_type'].isin(_ALL_DEF_TYPES)].dropna(subset=['x', 'y'])
 
-        # Spatial / outcome / time filters apply only to the pitch map and heatmap;
-        # KPI, player table, and zone summary always reflect unfiltered data.
+        if action_types:
+            bar_def = bar_def[bar_def['event_type'].isin(action_types)]
+
         _h1 = tuple(h1_range) if h1_range else (0, 50)
         _h2 = tuple(h2_range) if h2_range else (45, 100)
         bar_def_time = _apply_time_filter(bar_def, _h1, _h2)
@@ -1604,7 +1704,6 @@ def register_def_structure_callbacks(app) -> None:
             bar_def_time,
             outcomes=outcomes,
             start_thirds=start_thirds,
-            end_thirds=end_thirds,
             bands=bands,
             h1_range=_h1,
             h2_range=_h2,
@@ -1612,9 +1711,6 @@ def register_def_structure_callbacks(app) -> None:
         if players and 'player_name' in bar_def_filtered.columns:
             bar_def_filtered = bar_def_filtered[bar_def_filtered['player_name'].isin(players)]
 
-        bar_fouls    = bar[bar['event_type'] == 'Foul'].dropna(subset=['x', 'y'])
-        bar_cards    = bar[bar['event_type'] == 'Card']
-        bar_fouls    = _annotate_foul_cards(bar_fouls, bar_cards)
         bar_offsides = bar[bar['event_type'] == 'Offside provoked'].dropna(subset=['x', 'y'])
 
         opp       = events[events['team_code'] != 'BAR']
@@ -1629,8 +1725,8 @@ def register_def_structure_callbacks(app) -> None:
             _def_pitch_fig(bar_def_filtered),
             _def_heatmap_src(bar_def_filtered),
             _def_player_table(bar_def, bar),
-            _def_zone_summary(bar_def),
-            _foul_offside_fig(bar_fouls, bar_offsides),
+            _def_zone_donut_fig(bar_def),
+            _offsides_only_fig(bar_offsides),
             _foul_player_table(bar),
             _opp_flank_fig(opp_time),
             _opp_entries_fig(entries_ft,  'final_third'),

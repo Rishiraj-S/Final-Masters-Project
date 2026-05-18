@@ -1309,9 +1309,9 @@ class PassMap:
                                'margin': '8px 0'})
 
         third_opts = [
-            {'label': ' Own Third',   'value': 'defensive'},
-            {'label': ' Mid Third',   'value': 'middle'},
-            {'label': ' Final Third', 'value': 'final'},
+            {'label': ' Zone 1', 'value': 'defensive'},
+            {'label': ' Zone 2', 'value': 'middle'},
+            {'label': ' Zone 3', 'value': 'final'},
         ]
 
         out = []

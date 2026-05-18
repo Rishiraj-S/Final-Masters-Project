@@ -768,47 +768,32 @@ def _stats_table_children(losses: pd.DataFrame, top_n: int = 12) -> list:
     ]
 
 
-def _zone_summary_children(losses: pd.DataFrame) -> list:
-    """Small zone breakdown summary below the table."""
-    if losses.empty:
-        return []
-
-    total = max(len(losses), 1)
-    z1 = int((losses['x'] < 33.33).sum())
-    z2 = int(((losses['x'] >= 33.33) & (losses['x'] < 66.67)).sum())
-    z3 = int((losses['x'] >= 66.67).sum())
-
-    def _zone_row(label, count, color):
-        pct = round(count / total * 100)
-        return html.Div([
-            html.Span(label, style={
-                'color': COLORS['text_secondary'], 'fontSize': '0.68rem',
-                'minWidth': '80px',
-            }),
-            html.Div(style={
-                'flex': '1', 'height': '6px',
-                'backgroundColor': COLORS['dark_border'],
-                'borderRadius': '3px', 'overflow': 'hidden',
-                'margin': '0 8px',
-            }, children=[
-                html.Div(style={
-                    'width': f'{pct}%', 'height': '100%',
-                    'backgroundColor': color, 'borderRadius': '3px',
-                }),
-            ]),
-            html.Span(f'{count}  ({pct}%)', style={
-                'color': color, 'fontSize': '0.68rem',
-                'fontWeight': '700', 'minWidth': '60px', 'textAlign': 'right',
-            }),
-        ], style={'display': 'flex', 'alignItems': 'center', 'padding': '4px 0'})
-
-    return [
-        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
-        html.Div("Losses by Zone", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
-        _zone_row('Zone 1 (Def Third)', z1, AWAY_COLOR),
-        _zone_row('Zone 2 (Mid Third)', z2, GOLD),
-        _zone_row('Zone 3 (Att Third)', z3, HOME_COLOR),
-    ]
+def _zone_donut_fig(losses: pd.DataFrame) -> go.Figure:
+    """Donut chart: possession losses split by pitch zone."""
+    labels = ['Def Third (Z1)', 'Mid Third (Z2)', 'Att Third (Z3)']
+    colors = [AWAY_COLOR, GOLD, HOME_COLOR]
+    if not losses.empty and 'x' in losses.columns:
+        z1 = int((losses['x'] < 33.33).sum())
+        z2 = int(((losses['x'] >= 33.33) & (losses['x'] < 66.67)).sum())
+        z3 = int((losses['x'] >= 66.67).sum())
+    else:
+        z1 = z2 = z3 = 0
+    fig = go.Figure(go.Pie(
+        labels=labels, values=[z1, z2, z3],
+        marker=dict(colors=colors, line=dict(color=PITCH_BG, width=2)),
+        hole=0.55, textinfo='percent', textfont=dict(color='white', size=11),
+        hovertemplate='<b>%{label}</b><br>%{value} losses (%{percent})<extra></extra>',
+        sort=False,
+    ))
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+        height=220, margin=dict(l=0, r=0, t=10, b=0), showlegend=True,
+        legend=dict(orientation='v', x=1.0, y=0.5, xanchor='left', yanchor='middle',
+                    font=dict(color=COLORS['text_primary'], size=9), bgcolor='rgba(0,0,0,0)'),
+        uirevision='dt-zone-donut',
+    )
+    return fig
 
 
 # =============================================================================
@@ -933,7 +918,17 @@ def build_defending_transition_skeleton() -> html.Div:
                 html.Div("Losses by Player", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
                 html.Div(style={'marginBottom': '6px'}),
                 html.Div(id='dt-stats-table', children=[]),
-                html.Div(id='dt-zone-summary', children=[]),
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
+                html.Div("Losses by Zone", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
+                dcc.Loading(
+                    type='circle', color=GOLD,
+                    children=dcc.Graph(
+                        id='dt-zone-donut',
+                        figure=_skel_fig(220),
+                        config=CHART_CFG,
+                        style={'width': '100%'},
+                    ),
+                ),
 
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
                 html.Div("Transition Outcome", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
@@ -995,7 +990,7 @@ def register_defending_transition_callbacks(app) -> None:
         Output('dt-pitch-map',         'figure'),
         Output('dt-heatmap-img',       'src'),
         Output('dt-stats-table',       'children'),
-        Output('dt-zone-summary',      'children'),
+        Output('dt-zone-donut',        'figure'),
         Output('dt-trans-outcomes',    'figure'),
         Output('dt-trans-event-types', 'figure'),
         Input('dt-player-filter',     'value'),
@@ -1012,7 +1007,7 @@ def register_defending_transition_callbacks(app) -> None:
                 competition, venue, match_ids, match_data):
 
         def _empty():
-            return [], _skel_fig(600), _SKEL_SRC, [], [], _skel_fig(260), _skel_fig(280)
+            return [], _skel_fig(600), _SKEL_SRC, [], _skel_fig(220), _skel_fig(260), _skel_fig(280)
 
         events = get_all_events(CURRENT_SEASON)
         if events.empty:
@@ -1074,9 +1069,9 @@ def register_defending_transition_callbacks(app) -> None:
         pitch_fig       = _pitch_map_fig(losses_filtered)
         heatmap_src     = _heatmap_src(losses_filtered)
         stats_table     = _stats_table_children(losses)
-        zone_summary    = _zone_summary_children(losses)
+        zone_fig        = _zone_donut_fig(losses)
         outcomes_fig    = _transition_outcomes_fig(losses)
         event_types_fig = _transition_event_types_fig(opp_in_windows)
 
         return (kpi, pitch_fig, heatmap_src,
-                stats_table, zone_summary, outcomes_fig, event_types_fig)
+                stats_table, zone_fig, outcomes_fig, event_types_fig)

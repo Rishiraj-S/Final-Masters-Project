@@ -360,7 +360,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 5mm 14mm 4mm;
+            padding: 4mm 10mm 3mm;
             border-bottom: 1px solid var(--border-lt);
         }
         .page-brand {
@@ -379,7 +379,7 @@
         /* Content body */
         .page-body {
             flex: 1;
-            padding: 7mm 14mm 5mm;
+            padding: 5mm 10mm 4mm;
         }
 
         /* Section heading */
@@ -387,7 +387,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-bottom: 7mm;
+            margin-bottom: 4mm;
         }
         .section-heading-line {
             flex: 1;
@@ -409,8 +409,8 @@
             letter-spacing: 2.5px;
             text-transform: uppercase;
             color: var(--text-muted);
-            margin: 6mm 0 3mm;
-            padding-bottom: 2mm;
+            margin: 4mm 0 2mm;
+            padding-bottom: 1.5mm;
             border-bottom: 1px solid var(--border-lt);
         }
         h3.subsection:first-child { margin-top: 0; }
@@ -498,11 +498,11 @@
         .img-wrap img {
             width: 100%;
             display: block;
-            max-height: 120mm;  /* cap single image height so pairs fit on A4 */
+            max-height: 85mm;
             object-fit: contain;
         }
         .img-full {
-            margin: 3mm 0;
+            margin: 2mm 0;
             border-radius: 6px;
             overflow: hidden;
             break-inside: avoid;
@@ -511,7 +511,7 @@
         .img-full img {
             width: 100%;
             display: block;
-            max-height: 200mm;
+            max-height: 130mm;
             object-fit: contain;
         }
 
@@ -522,7 +522,7 @@
             width: 100%;
             border-collapse: collapse;
             font-size: 7.5pt;
-            margin: 3mm 0 5mm;
+            margin: 2mm 0 3mm;
             break-inside: avoid;
             page-break-inside: avoid;
         }
@@ -585,7 +585,7 @@
         /*  Page footer                                                         */
         /* ------------------------------------------------------------------ */
         .page-footer {
-            padding: 3mm 14mm;
+            padding: 2.5mm 10mm;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -624,7 +624,8 @@
             margin-bottom: 4mm;
         }
         .kpi-section-light .kpi-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 8mm;
         }
         .kpi-section-light .kpi-label {
             color: var(--text-muted);

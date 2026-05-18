@@ -20,11 +20,15 @@ from utils.data_utils import get_all_events, exclude_own_goals, CURRENT_SEASON
 from utils.xg_utils import add_xg_column
 from page_utils import PassMap, GOLD, HOME_COLOR
 from page_utils.competitions import normalize_competitions as _normalize_competitions
+import io
+import base64
+import matplotlib.pyplot as plt
+from mplsoccer import Pitch as MplPitch
+
 from page_utils.visualizations import (
     add_vertical_half_pitch_background,
     VPITCH_AXIS_HALF,
     PITCH_BG,
-    render_xt_heatmap_img,
 )
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
@@ -106,6 +110,205 @@ def _skel_fig(height: int = 520) -> go.Figure:
         height=height, margin=dict(l=0, r=0, t=36, b=0),
     )
     return fig
+
+
+# =============================================================================
+# Threat zone heatmap
+# =============================================================================
+
+_THREAT_M, _THREAT_N = 16, 12
+_PITCH_LINE = (0.78, 0.78, 0.78, 0.5)
+_XT_GRID_CACHE = None
+
+
+def _load_xt_grid():
+    global _XT_GRID_CACHE
+    if _XT_GRID_CACHE is None:
+        try:
+            import pathlib
+            grid_path = (pathlib.Path(__file__).resolve().parents[2]
+                         / 'xT_model' / 'xt_grid.npy')
+            _XT_GRID_CACHE = np.load(grid_path)
+        except Exception:
+            _XT_GRID_CACHE = False
+    return _XT_GRID_CACHE if _XT_GRID_CACHE is not False else None
+
+
+def _threat_zone_image(shots: pd.DataFrame, events: pd.DataFrame,
+                       show_shot_zones: bool = True) -> str:
+    """
+    Render a Shooting & Threat Zones heatmap.
+      - Warm (red/orange) layer: accumulated xT from passes in the 30 s before each shot.
+      - Blue layer (optional): shot location density.
+    Returns a data-URI PNG string.
+    """
+    from matplotlib.patches import Patch
+    from matplotlib.colors import LinearSegmentedColormap
+
+    _xt_cmap   = LinearSegmentedColormap.from_list('xt_blue',   [PITCH_BG, HOME_COLOR], N=256)
+    _shot_cmap = LinearSegmentedColormap.from_list('shot_gold', [PITCH_BG, GOLD],       N=256)
+
+    M, N = _THREAT_M, _THREAT_N
+    x_edges = np.linspace(0, 100, M + 1)
+    y_edges = np.linspace(0, 100, N + 1)
+    x_centers = (x_edges[:-1] + x_edges[1:]) / 2
+    y_centers = (y_edges[:-1] + y_edges[1:]) / 2
+    xt_grid = _load_xt_grid()
+
+    cell_xt = np.zeros((M, N))
+    cell_shots = np.zeros((M, N))
+
+    # Buildup xT: passes within 30 s before each shot
+    if not shots.empty and not events.empty:
+        sort_cols = [c for c in ['match_id', 'period_id', 'time_min', 'time_sec']
+                     if c in events.columns]
+        te = events.sort_values(sort_cols).reset_index(drop=True)
+        _tsec = pd.to_numeric(te['time_sec'], errors='coerce').fillna(0) if 'time_sec' in te.columns else 0
+        te['_t'] = pd.to_numeric(te['time_min'], errors='coerce').fillna(0) * 60 + _tsec
+
+        passes = te[te['event_type'] == 'Pass'].copy()
+        if 'Pass End X' in passes.columns:
+            passes = passes[pd.to_numeric(passes['Pass End X'], errors='coerce').notna()]
+        else:
+            passes = pd.DataFrame()
+
+        if not passes.empty:
+            shots_w = shots.copy()
+            _ssec = pd.to_numeric(shots_w['time_sec'], errors='coerce').fillna(0) if 'time_sec' in shots_w.columns else 0
+            shots_w['_t'] = pd.to_numeric(shots_w['time_min'], errors='coerce').fillna(0) * 60 + _ssec
+
+            for _, shot in shots_w.iterrows():
+                t0 = shot['_t']
+                period = shot.get('period_id')
+                match_id = shot.get('match_id')
+
+                mask = (
+                    (passes['period_id'] == period) &
+                    (passes['_t'] >= t0 - 30) &
+                    (passes['_t'] < t0)
+                )
+                if match_id is not None and 'match_id' in passes.columns:
+                    mask &= passes['match_id'] == match_id
+
+                pre = passes[mask]
+                if pre.empty:
+                    continue
+
+                px = pd.to_numeric(pre['x'], errors='coerce').values
+                py = pd.to_numeric(pre['y'], errors='coerce').values
+                ex = pd.to_numeric(pre['Pass End X'], errors='coerce').values
+                ey = pd.to_numeric(pre['Pass End Y'], errors='coerce').values
+                ok = ~(np.isnan(px) | np.isnan(py) | np.isnan(ex) | np.isnan(ey))
+                if not ok.any():
+                    continue
+
+                xi1 = np.clip((px[ok] / 100.0 * M).astype(int), 0, M - 1)
+                yj1 = np.clip((py[ok] / 100.0 * N).astype(int), 0, N - 1)
+                xi2 = np.clip((ex[ok] / 100.0 * M).astype(int), 0, M - 1)
+                yj2 = np.clip((ey[ok] / 100.0 * N).astype(int), 0, N - 1)
+
+                if xt_grid is not None:
+                    vals = np.maximum(xt_grid[xi2, yj2] - xt_grid[xi1, yj1], 0.0)
+                else:
+                    vals = np.ones(ok.sum(), dtype=float)
+                np.add.at(cell_xt, (xi2, yj2), vals)
+
+    # Shot zones
+    if not shots.empty and 'x' in shots.columns:
+        sx = pd.to_numeric(shots['x'], errors='coerce').values
+        sy = pd.to_numeric(shots['y'], errors='coerce').values
+        ok = ~(np.isnan(sx) | np.isnan(sy))
+        if ok.any():
+            xi = np.clip((sx[ok] / 100.0 * M).astype(int), 0, M - 1)
+            yj = np.clip((sy[ok] / 100.0 * N).astype(int), 0, N - 1)
+            np.add.at(cell_shots, (xi, yj), 1)
+
+    shot_x_marg = cell_shots.sum(axis=1)
+    shot_y_marg = cell_shots.sum(axis=0)
+
+    def _smooth(arr, w=3):
+        pad = w // 2
+        return np.convolve(arr, np.ones(w) / w, mode='full')[pad: pad + len(arr)]
+
+    fig = plt.figure(figsize=(12, 8.5), facecolor=PITCH_BG)
+    gs = fig.add_gridspec(2, 2,
+                          width_ratios=[8, 1.5], height_ratios=[1.5, 8],
+                          hspace=0.03, wspace=0.03)
+    ax_top   = fig.add_subplot(gs[0, 0])
+    ax_right = fig.add_subplot(gs[1, 1])
+    ax_main  = fig.add_subplot(gs[1, 0])
+    fig.add_subplot(gs[0, 1]).set_visible(False)
+
+    bar_w = (x_edges[1] - x_edges[0]) * 0.88
+    bar_h = (y_edges[1] - y_edges[0]) * 0.88
+
+    ax_top.bar(x_centers, shot_x_marg, width=bar_w,
+               color=HOME_COLOR, alpha=0.75, edgecolor='none')
+    if shot_x_marg.max() > 0:
+        ax_top.plot(x_centers, _smooth(shot_x_marg), color=HOME_COLOR, linewidth=1.8, zorder=3)
+    ax_top.set_facecolor(PITCH_BG)
+    ax_top.set_xlim(0, 100)
+    ax_top.set_ylim(bottom=0)
+    for sp in ax_top.spines.values():
+        sp.set_visible(False)
+    ax_top.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+
+    ax_right.barh(y_centers, shot_y_marg, height=bar_h,
+                  color=HOME_COLOR, alpha=0.75, edgecolor='none')
+    if shot_y_marg.max() > 0:
+        ax_right.plot(_smooth(shot_y_marg), y_centers, color=HOME_COLOR, linewidth=1.8, zorder=3)
+    ax_right.set_facecolor(PITCH_BG)
+    ax_right.set_ylim(0, 100)
+    ax_right.set_xlim(left=0)
+    for sp in ax_right.spines.values():
+        sp.set_visible(False)
+    ax_right.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+
+    pitch = MplPitch(pitch_type='opta', pitch_color=PITCH_BG, line_color=_PITCH_LINE,
+                     linewidth=0.9, goal_type='box', goal_alpha=0.6,
+                     pad_top=0, pad_bottom=0, pad_left=0, pad_right=0)
+    pitch.draw(ax=ax_main)
+
+    vmax_xt = max(float(cell_xt.max()), 1e-9)
+    ax_main.pcolormesh(x_edges, y_edges, cell_xt.T,
+                       cmap=_xt_cmap, alpha=0.88, zorder=2, vmin=0, vmax=vmax_xt)
+
+    threshold = vmax_xt * 0.25
+    for i in range(M):
+        for j in range(N):
+            v = cell_xt[i, j]
+            if v >= threshold:
+                cx = (x_edges[i] + x_edges[i + 1]) / 2
+                cy = (y_edges[j] + y_edges[j + 1]) / 2
+                ax_main.text(cx, cy, f'{v:.2f}', ha='center', va='center',
+                             fontsize=6.5, color='white', fontweight='bold', zorder=4)
+
+    if show_shot_zones and cell_shots.max() > 0:
+        shot_data = np.ma.masked_where(cell_shots.T == 0, cell_shots.T.astype(float))
+        ax_main.pcolormesh(x_edges, y_edges, shot_data,
+                           cmap=_shot_cmap, alpha=0.60, zorder=3, vmin=0)
+
+    legend_handles = [Patch(facecolor=HOME_COLOR, alpha=0.88, label='Buildup xT')]
+    if show_shot_zones:
+        legend_handles.append(Patch(facecolor=GOLD, alpha=0.65, label='Shot Zones'))
+    ax_main.legend(handles=legend_handles, loc='lower right', fontsize=7,
+                   framealpha=0.90, facecolor=PITCH_BG,
+                   edgecolor=COLORS['dark_border'], labelcolor=COLORS['text_primary'])
+
+    ax_main.annotate('', xy=(0.92, 1.015), xytext=(0.78, 1.015),
+                     xycoords='axes fraction',
+                     arrowprops=dict(arrowstyle='->', color=GOLD, lw=1.5))
+    ax_main.text(0.85, 1.022, 'Attack →', ha='center', va='bottom', fontsize=8,
+                 color=GOLD, fontweight='bold', transform=ax_main.transAxes,
+                 clip_on=False, zorder=5)
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=130, bbox_inches='tight',
+                pad_inches=0.05, facecolor=PITCH_BG)
+    buf.seek(0)
+    result = 'data:image/png;base64,' + base64.b64encode(buf.read()).decode()
+    plt.close(fig)
+    return result
 
 
 # =============================================================================
@@ -919,13 +1122,32 @@ def build_chance_creation_tab(season, competitions, match_ids=None) -> html.Div:
                 ),
                 html.Hr(style={'borderColor': COLORS['dark_border'],
                                'margin': '14px 0 10px'}),
-                html.Div("Shooting Zones",
+                html.Div("Shooting & Threat Zones",
                          style={**_SECTION_TITLE, 'fontSize': '0.75rem',
                                 'borderBottom': 'none', 'paddingBottom': '4px'}),
-                html.Div("Shot density by pitch zone — count and share per zone",
+                html.Div("Buildup xT heatmap · shot density overlay",
                          style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
                                 'fontStyle': 'italic', 'marginBottom': '6px'}),
-                html.Img(id='cc-zone-map', style={'width': '100%', 'borderRadius': '6px'}),
+                html.Div([
+                    html.Div(
+                        dcc.Checklist(
+                            id='cc-zone-options',
+                            options=[{'label': ' Non-shot threat zones only', 'value': 'hide_shots'}],
+                            value=[],
+                            inputStyle={'cursor': 'pointer', 'accentColor': GOLD, 'marginRight': '4px'},
+                            labelStyle={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
+                                        'cursor': 'pointer'},
+                        ),
+                        style={
+                            'position': 'absolute', 'top': '8px', 'right': '8px', 'zIndex': 10,
+                            'backgroundColor': f'rgba(21,25,50,0.88)',
+                            'padding': '4px 8px', 'borderRadius': '4px',
+                            'border': f'1px solid {COLORS["dark_border"]}',
+                        }
+                    ),
+                    html.Img(id='cc-zone-map',
+                             style={'width': '100%', 'borderRadius': '6px', 'display': 'block'}),
+                ], style={'position': 'relative'}),
             ], md=8),
 
             dbc.Col([
@@ -976,13 +1198,14 @@ def register_chance_creation_callbacks(app) -> None:
         Input('cc-h1-time',          'value'),
         Input('cc-h2-time',          'value'),
         Input('cc-show-kp',          'value'),
+        Input('cc-zone-options',     'value'),
         State('ta-competition-selector', 'value'),
         State('ta-venue-selector',       'value'),
         State('ta-selected-matches',     'data'),
         State('ta-match-data',           'data'),
     )
     def _update(players, outcomes, method, bands, h1_range, h2_range, show_kp,
-                competition, venue, match_ids, match_data):
+                zone_options, competition, venue, match_ids, match_data):
 
         def _empty():
             return [], _skel_fig(520), '', [], []
@@ -1055,12 +1278,10 @@ def register_chance_creation_callbacks(app) -> None:
         )
         fig        = _shot_map_fig(map_shots, kp_for_map, carry_lines_data)
 
+        show_shot_zones = 'hide_shots' not in (zone_options or [])
         zone_src = ''
-        if not map_shots.empty and 'x' in map_shots.columns:
-            xs = map_shots['x'].dropna().tolist()
-            ys = map_shots['y'].dropna().tolist()
-            if len(xs) >= 2:
-                zone_src = render_xt_heatmap_img(xs, ys, [1.0] * len(xs))
+        if not map_shots.empty:
+            zone_src = _threat_zone_image(map_shots, bar, show_shot_zones)
 
         scors = _scorers_table_children(kpi_shots)
         assts = _assisters_table_children(kp_stats)
