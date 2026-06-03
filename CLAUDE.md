@@ -26,6 +26,7 @@ python opposition_pipeline/main.py                    # All opponents
 python opposition_pipeline/main.py --team "Chelsea"
 python opposition_pipeline/main.py --transform-only
 python opposition_pipeline/main.py --force-rescrape
+python opposition_pipeline/main.py --skip-download    # Scrape + transform only, no browser
 ```
 
 Login credentials: `Guest / guest` (read-only) or `Rishi / admin` (admin, can trigger pipelines).
@@ -83,7 +84,7 @@ Home  |  Barça DNA  |  Barça IQ  |  Match Report  |  Opposition Analysis
 |--------|---------|
 | `utils/event_utils.py` | Canonical event-extraction functions — **always use these, never filter inline** |
 | `utils/match_data_adapter.py` | Phase-tagged match analysis: possession, transitions, set pieces, counterpress, pass networks |
-| `utils/player_analysis/metrics.py` | Per-player stat computation, percentiles, A–D rating dimensions; includes `xT_app` |
+| `utils/player_analysis/metrics.py` | `compute_player_stats(events_df)` → stat dict; `get_player_percentiles()`, `get_player_ratings()` → A–D grades; `POSITION_PIZZA_ATT` / `POSITION_PIZZA_DEF` dicts define which metrics appear on the radar per position role |
 | `utils/player_analysis/wyscout_weights.py` | Wyscout position weights loaded from `assets/wyscout_weights/*.xlsx` |
 | `utils/logos.py` | `get_team_logo_path()`, `get_tournament_logo_path()`, `get_country_flag_path()` — maps data names to asset paths |
 | `utils/xg_utils.py` | `add_xg_column(shots_df)` bridge to the xG model |
@@ -174,6 +175,8 @@ Score headline callback lives in `match_report.py` (not in `overview.py`).
 
 `overview`, `buildup`, `chance_creation`, `transitions`, `defence`, `set_pieces`
 
+`helpers.py` — `no_data(msg)` uniform placeholder used by all six tab builders when a data query returns empty.
+
 ### Pitch Plots
 
 All pitch visualisations use `mplsoccer` rendered server-side to base64 PNG via `page_utils/visualizations.py`. Use `pitch.scatter()` not `mpatches.Circle` — patches distort with axis aspect ratio.
@@ -206,7 +209,7 @@ Grid-based Expected Threat model following the Soccermatics/Bellman-equation app
 
 ### Pipeline Architecture
 
-Both pipelines share modules from `opta_pipeline/modules/`. Stages: Scrape → Download → Transform, each writing Parquet files. `opta_pipeline/main.py` writes `logs/progress.json` after each step; `app.py` polls it every 2 s for live overlay updates.
+Both pipelines share modules from `opta_pipeline/modules/`. The opposition pipeline imports `opta_pipeline.modules` directly — zero code duplication. Stages: Scrape → Download → Transform, each writing Parquet files. `opta_pipeline/main.py` writes `logs/progress.json` after each step; `app.py` polls it every 2 s for live overlay updates.
 
 **Typo note**: `"Team setp up"` (typeId=34) exists intentionally in both `mappings/opta_event_types.csv` and `opta_pipeline/modules/transformers/matchevent_transformer.py:156` — they are consistent. Fix both together or neither.
 

@@ -15911,3 +15911,540 @@ AttributeError: '_tqdm' object has no attribute 'set_postfix_str'
 2026-05-12 19:32:26,523 - OptaPipeline - INFO - Match parquets:  1
 2026-05-12 19:32:26,523 - OptaPipeline - INFO - Event parquets:  1
 2026-05-12 19:32:26,523 - OptaPipeline - INFO - Lineup parquets: 1
+2026-05-19 15:25:37,700 - OptaPipeline - INFO - ================================================================================
+2026-05-19 15:25:37,700 - OptaPipeline - INFO - 🚀 OPTA PIPELINE - MULTI-COMPETITION MODE
+2026-05-19 15:25:37,700 - OptaPipeline - INFO - ================================================================================
+2026-05-19 15:25:37,700 - OptaPipeline - INFO - 📊 Processing 4 competition(s):
+2026-05-19 15:25:37,700 - OptaPipeline - INFO -    • Spain_Copa_del_Rey (2025-2026)
+2026-05-19 15:25:37,700 - OptaPipeline - INFO -    • Spain_Primera_Division (2025-2026)
+2026-05-19 15:25:37,700 - OptaPipeline - INFO -    • Spain_Super_Cup (2025-2026)
+2026-05-19 15:25:37,700 - OptaPipeline - INFO -    • UEFA_Champions_League (2025-2026)
+2026-05-19 15:25:37,710 - OptaPipeline - INFO - ================================================================================
+2026-05-19 15:25:37,710 - OptaPipeline - INFO - 🏆 COMPETITION 1/4: Spain_Copa_del_Rey
+2026-05-19 15:25:37,710 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-05-19 15:25:37,710 - OptaPipeline - INFO - ================================================================================
+2026-05-19 15:25:37,710 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-05-19 15:25:37,711 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/copa-del-rey-2025-2026/3lmujqli8r9m12i28wgjxnnys/results
+2026-05-19 15:25:37,711 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-05-19 15:25:47,253 - selenium.webdriver.common.selenium_manager - WARNING - Error sending stats to Plausible: error sending request for url (https://plausible.io/api/event)
+2026-05-19 15:26:07,728 - OptaPipeline - INFO - ✓ Opta widget loaded
+2026-05-19 15:26:07,732 - OptaPipeline - INFO - 📊 Initial matches visible: 137
+2026-05-19 15:26:07,767 - OptaPipeline - INFO - 📄 No known pagination selectors found
+2026-05-19 15:26:07,855 - OptaPipeline - INFO - ✅ Scraped 5 unique matches
+2026-05-19 15:26:07,932 - OptaPipeline - INFO - ℹ️  No new matches found (all already in CSV)
+2026-05-19 15:26:07,934 - OptaPipeline - INFO - 💾 Saved 5 total matches to: /Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/../data/barcelona/result/Spain_Copa_del_Rey/2025-2026/matches_urls.csv
+2026-05-19 15:26:07,934 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-05-19 15:26:07,935 - OptaPipeline - INFO - [1/5] Match: 3gqwvmig5roaq4qkddtgvp8gk
+2026-05-19 15:26:07,936 - OptaPipeline - INFO -    ⏭️  Already exists: 3gqwvmig5roaq4qkddtgvp8gk
+2026-05-19 15:26:07,936 - OptaPipeline - INFO - [2/5] Match: 1z8gknoiuoiuh7z1mto3je9ec
+2026-05-19 15:26:07,936 - OptaPipeline - INFO -    ⏭️  Already exists: 1z8gknoiuoiuh7z1mto3je9ec
+2026-05-19 15:26:07,936 - OptaPipeline - INFO - [3/5] Match: 433pzlem1yzj0ac0mg58m4x04
+2026-05-19 15:26:07,936 - OptaPipeline - INFO -    ⏭️  Already exists: 433pzlem1yzj0ac0mg58m4x04
+2026-05-19 15:26:07,936 - OptaPipeline - INFO - [4/5] Match: 62gdakw1aqqhoomsor9xrhg4
+2026-05-19 15:26:07,937 - OptaPipeline - INFO -    ⏭️  Already exists: 62gdakw1aqqhoomsor9xrhg4
+2026-05-19 15:26:07,937 - OptaPipeline - INFO - [5/5] Match: 3sx6fp8e2gg1kinflvk8ejg2c
+2026-05-19 15:26:07,937 - OptaPipeline - INFO -    ⏭️  Already exists: 3sx6fp8e2gg1kinflvk8ejg2c
+2026-05-19 15:26:07,937 - OptaPipeline - INFO - 📊 Downloaded: 5, Failed: 0
+2026-05-19 15:26:07,937 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-05-19 15:26:07,937 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-05-19 15:26:07,937 - OptaPipeline - WARNING - No matchdata files found
+2026-05-19 15:26:07,937 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-05-19 15:26:07,939 - OptaPipeline - WARNING - No matchdata files found
+2026-05-19 15:26:07,939 - OptaPipeline - INFO - 👥 Transforming Lineups...
+2026-05-19 15:26:07,939 - OptaPipeline - INFO -    [lineup] No matchdata JSON files found
+2026-05-19 15:26:07,939 - OptaPipeline - INFO - 🗑️  Cleaning up temporary JSON files from data/target...
+2026-05-19 15:26:07,939 - OptaPipeline - INFO - ================================================================================
+2026-05-19 15:26:07,939 - OptaPipeline - INFO - 🏆 COMPETITION 2/4: Spain_Primera_Division
+2026-05-19 15:26:07,939 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-05-19 15:26:07,939 - OptaPipeline - INFO - ================================================================================
+2026-05-19 15:26:07,940 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-05-19 15:26:07,940 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/primera-divisi%C3%B3n-2025-2026/80zg2v1cuqcfhphn56u4qpyqc/results
+2026-05-19 15:26:07,940 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-05-19 15:26:32,922 - OptaPipeline - INFO - ✓ Opta widget loaded
+2026-05-19 15:26:32,935 - OptaPipeline - INFO - 📊 Initial matches visible: 370
+2026-05-19 15:26:32,983 - OptaPipeline - INFO - 📄 No known pagination selectors found
+2026-05-19 15:26:33,178 - OptaPipeline - INFO - ✅ Scraped 37 unique matches
+2026-05-19 15:26:33,260 - OptaPipeline - INFO - 🆕 Found 2 new match(es) not in existing CSV
+2026-05-19 15:26:33,261 - OptaPipeline - INFO - 💾 Saved 37 total matches to: /Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/../data/barcelona/result/Spain_Primera_Division/2025-2026/matches_urls.csv
+2026-05-19 15:26:33,261 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-05-19 15:26:33,262 - OptaPipeline - INFO - [1/37] Match: 3rpa9gg887sphjnou8h1uv6s4
+2026-05-19 15:26:33,262 - seleniumwire.storage - INFO - Using in-memory request storage
+2026-05-19 15:26:33,266 - seleniumwire.backend - INFO - Created proxy listening on ::ffff:127.0.0.1:56328
+2026-05-19 15:26:34,164 - seleniumwire.handler - INFO - Capturing request: http://clients2.google.com/time/1/current?cup2key=10:rOTani65yESXLKrHos-1Oa_-_3iBQ2UNJp2oDgaG9zY&cup2hreq=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+2026-05-19 15:26:34,228 - seleniumwire.handler - INFO - Capturing response: http://clients2.google.com/time/1/current?cup2key=10:rOTani65yESXLKrHos-1Oa_-_3iBQ2UNJp2oDgaG9zY&cup2hreq=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 200 OK
+2026-05-19 15:26:45,663 - seleniumwire.server - INFO - ::ffff:127.0.0.1:56469: HTTP/2 connection terminated by server: error code: 0, last stream id: 0, additional data: None
+2026-05-19 15:26:45,663 - seleniumwire.server - INFO - ::ffff:127.0.0.1:56469: ProtocolException("Error in HTTP connection: Http2ZombieException('Connection or stream already dead: 1779197205.663069, False')")
+2026-05-19 15:26:51,364 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/match/ft1tiv1inq7v1sk3y9tv12yh5/3rpa9gg887sphjnou8h1uv6s4?_rt=c&live=yes&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W32d5e3016640d6ca09619d3e7abd6c7241c11e051
+2026-05-19 15:26:51,364 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/match/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&tmcl=80zg2v1cuqcfhphn56u4qpyqc&live=yes&_pgSz=400&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W38c46802b1808b1f7876d1903445d1c709bb717a6
+2026-05-19 15:26:51,365 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/matchevent/ft1tiv1inq7v1sk3y9tv12yh5/3rpa9gg887sphjnou8h1uv6s4?_rt=c&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W3c3a9690dbfd20a0f118dcd153cbeb39beeaebf4b
+2026-05-19 15:26:51,969 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/match/ft1tiv1inq7v1sk3y9tv12yh5/3rpa9gg887sphjnou8h1uv6s4?_rt=c&live=yes&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W32d5e3016640d6ca09619d3e7abd6c7241c11e051 200 
+2026-05-19 15:26:58,982 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/matchevent/ft1tiv1inq7v1sk3y9tv12yh5/3rpa9gg887sphjnou8h1uv6s4?_rt=c&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W3c3a9690dbfd20a0f118dcd153cbeb39beeaebf4b 200 
+2026-05-19 15:26:59,153 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/squads/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&ctst=agh9ifb2mw3ivjusgedj7c3fe&tmcl=80zg2v1cuqcfhphn56u4qpyqc&_pgSz=200&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W320eedfa8f479c4d17673a4baff42dcfd46ee6b0d
+2026-05-19 15:26:59,153 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/squads/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&ctst=ah8dala7suqqkj04n2l8xz4zd&tmcl=80zg2v1cuqcfhphn56u4qpyqc&_pgSz=200&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W327b12727d131fa638fa838b89f095d51c5c4c438
+2026-05-19 15:26:59,608 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/squads/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&ctst=ah8dala7suqqkj04n2l8xz4zd&tmcl=80zg2v1cuqcfhphn56u4qpyqc&_pgSz=200&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W327b12727d131fa638fa838b89f095d51c5c4c438 200 
+2026-05-19 15:26:59,654 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/squads/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&ctst=agh9ifb2mw3ivjusgedj7c3fe&tmcl=80zg2v1cuqcfhphn56u4qpyqc&_pgSz=200&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W320eedfa8f479c4d17673a4baff42dcfd46ee6b0d 200 
+2026-05-19 15:27:02,190 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/nlgdynamicplayerbio/ft1tiv1inq7v1sk3y9tv12yh5?prsn=5f8kjgsaabn2li5r7bvpebbsa&_rt=c&_fmt=jsonp&_lcl=en-gb&_clbk=W3d842f21b34d63c57c26b5890406eaa3f86b38a41
+2026-05-19 15:27:02,486 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/nlgdynamicplayerbio/ft1tiv1inq7v1sk3y9tv12yh5?prsn=5f8kjgsaabn2li5r7bvpebbsa&_rt=c&_fmt=jsonp&_lcl=en-gb&_clbk=W3d842f21b34d63c57c26b5890406eaa3f86b38a41 200 
+2026-05-19 15:27:03,383 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/match/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&tmcl=80zg2v1cuqcfhphn56u4qpyqc&live=yes&_pgSz=400&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W38c46802b1808b1f7876d1903445d1c709bb717a6 200 
+2026-05-19 15:27:29,613 - OptaPipeline - INFO -    ✅ matchevent: 3rpa9gg887sphjnou8h1uv6s4.json (1786146 bytes)
+2026-05-19 15:27:31,197 - OptaPipeline - INFO - [2/37] Match: 3n65mnr76iym0yv9wmk1ug6c4
+2026-05-19 15:27:31,198 - seleniumwire.storage - INFO - Using in-memory request storage
+2026-05-19 15:27:31,204 - seleniumwire.backend - INFO - Created proxy listening on ::ffff:127.0.0.1:56660
+2026-05-19 15:27:31,639 - seleniumwire.handler - INFO - Capturing request: http://clients2.google.com/time/1/current?cup2key=10:4LLVUr4-SRV852aBE-R6JMbySXyr3lLci0kUFByFA9g&cup2hreq=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+2026-05-19 15:27:32,112 - seleniumwire.handler - INFO - Capturing response: http://clients2.google.com/time/1/current?cup2key=10:4LLVUr4-SRV852aBE-R6JMbySXyr3lLci0kUFByFA9g&cup2hreq=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 200 OK
+2026-05-19 15:27:32,171 - seleniumwire.handler - INFO - Capturing request: https://accounts.google.com/ListAccounts?gpsia=1&source=ChromiumBrowser&json=standard&laf=b64bin
+2026-05-19 15:27:32,262 - seleniumwire.handler - INFO - Capturing response: https://accounts.google.com/ListAccounts?gpsia=1&source=ChromiumBrowser&json=standard&laf=b64bin 200 
+2026-05-19 15:27:41,920 - seleniumwire.server - INFO - ::ffff:127.0.0.1:56774: HTTP/2 connection terminated by server: error code: 0, last stream id: 0, additional data: None
+2026-05-19 15:27:46,277 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/matchevent/ft1tiv1inq7v1sk3y9tv12yh5/3n65mnr76iym0yv9wmk1ug6c4?_rt=c&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W3c6bf1ecfc2557e36ec81ca094359424d2a1a6f38
+2026-05-19 15:27:46,279 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/match/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&tmcl=80zg2v1cuqcfhphn56u4qpyqc&live=yes&_pgSz=400&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W38c46802b1808b1f7876d1903445d1c709bb717a6
+2026-05-19 15:27:46,281 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/match/ft1tiv1inq7v1sk3y9tv12yh5/3n65mnr76iym0yv9wmk1ug6c4?_rt=c&live=yes&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W3e1e2ce7d2e03c327d918793ae9c24c7da7141d2b
+2026-05-19 15:27:46,634 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/match/ft1tiv1inq7v1sk3y9tv12yh5/3n65mnr76iym0yv9wmk1ug6c4?_rt=c&live=yes&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W3e1e2ce7d2e03c327d918793ae9c24c7da7141d2b 200 
+2026-05-19 15:27:49,167 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/matchevent/ft1tiv1inq7v1sk3y9tv12yh5/3n65mnr76iym0yv9wmk1ug6c4?_rt=c&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W3c6bf1ecfc2557e36ec81ca094359424d2a1a6f38 200 
+2026-05-19 15:27:49,316 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/squads/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&ctst=4dtdjgnpdq9uw4sdutti0vaar&tmcl=80zg2v1cuqcfhphn56u4qpyqc&_pgSz=200&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W30be1904ad0928c084718ad6eef5c0b69f4b35b65
+2026-05-19 15:27:49,369 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/squads/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&ctst=agh9ifb2mw3ivjusgedj7c3fe&tmcl=80zg2v1cuqcfhphn56u4qpyqc&_pgSz=200&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W320eedfa8f479c4d17673a4baff42dcfd46ee6b0d
+2026-05-19 15:27:49,496 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/squads/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&ctst=agh9ifb2mw3ivjusgedj7c3fe&tmcl=80zg2v1cuqcfhphn56u4qpyqc&_pgSz=200&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W320eedfa8f479c4d17673a4baff42dcfd46ee6b0d 200 
+2026-05-19 15:27:49,602 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/squads/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&ctst=4dtdjgnpdq9uw4sdutti0vaar&tmcl=80zg2v1cuqcfhphn56u4qpyqc&_pgSz=200&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W30be1904ad0928c084718ad6eef5c0b69f4b35b65 200 
+2026-05-19 15:27:51,182 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/nlgdynamicplayerbio/ft1tiv1inq7v1sk3y9tv12yh5?prsn=c7i0lduij4vsnluxisdnaxsk5&_rt=c&_fmt=jsonp&_lcl=en-gb&_clbk=W34c12cc56c649536f3b035be0b2a726113cfbdd44
+2026-05-19 15:27:51,503 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/nlgdynamicplayerbio/ft1tiv1inq7v1sk3y9tv12yh5?prsn=c7i0lduij4vsnluxisdnaxsk5&_rt=c&_fmt=jsonp&_lcl=en-gb&_clbk=W34c12cc56c649536f3b035be0b2a726113cfbdd44 200 
+2026-05-19 15:27:53,430 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/match/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&tmcl=80zg2v1cuqcfhphn56u4qpyqc&live=yes&_pgSz=400&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W38c46802b1808b1f7876d1903445d1c709bb717a6 200 
+2026-05-19 15:28:26,852 - OptaPipeline - INFO -    ✅ matchevent: 3n65mnr76iym0yv9wmk1ug6c4.json (1653270 bytes)
+2026-05-19 15:28:28,438 - OptaPipeline - INFO - [3/37] Match: 3kigmlbqhunbi6gixcr7cz6z8
+2026-05-19 15:28:28,439 - OptaPipeline - INFO -    ⏭️  Already exists: 3kigmlbqhunbi6gixcr7cz6z8
+2026-05-19 15:28:28,440 - OptaPipeline - INFO - [4/37] Match: 3j0vwkubszbtkr21f7upb4il0
+2026-05-19 15:28:28,441 - OptaPipeline - INFO -    ⏭️  Already exists: 3j0vwkubszbtkr21f7upb4il0
+2026-05-19 15:28:28,442 - OptaPipeline - INFO - [5/37] Match: 3apuzcf26kfvpej8uc98l2n10
+2026-05-19 15:28:28,442 - OptaPipeline - INFO -    ⏭️  Already exists: 3apuzcf26kfvpej8uc98l2n10
+2026-05-19 15:28:28,443 - OptaPipeline - INFO - [6/37] Match: 3cmwlyivmqd5wesvf6o13mtjo
+2026-05-19 15:28:28,443 - OptaPipeline - INFO -    ⏭️  Already exists: 3cmwlyivmqd5wesvf6o13mtjo
+2026-05-19 15:28:28,444 - OptaPipeline - INFO - [7/37] Match: 35cufmoxi0kf40kxn49gj71g4
+2026-05-19 15:28:28,444 - OptaPipeline - INFO -    ⏭️  Already exists: 35cufmoxi0kf40kxn49gj71g4
+2026-05-19 15:28:28,445 - OptaPipeline - INFO - [8/37] Match: 31zxsexwgw81km23uib95otuc
+2026-05-19 15:28:28,446 - OptaPipeline - INFO -    ⏭️  Already exists: 31zxsexwgw81km23uib95otuc
+2026-05-19 15:28:28,446 - OptaPipeline - INFO - [9/37] Match: 2y7mqtoumr3710vgfit7046j8
+2026-05-19 15:28:28,447 - OptaPipeline - INFO -    ⏭️  Already exists: 2y7mqtoumr3710vgfit7046j8
+2026-05-19 15:28:28,447 - OptaPipeline - INFO - [10/37] Match: 2v65xqf9xnj8r2gxj9akbtqfo
+2026-05-19 15:28:28,448 - OptaPipeline - INFO -    ⏭️  Already exists: 2v65xqf9xnj8r2gxj9akbtqfo
+2026-05-19 15:28:28,449 - OptaPipeline - INFO - [11/37] Match: 2q9tc31q3pa181h1jnjxvfqc4
+2026-05-19 15:28:28,449 - OptaPipeline - INFO -    ⏭️  Already exists: 2q9tc31q3pa181h1jnjxvfqc4
+2026-05-19 15:28:28,450 - OptaPipeline - INFO - [12/37] Match: 2mxi4zs0db40fjabi1d36b9ck
+2026-05-19 15:28:28,450 - OptaPipeline - INFO -    ⏭️  Already exists: 2mxi4zs0db40fjabi1d36b9ck
+2026-05-19 15:28:28,451 - OptaPipeline - INFO - [13/37] Match: 2k9uw8chd5ol6b9rrw5ftnc44
+2026-05-19 15:28:28,451 - OptaPipeline - INFO -    ⏭️  Already exists: 2k9uw8chd5ol6b9rrw5ftnc44
+2026-05-19 15:28:28,452 - OptaPipeline - INFO - [14/37] Match: 2elfffvt87h2apmhh2c0et3pw
+2026-05-19 15:28:28,452 - OptaPipeline - INFO -    ⏭️  Already exists: 2elfffvt87h2apmhh2c0et3pw
+2026-05-19 15:28:28,453 - OptaPipeline - INFO - [15/37] Match: 2dhi57c0oalm6wvrjttsm44k4
+2026-05-19 15:28:28,453 - OptaPipeline - INFO -    ⏭️  Already exists: 2dhi57c0oalm6wvrjttsm44k4
+2026-05-19 15:28:28,454 - OptaPipeline - INFO - [16/37] Match: 26p4gv6nxij3gqaoea17rxct0
+2026-05-19 15:28:28,455 - OptaPipeline - INFO -    ⏭️  Already exists: 26p4gv6nxij3gqaoea17rxct0
+2026-05-19 15:28:28,455 - OptaPipeline - INFO - [17/37] Match: 257ci0bd6g6l3uk1fn5a0ob2s
+2026-05-19 15:28:28,456 - OptaPipeline - INFO -    ⏭️  Already exists: 257ci0bd6g6l3uk1fn5a0ob2s
+2026-05-19 15:28:28,456 - OptaPipeline - INFO - [18/37] Match: 20boml0nnzxlvqvyy0ylfxdlg
+2026-05-19 15:28:28,457 - OptaPipeline - INFO -    ⏭️  Already exists: 20boml0nnzxlvqvyy0ylfxdlg
+2026-05-19 15:28:28,457 - OptaPipeline - INFO - [19/37] Match: 1rvgcgz2ftmamcay54gz2qtjo
+2026-05-19 15:28:28,458 - OptaPipeline - INFO -    ⏭️  Already exists: 1rvgcgz2ftmamcay54gz2qtjo
+2026-05-19 15:28:28,458 - OptaPipeline - INFO - [20/37] Match: 1oi5jmg0ldrmljyz46todfbpw
+2026-05-19 15:28:28,459 - OptaPipeline - INFO -    ⏭️  Already exists: 1oi5jmg0ldrmljyz46todfbpw
+2026-05-19 15:28:28,459 - OptaPipeline - INFO - [21/37] Match: 1myp00g7w796yt6ts8ojdkys4
+2026-05-19 15:28:28,460 - OptaPipeline - INFO -    ⏭️  Already exists: 1myp00g7w796yt6ts8ojdkys4
+2026-05-19 15:28:28,460 - OptaPipeline - INFO - [22/37] Match: 1gkqfp2d7qi9h6k34k3mo8zkk
+2026-05-19 15:28:28,460 - OptaPipeline - INFO -    ⏭️  Already exists: 1gkqfp2d7qi9h6k34k3mo8zkk
+2026-05-19 15:28:28,461 - OptaPipeline - INFO - [23/37] Match: 1v9qqviahmnia4ewmzd4aejv8
+2026-05-19 15:28:28,461 - OptaPipeline - INFO -    ⏭️  Already exists: 1v9qqviahmnia4ewmzd4aejv8
+2026-05-19 15:28:28,462 - OptaPipeline - INFO - [24/37] Match: 1dk2hnl09qux7z4fqn1qxq238
+2026-05-19 15:28:28,462 - OptaPipeline - INFO -    ⏭️  Already exists: 1dk2hnl09qux7z4fqn1qxq238
+2026-05-19 15:28:28,462 - OptaPipeline - INFO - [25/37] Match: 1a7radhhole7vfnciarzauq6s
+2026-05-19 15:28:28,463 - OptaPipeline - INFO -    ⏭️  Already exists: 1a7radhhole7vfnciarzauq6s
+2026-05-19 15:28:28,463 - OptaPipeline - INFO - [26/37] Match: 16t0fdut4ky4b4es7i0trovtg
+2026-05-19 15:28:28,463 - OptaPipeline - INFO -    ⏭️  Already exists: 16t0fdut4ky4b4es7i0trovtg
+2026-05-19 15:28:28,464 - OptaPipeline - INFO - [27/37] Match: 113wccwt50kebz0thqf0fxkpg
+2026-05-19 15:28:28,464 - OptaPipeline - INFO -    ⏭️  Already exists: 113wccwt50kebz0thqf0fxkpg
+2026-05-19 15:28:28,464 - OptaPipeline - INFO - [28/37] Match: ytxz0i1eppxxqupm27ktuln8
+2026-05-19 15:28:28,465 - OptaPipeline - INFO -    ⏭️  Already exists: ytxz0i1eppxxqupm27ktuln8
+2026-05-19 15:28:28,465 - OptaPipeline - INFO - [29/37] Match: txn45zihl3cp2bv3lj5rmot0
+2026-05-19 15:28:28,465 - OptaPipeline - INFO -    ⏭️  Already exists: txn45zihl3cp2bv3lj5rmot0
+2026-05-19 15:28:28,466 - OptaPipeline - INFO - [30/37] Match: rbyhgw1kyp0ghg2qpvznvvv8
+2026-05-19 15:28:28,466 - OptaPipeline - INFO -    ⏭️  Already exists: rbyhgw1kyp0ghg2qpvznvvv8
+2026-05-19 15:28:28,466 - OptaPipeline - INFO - [31/37] Match: mh9g8wbjyoe3ub3ouu0nnsb8
+2026-05-19 15:28:28,467 - OptaPipeline - INFO -    ⏭️  Already exists: mh9g8wbjyoe3ub3ouu0nnsb8
+2026-05-19 15:28:28,467 - OptaPipeline - INFO - [32/37] Match: kkl8x55qltpl4g1v5260df6c
+2026-05-19 15:28:28,467 - OptaPipeline - INFO -    ⏭️  Already exists: kkl8x55qltpl4g1v5260df6c
+2026-05-19 15:28:28,468 - OptaPipeline - INFO - [33/37] Match: ekk0usjk6blgzpziu4ho01zo
+2026-05-19 15:28:28,468 - OptaPipeline - INFO -    ⏭️  Already exists: ekk0usjk6blgzpziu4ho01zo
+2026-05-19 15:28:28,468 - OptaPipeline - INFO - [34/37] Match: b88u5e429cnb6ng0i5t4f9jo
+2026-05-19 15:28:28,468 - OptaPipeline - INFO -    ⏭️  Already exists: b88u5e429cnb6ng0i5t4f9jo
+2026-05-19 15:28:28,469 - OptaPipeline - INFO - [35/37] Match: a4rapcrtfjbf1vihoi65rm6s
+2026-05-19 15:28:28,469 - OptaPipeline - INFO -    ⏭️  Already exists: a4rapcrtfjbf1vihoi65rm6s
+2026-05-19 15:28:28,469 - OptaPipeline - INFO - [36/37] Match: 5pp18hcr9ery2hv17q7q6eqc
+2026-05-19 15:28:28,470 - OptaPipeline - INFO -    ⏭️  Already exists: 5pp18hcr9ery2hv17q7q6eqc
+2026-05-19 15:28:28,470 - OptaPipeline - INFO - [37/37] Match: 2d4xobwd1t1rd2kxlcjmqcyc
+2026-05-19 15:28:28,470 - OptaPipeline - INFO -    ⏭️  Already exists: 2d4xobwd1t1rd2kxlcjmqcyc
+2026-05-19 15:28:28,470 - OptaPipeline - INFO - 📊 Downloaded: 37, Failed: 0
+2026-05-19 15:28:28,470 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-05-19 15:28:28,471 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-05-19 15:28:28,471 - OptaPipeline - INFO - 🔄 Found 2 matchdata files
+2026-05-19 15:28:28,471 - OptaPipeline - INFO - 
+[1/2] Processing: 3n65mnr76iym0yv9wmk1ug6c4
+2026-05-19 15:28:28,558 - OptaPipeline - INFO -    ✅ match: 2026-05-13_ALA_vs_BAR_3n65mnr76iym0yv9wmk1ug6c4.parquet
+2026-05-19 15:28:28,558 - OptaPipeline - INFO - 
+[2/2] Processing: 3rpa9gg887sphjnou8h1uv6s4
+2026-05-19 15:28:28,565 - OptaPipeline - INFO -    ✅ match: 2026-05-17_BAR_vs_BET_3rpa9gg887sphjnou8h1uv6s4.parquet
+2026-05-19 15:28:28,565 - OptaPipeline - INFO - 
+✅ Transformed 2/2 match files
+2026-05-19 15:28:28,566 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-05-19 15:28:28,567 - OptaPipeline - INFO - 🔄 Found 2 matchdata files
+2026-05-19 15:28:28,567 - OptaPipeline - INFO - 
+[1/2] Processing: 3n65mnr76iym0yv9wmk1ug6c4
+2026-05-19 15:28:29,329 - OptaPipeline - INFO -    ✅ match_event: 2026-05-13_ALA_vs_BAR_3n65mnr76iym0yv9wmk1ug6c4.parquet (1656 events)
+2026-05-19 15:28:29,329 - OptaPipeline - INFO - 
+[2/2] Processing: 3rpa9gg887sphjnou8h1uv6s4
+2026-05-19 15:28:30,161 - OptaPipeline - INFO -    ✅ match_event: 2026-05-17_BAR_vs_BET_3rpa9gg887sphjnou8h1uv6s4.parquet (1787 events)
+2026-05-19 15:28:30,162 - OptaPipeline - INFO - 
+✅ Transformed 2/2 match events
+2026-05-19 15:28:30,162 - OptaPipeline - INFO - 👥 Transforming Lineups...
+2026-05-19 15:28:30,162 - OptaPipeline - INFO - 🔄 [lineup] Found 2 matchdata file(s)
+2026-05-19 15:28:30,170 - OptaPipeline - INFO -    ✅ lineup: 2026-05-13_ALA_vs_BAR_3n65mnr76iym0yv9wmk1ug6c4.parquet (46 players, 22 starters across both teams)
+2026-05-19 15:28:30,178 - OptaPipeline - INFO -    ✅ lineup: 2026-05-17_BAR_vs_BET_3rpa9gg887sphjnou8h1uv6s4.parquet (44 players, 22 starters across both teams)
+2026-05-19 15:28:30,178 - OptaPipeline - INFO - ✅ Lineup: 2/2 transformed
+2026-05-19 15:28:30,178 - OptaPipeline - INFO - 🗑️  Cleaning up temporary JSON files from data/target...
+2026-05-19 15:28:30,179 - OptaPipeline - INFO - 🗑️  Deleted 2 JSON file(s) from matchdata/
+2026-05-19 15:28:30,179 - OptaPipeline - INFO - 🗑️  Total cleaned up: 2 JSON file(s)
+2026-05-19 15:28:30,179 - OptaPipeline - INFO - ================================================================================
+2026-05-19 15:28:30,179 - OptaPipeline - INFO - 🏆 COMPETITION 3/4: Spain_Super_Cup
+2026-05-19 15:28:30,179 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-05-19 15:28:30,179 - OptaPipeline - INFO - ================================================================================
+2026-05-19 15:28:30,179 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-05-19 15:28:30,179 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/supercopa-de-espana-2025-2026/calfow53qyurf0wi9rr96m6tw/results
+2026-05-19 15:28:30,179 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-05-19 15:28:51,014 - OptaPipeline - INFO - ✓ Opta widget loaded
+2026-05-19 15:28:51,019 - OptaPipeline - INFO - 📊 Initial matches visible: 3
+2026-05-19 15:28:51,075 - OptaPipeline - INFO - 📄 No known pagination selectors found
+2026-05-19 15:28:51,107 - OptaPipeline - INFO - ✅ Scraped 2 unique matches
+2026-05-19 15:28:51,188 - OptaPipeline - INFO - ℹ️  No new matches found (all already in CSV)
+2026-05-19 15:28:51,190 - OptaPipeline - INFO - 💾 Saved 2 total matches to: /Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/../data/barcelona/result/Spain_Super_Cup/2025-2026/matches_urls.csv
+2026-05-19 15:28:51,190 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-05-19 15:28:51,191 - OptaPipeline - INFO - [1/2] Match: 18rkqb1lhon6ne1hdb6d15as
+2026-05-19 15:28:51,191 - OptaPipeline - INFO -    ⏭️  Already exists: 18rkqb1lhon6ne1hdb6d15as
+2026-05-19 15:28:51,191 - OptaPipeline - INFO - [2/2] Match: z5hatp2undeejhiga4xoytjo
+2026-05-19 15:28:51,191 - OptaPipeline - INFO -    ⏭️  Already exists: z5hatp2undeejhiga4xoytjo
+2026-05-19 15:28:51,191 - OptaPipeline - INFO - 📊 Downloaded: 2, Failed: 0
+2026-05-19 15:28:51,191 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-05-19 15:28:51,192 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-05-19 15:28:51,192 - OptaPipeline - WARNING - No matchdata files found
+2026-05-19 15:28:51,192 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-05-19 15:28:51,193 - OptaPipeline - WARNING - No matchdata files found
+2026-05-19 15:28:51,193 - OptaPipeline - INFO - 👥 Transforming Lineups...
+2026-05-19 15:28:51,193 - OptaPipeline - INFO -    [lineup] No matchdata JSON files found
+2026-05-19 15:28:51,193 - OptaPipeline - INFO - 🗑️  Cleaning up temporary JSON files from data/target...
+2026-05-19 15:28:51,193 - OptaPipeline - INFO - ================================================================================
+2026-05-19 15:28:51,193 - OptaPipeline - INFO - 🏆 COMPETITION 4/4: UEFA_Champions_League
+2026-05-19 15:28:51,193 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-05-19 15:28:51,193 - OptaPipeline - INFO - ================================================================================
+2026-05-19 15:28:51,194 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-05-19 15:28:51,194 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/uefa-champions-league-2025-2026/2mr0u0l78k2gdsm79q56tb2fo/results
+2026-05-19 15:28:51,194 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-05-19 15:29:06,304 - OptaPipeline - INFO - ✓ Opta widget loaded
+2026-05-19 15:29:06,316 - OptaPipeline - INFO - 📊 Initial matches visible: 280
+2026-05-19 15:29:06,377 - OptaPipeline - INFO - 📄 No known pagination selectors found
+2026-05-19 15:29:06,536 - OptaPipeline - INFO - ✅ Scraped 12 unique matches
+2026-05-19 15:29:06,616 - OptaPipeline - INFO - ℹ️  No new matches found (all already in CSV)
+2026-05-19 15:29:06,618 - OptaPipeline - INFO - 💾 Saved 12 total matches to: /Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/../data/barcelona/result/UEFA_Champions_League/2025-2026/matches_urls.csv
+2026-05-19 15:29:06,618 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-05-19 15:29:06,619 - OptaPipeline - INFO - [1/12] Match: 3hvtgkttdl56azxog1v4ic844
+2026-05-19 15:29:06,619 - OptaPipeline - INFO -    ⏭️  Already exists: 3hvtgkttdl56azxog1v4ic844
+2026-05-19 15:29:06,619 - OptaPipeline - INFO - [2/12] Match: b95mome0lnr0ff5mb4vqmej2s
+2026-05-19 15:29:06,619 - OptaPipeline - INFO -    ⏭️  Already exists: b95mome0lnr0ff5mb4vqmej2s
+2026-05-19 15:29:06,619 - OptaPipeline - INFO - [3/12] Match: d3utvvilysz7lkewu7ylnqntg
+2026-05-19 15:29:06,619 - OptaPipeline - INFO -    ⏭️  Already exists: d3utvvilysz7lkewu7ylnqntg
+2026-05-19 15:29:06,620 - OptaPipeline - INFO - [4/12] Match: cy57racub2br10hm6bcv5y39w
+2026-05-19 15:29:06,620 - OptaPipeline - INFO -    ⏭️  Already exists: cy57racub2br10hm6bcv5y39w
+2026-05-19 15:29:06,620 - OptaPipeline - INFO - [5/12] Match: 65lxswiag0r6pt7m7s7nz6g44
+2026-05-19 15:29:06,620 - OptaPipeline - INFO -    ⏭️  Already exists: 65lxswiag0r6pt7m7s7nz6g44
+2026-05-19 15:29:06,620 - OptaPipeline - INFO - [6/12] Match: 61upafdbc4mwkdmp1k5ajqu50
+2026-05-19 15:29:06,620 - OptaPipeline - INFO -    ⏭️  Already exists: 61upafdbc4mwkdmp1k5ajqu50
+2026-05-19 15:29:06,621 - OptaPipeline - INFO - [7/12] Match: 5q05t4o4el0d6rhmncz6pxqms
+2026-05-19 15:29:06,621 - OptaPipeline - INFO -    ⏭️  Already exists: 5q05t4o4el0d6rhmncz6pxqms
+2026-05-19 15:29:06,621 - OptaPipeline - INFO - [8/12] Match: 5iss7tc562nnymg0uiewtt0r8
+2026-05-19 15:29:06,621 - OptaPipeline - INFO -    ⏭️  Already exists: 5iss7tc562nnymg0uiewtt0r8
+2026-05-19 15:29:06,621 - OptaPipeline - INFO - [9/12] Match: 5fbfmxmdror7xvtcq3a41pkpg
+2026-05-19 15:29:06,621 - OptaPipeline - INFO -    ⏭️  Already exists: 5fbfmxmdror7xvtcq3a41pkpg
+2026-05-19 15:29:06,622 - OptaPipeline - INFO - [10/12] Match: 547fv6pkd98zbsl3ha92ih0d0
+2026-05-19 15:29:06,622 - OptaPipeline - INFO -    ⏭️  Already exists: 547fv6pkd98zbsl3ha92ih0d0
+2026-05-19 15:29:06,622 - OptaPipeline - INFO - [11/12] Match: 535v16ejka2ckhekin6euxg5w
+2026-05-19 15:29:06,622 - OptaPipeline - INFO -    ⏭️  Already exists: 535v16ejka2ckhekin6euxg5w
+2026-05-19 15:29:06,622 - OptaPipeline - INFO - [12/12] Match: 4x2w9j51dk7kc90orh6vkm2hg
+2026-05-19 15:29:06,622 - OptaPipeline - INFO -    ⏭️  Already exists: 4x2w9j51dk7kc90orh6vkm2hg
+2026-05-19 15:29:06,622 - OptaPipeline - INFO - 📊 Downloaded: 12, Failed: 0
+2026-05-19 15:29:06,622 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-05-19 15:29:06,623 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-05-19 15:29:06,623 - OptaPipeline - WARNING - No matchdata files found
+2026-05-19 15:29:06,623 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-05-19 15:29:06,624 - OptaPipeline - WARNING - No matchdata files found
+2026-05-19 15:29:06,624 - OptaPipeline - INFO - 👥 Transforming Lineups...
+2026-05-19 15:29:06,624 - OptaPipeline - INFO -    [lineup] No matchdata JSON files found
+2026-05-19 15:29:06,624 - OptaPipeline - INFO - 🗑️  Cleaning up temporary JSON files from data/target...
+2026-05-19 15:29:06,624 - OptaPipeline - INFO - ================================================================================
+2026-05-19 15:29:06,625 - OptaPipeline - INFO - 📈 FINAL SUMMARY - ALL COMPETITIONS
+2026-05-19 15:29:06,625 - OptaPipeline - INFO - ================================================================================
+2026-05-19 15:29:06,625 - OptaPipeline - INFO - ✅ Successful: 4/4
+2026-05-19 15:29:06,625 - OptaPipeline - INFO - ❌ Failed: 0/4
+2026-05-19 15:29:06,625 - OptaPipeline - INFO - Match parquets:  2
+2026-05-19 15:29:06,625 - OptaPipeline - INFO - Event parquets:  2
+2026-05-19 15:29:06,625 - OptaPipeline - INFO - Lineup parquets: 2
+2026-06-03 15:35:52,454 - OptaPipeline - INFO - ================================================================================
+2026-06-03 15:35:52,454 - OptaPipeline - INFO - 🚀 OPTA PIPELINE - MULTI-COMPETITION MODE
+2026-06-03 15:35:52,454 - OptaPipeline - INFO - ================================================================================
+2026-06-03 15:35:52,454 - OptaPipeline - INFO - 📊 Processing 4 competition(s):
+2026-06-03 15:35:52,454 - OptaPipeline - INFO -    • Spain_Copa_del_Rey (2025-2026)
+2026-06-03 15:35:52,454 - OptaPipeline - INFO -    • Spain_Primera_Division (2025-2026)
+2026-06-03 15:35:52,454 - OptaPipeline - INFO -    • Spain_Super_Cup (2025-2026)
+2026-06-03 15:35:52,454 - OptaPipeline - INFO -    • UEFA_Champions_League (2025-2026)
+2026-06-03 15:35:52,467 - OptaPipeline - INFO - ================================================================================
+2026-06-03 15:35:52,467 - OptaPipeline - INFO - 🏆 COMPETITION 1/4: Spain_Copa_del_Rey
+2026-06-03 15:35:52,467 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-06-03 15:35:52,467 - OptaPipeline - INFO - ================================================================================
+2026-06-03 15:35:52,467 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-06-03 15:35:52,468 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/copa-del-rey-2025-2026/3lmujqli8r9m12i28wgjxnnys/results
+2026-06-03 15:35:52,468 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-06-03 15:36:18,292 - OptaPipeline - INFO - ✓ Opta widget loaded
+2026-06-03 15:36:18,299 - OptaPipeline - INFO - 📊 Initial matches visible: 137
+2026-06-03 15:36:18,343 - OptaPipeline - INFO - 📄 No known pagination selectors found
+2026-06-03 15:36:18,431 - OptaPipeline - INFO - ✅ Scraped 5 unique matches
+2026-06-03 15:36:18,512 - OptaPipeline - INFO - ℹ️  No new matches found (all already in CSV)
+2026-06-03 15:36:18,515 - OptaPipeline - INFO - 💾 Saved 5 total matches to: /Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/../data/barcelona/result/Spain_Copa_del_Rey/2025-2026/matches_urls.csv
+2026-06-03 15:36:18,515 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-06-03 15:36:18,516 - OptaPipeline - INFO - [1/5] Match: 3gqwvmig5roaq4qkddtgvp8gk
+2026-06-03 15:36:18,516 - OptaPipeline - INFO -    ⏭️  Already exists: 3gqwvmig5roaq4qkddtgvp8gk
+2026-06-03 15:36:18,516 - OptaPipeline - INFO - [2/5] Match: 1z8gknoiuoiuh7z1mto3je9ec
+2026-06-03 15:36:18,516 - OptaPipeline - INFO -    ⏭️  Already exists: 1z8gknoiuoiuh7z1mto3je9ec
+2026-06-03 15:36:18,517 - OptaPipeline - INFO - [3/5] Match: 433pzlem1yzj0ac0mg58m4x04
+2026-06-03 15:36:18,517 - OptaPipeline - INFO -    ⏭️  Already exists: 433pzlem1yzj0ac0mg58m4x04
+2026-06-03 15:36:18,517 - OptaPipeline - INFO - [4/5] Match: 62gdakw1aqqhoomsor9xrhg4
+2026-06-03 15:36:18,517 - OptaPipeline - INFO -    ⏭️  Already exists: 62gdakw1aqqhoomsor9xrhg4
+2026-06-03 15:36:18,517 - OptaPipeline - INFO - [5/5] Match: 3sx6fp8e2gg1kinflvk8ejg2c
+2026-06-03 15:36:18,517 - OptaPipeline - INFO -    ⏭️  Already exists: 3sx6fp8e2gg1kinflvk8ejg2c
+2026-06-03 15:36:18,517 - OptaPipeline - INFO - 📊 Downloaded: 5, Failed: 0
+2026-06-03 15:36:18,518 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-06-03 15:36:18,518 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-06-03 15:36:18,518 - OptaPipeline - WARNING - No matchdata files found
+2026-06-03 15:36:18,518 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-06-03 15:36:18,519 - OptaPipeline - WARNING - No matchdata files found
+2026-06-03 15:36:18,519 - OptaPipeline - INFO - 👥 Transforming Lineups...
+2026-06-03 15:36:18,520 - OptaPipeline - INFO -    [lineup] No matchdata JSON files found
+2026-06-03 15:36:18,520 - OptaPipeline - INFO - 🗑️  Cleaning up temporary JSON files from data/target...
+2026-06-03 15:36:18,520 - OptaPipeline - INFO - ================================================================================
+2026-06-03 15:36:18,520 - OptaPipeline - INFO - 🏆 COMPETITION 2/4: Spain_Primera_Division
+2026-06-03 15:36:18,520 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-06-03 15:36:18,520 - OptaPipeline - INFO - ================================================================================
+2026-06-03 15:36:18,520 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-06-03 15:36:18,520 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/primera-divisi%C3%B3n-2025-2026/80zg2v1cuqcfhphn56u4qpyqc/results
+2026-06-03 15:36:18,520 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-06-03 15:36:33,765 - OptaPipeline - INFO - ✓ Opta widget loaded
+2026-06-03 15:36:33,772 - OptaPipeline - INFO - 📊 Initial matches visible: 380
+2026-06-03 15:36:33,811 - OptaPipeline - INFO - 📄 No known pagination selectors found
+2026-06-03 15:36:34,010 - OptaPipeline - INFO - ✅ Scraped 38 unique matches
+2026-06-03 15:36:34,091 - OptaPipeline - INFO - 🆕 Found 1 new match(es) not in existing CSV
+2026-06-03 15:36:34,093 - OptaPipeline - INFO - 💾 Saved 38 total matches to: /Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/../data/barcelona/result/Spain_Primera_Division/2025-2026/matches_urls.csv
+2026-06-03 15:36:34,093 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-06-03 15:36:34,094 - OptaPipeline - INFO - [1/38] Match: 3xq4alyjtlltd6j11gckoxvkk
+2026-06-03 15:36:34,094 - seleniumwire.storage - INFO - Using in-memory request storage
+2026-06-03 15:36:34,097 - seleniumwire.backend - INFO - Created proxy listening on ::ffff:127.0.0.1:55244
+2026-06-03 15:36:34,924 - seleniumwire.handler - INFO - Capturing request: http://clients2.google.com/time/1/current?cup2key=10:wIY49tJUx1BXQam0ZDJOFAPb2zfmKzF6SrfhexNBsqU&cup2hreq=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+2026-06-03 15:36:34,993 - seleniumwire.handler - INFO - Capturing response: http://clients2.google.com/time/1/current?cup2key=10:wIY49tJUx1BXQam0ZDJOFAPb2zfmKzF6SrfhexNBsqU&cup2hreq=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 200 OK
+2026-06-03 15:36:45,679 - seleniumwire.server - INFO - ::ffff:127.0.0.1:55343: HTTP/2 connection terminated by server: error code: 0, last stream id: 0, additional data: None
+2026-06-03 15:36:45,679 - seleniumwire.server - INFO - ::ffff:127.0.0.1:55343: ProtocolException("Error in HTTP connection: Http2ZombieException('Connection or stream already dead: 1780493805.679085, False')")
+2026-06-03 15:36:48,998 - seleniumwire.server - INFO - ::ffff:127.0.0.1:55365: HTTP/2 connection terminated by server: error code: 0, last stream id: 0, additional data: None
+2026-06-03 15:36:48,999 - seleniumwire.server - INFO - ::ffff:127.0.0.1:55365: ProtocolException("Error in HTTP connection: Http2ZombieException('Connection or stream already dead: 1780493808.998313, False')")
+2026-06-03 15:36:49,189 - seleniumwire.server - INFO - ::ffff:127.0.0.1:55368: HTTP/2 connection terminated by server: error code: 0, last stream id: 0, additional data: None
+2026-06-03 15:36:49,190 - seleniumwire.server - INFO - ::ffff:127.0.0.1:55368: ProtocolException("Error in HTTP connection: Http2ZombieException('Connection or stream already dead: 1780493809.1895308, False')")
+2026-06-03 15:36:49,888 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/match/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&tmcl=80zg2v1cuqcfhphn56u4qpyqc&live=yes&_pgSz=400&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W38c46802b1808b1f7876d1903445d1c709bb717a6
+2026-06-03 15:36:49,890 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/match/ft1tiv1inq7v1sk3y9tv12yh5/3xq4alyjtlltd6j11gckoxvkk?_rt=c&live=yes&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W3abf29612999c263d9d8c5213f06a094ba337fa38
+2026-06-03 15:36:49,891 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/matchevent/ft1tiv1inq7v1sk3y9tv12yh5/3xq4alyjtlltd6j11gckoxvkk?_rt=c&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W3e9f1ea111ed39b01ab8300fcb3131a6aa2771677
+2026-06-03 15:36:50,260 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/match/ft1tiv1inq7v1sk3y9tv12yh5/3xq4alyjtlltd6j11gckoxvkk?_rt=c&live=yes&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W3abf29612999c263d9d8c5213f06a094ba337fa38 200 
+2026-06-03 15:36:52,641 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/matchevent/ft1tiv1inq7v1sk3y9tv12yh5/3xq4alyjtlltd6j11gckoxvkk?_rt=c&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W3e9f1ea111ed39b01ab8300fcb3131a6aa2771677 200 
+2026-06-03 15:36:52,790 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/squads/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&ctst=ba5e91hjacvma2sjvixn00pjo&tmcl=80zg2v1cuqcfhphn56u4qpyqc&_pgSz=200&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W3bfce8ab0e24020a46b4b957373747166df97e410
+2026-06-03 15:36:52,790 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/squads/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&ctst=agh9ifb2mw3ivjusgedj7c3fe&tmcl=80zg2v1cuqcfhphn56u4qpyqc&_pgSz=200&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W320eedfa8f479c4d17673a4baff42dcfd46ee6b0d
+2026-06-03 15:36:53,087 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/squads/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&ctst=ba5e91hjacvma2sjvixn00pjo&tmcl=80zg2v1cuqcfhphn56u4qpyqc&_pgSz=200&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W3bfce8ab0e24020a46b4b957373747166df97e410 200 
+2026-06-03 15:36:53,259 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/squads/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&ctst=agh9ifb2mw3ivjusgedj7c3fe&tmcl=80zg2v1cuqcfhphn56u4qpyqc&_pgSz=200&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W320eedfa8f479c4d17673a4baff42dcfd46ee6b0d 200 
+2026-06-03 15:36:54,357 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/match/ft1tiv1inq7v1sk3y9tv12yh5/?_rt=c&tmcl=80zg2v1cuqcfhphn56u4qpyqc&live=yes&_pgSz=400&_lcl=en&_fmt=jsonp&sps=widgets&_clbk=W38c46802b1808b1f7876d1903445d1c709bb717a6 200 
+2026-06-03 15:36:55,328 - seleniumwire.handler - INFO - Capturing request: https://api.performfeeds.com/soccerdata/nlgdynamicplayerbio/ft1tiv1inq7v1sk3y9tv12yh5?prsn=5dfvefxvwj8kixbajluw25mtx&_rt=c&_fmt=jsonp&_lcl=en-gb&_clbk=W3102c931fbe24d569f27c7634ddde322fccec6779
+2026-06-03 15:36:55,550 - seleniumwire.handler - INFO - Capturing response: https://api.performfeeds.com/soccerdata/nlgdynamicplayerbio/ft1tiv1inq7v1sk3y9tv12yh5?prsn=5dfvefxvwj8kixbajluw25mtx&_rt=c&_fmt=jsonp&_lcl=en-gb&_clbk=W3102c931fbe24d569f27c7634ddde322fccec6779 200 
+2026-06-03 15:37:30,663 - OptaPipeline - INFO -    ✅ matchevent: 3xq4alyjtlltd6j11gckoxvkk.json (1702603 bytes)
+2026-06-03 15:37:32,247 - OptaPipeline - INFO - [2/38] Match: 3rpa9gg887sphjnou8h1uv6s4
+2026-06-03 15:37:32,248 - OptaPipeline - INFO -    ⏭️  Already exists: 3rpa9gg887sphjnou8h1uv6s4
+2026-06-03 15:37:32,249 - OptaPipeline - INFO - [3/38] Match: 3n65mnr76iym0yv9wmk1ug6c4
+2026-06-03 15:37:32,250 - OptaPipeline - INFO -    ⏭️  Already exists: 3n65mnr76iym0yv9wmk1ug6c4
+2026-06-03 15:37:32,251 - OptaPipeline - INFO - [4/38] Match: 3kigmlbqhunbi6gixcr7cz6z8
+2026-06-03 15:37:32,251 - OptaPipeline - INFO -    ⏭️  Already exists: 3kigmlbqhunbi6gixcr7cz6z8
+2026-06-03 15:37:32,252 - OptaPipeline - INFO - [5/38] Match: 3j0vwkubszbtkr21f7upb4il0
+2026-06-03 15:37:32,252 - OptaPipeline - INFO -    ⏭️  Already exists: 3j0vwkubszbtkr21f7upb4il0
+2026-06-03 15:37:32,253 - OptaPipeline - INFO - [6/38] Match: 3apuzcf26kfvpej8uc98l2n10
+2026-06-03 15:37:32,254 - OptaPipeline - INFO -    ⏭️  Already exists: 3apuzcf26kfvpej8uc98l2n10
+2026-06-03 15:37:32,254 - OptaPipeline - INFO - [7/38] Match: 3cmwlyivmqd5wesvf6o13mtjo
+2026-06-03 15:37:32,255 - OptaPipeline - INFO -    ⏭️  Already exists: 3cmwlyivmqd5wesvf6o13mtjo
+2026-06-03 15:37:32,255 - OptaPipeline - INFO - [8/38] Match: 35cufmoxi0kf40kxn49gj71g4
+2026-06-03 15:37:32,256 - OptaPipeline - INFO -    ⏭️  Already exists: 35cufmoxi0kf40kxn49gj71g4
+2026-06-03 15:37:32,257 - OptaPipeline - INFO - [9/38] Match: 31zxsexwgw81km23uib95otuc
+2026-06-03 15:37:32,257 - OptaPipeline - INFO -    ⏭️  Already exists: 31zxsexwgw81km23uib95otuc
+2026-06-03 15:37:32,258 - OptaPipeline - INFO - [10/38] Match: 2y7mqtoumr3710vgfit7046j8
+2026-06-03 15:37:32,258 - OptaPipeline - INFO -    ⏭️  Already exists: 2y7mqtoumr3710vgfit7046j8
+2026-06-03 15:37:32,259 - OptaPipeline - INFO - [11/38] Match: 2v65xqf9xnj8r2gxj9akbtqfo
+2026-06-03 15:37:32,259 - OptaPipeline - INFO -    ⏭️  Already exists: 2v65xqf9xnj8r2gxj9akbtqfo
+2026-06-03 15:37:32,260 - OptaPipeline - INFO - [12/38] Match: 2q9tc31q3pa181h1jnjxvfqc4
+2026-06-03 15:37:32,260 - OptaPipeline - INFO -    ⏭️  Already exists: 2q9tc31q3pa181h1jnjxvfqc4
+2026-06-03 15:37:32,261 - OptaPipeline - INFO - [13/38] Match: 2mxi4zs0db40fjabi1d36b9ck
+2026-06-03 15:37:32,261 - OptaPipeline - INFO -    ⏭️  Already exists: 2mxi4zs0db40fjabi1d36b9ck
+2026-06-03 15:37:32,261 - OptaPipeline - INFO - [14/38] Match: 2k9uw8chd5ol6b9rrw5ftnc44
+2026-06-03 15:37:32,262 - OptaPipeline - INFO -    ⏭️  Already exists: 2k9uw8chd5ol6b9rrw5ftnc44
+2026-06-03 15:37:32,262 - OptaPipeline - INFO - [15/38] Match: 2elfffvt87h2apmhh2c0et3pw
+2026-06-03 15:37:32,263 - OptaPipeline - INFO -    ⏭️  Already exists: 2elfffvt87h2apmhh2c0et3pw
+2026-06-03 15:37:32,264 - OptaPipeline - INFO - [16/38] Match: 2dhi57c0oalm6wvrjttsm44k4
+2026-06-03 15:37:32,264 - OptaPipeline - INFO -    ⏭️  Already exists: 2dhi57c0oalm6wvrjttsm44k4
+2026-06-03 15:37:32,265 - OptaPipeline - INFO - [17/38] Match: 26p4gv6nxij3gqaoea17rxct0
+2026-06-03 15:37:32,265 - OptaPipeline - INFO -    ⏭️  Already exists: 26p4gv6nxij3gqaoea17rxct0
+2026-06-03 15:37:32,266 - OptaPipeline - INFO - [18/38] Match: 257ci0bd6g6l3uk1fn5a0ob2s
+2026-06-03 15:37:32,266 - OptaPipeline - INFO -    ⏭️  Already exists: 257ci0bd6g6l3uk1fn5a0ob2s
+2026-06-03 15:37:32,266 - OptaPipeline - INFO - [19/38] Match: 20boml0nnzxlvqvyy0ylfxdlg
+2026-06-03 15:37:32,267 - OptaPipeline - INFO -    ⏭️  Already exists: 20boml0nnzxlvqvyy0ylfxdlg
+2026-06-03 15:37:32,267 - OptaPipeline - INFO - [20/38] Match: 1rvgcgz2ftmamcay54gz2qtjo
+2026-06-03 15:37:32,268 - OptaPipeline - INFO -    ⏭️  Already exists: 1rvgcgz2ftmamcay54gz2qtjo
+2026-06-03 15:37:32,268 - OptaPipeline - INFO - [21/38] Match: 1oi5jmg0ldrmljyz46todfbpw
+2026-06-03 15:37:32,268 - OptaPipeline - INFO -    ⏭️  Already exists: 1oi5jmg0ldrmljyz46todfbpw
+2026-06-03 15:37:32,269 - OptaPipeline - INFO - [22/38] Match: 1myp00g7w796yt6ts8ojdkys4
+2026-06-03 15:37:32,269 - OptaPipeline - INFO -    ⏭️  Already exists: 1myp00g7w796yt6ts8ojdkys4
+2026-06-03 15:37:32,269 - OptaPipeline - INFO - [23/38] Match: 1gkqfp2d7qi9h6k34k3mo8zkk
+2026-06-03 15:37:32,270 - OptaPipeline - INFO -    ⏭️  Already exists: 1gkqfp2d7qi9h6k34k3mo8zkk
+2026-06-03 15:37:32,270 - OptaPipeline - INFO - [24/38] Match: 1v9qqviahmnia4ewmzd4aejv8
+2026-06-03 15:37:32,270 - OptaPipeline - INFO -    ⏭️  Already exists: 1v9qqviahmnia4ewmzd4aejv8
+2026-06-03 15:37:32,271 - OptaPipeline - INFO - [25/38] Match: 1dk2hnl09qux7z4fqn1qxq238
+2026-06-03 15:37:32,271 - OptaPipeline - INFO -    ⏭️  Already exists: 1dk2hnl09qux7z4fqn1qxq238
+2026-06-03 15:37:32,271 - OptaPipeline - INFO - [26/38] Match: 1a7radhhole7vfnciarzauq6s
+2026-06-03 15:37:32,271 - OptaPipeline - INFO -    ⏭️  Already exists: 1a7radhhole7vfnciarzauq6s
+2026-06-03 15:37:32,272 - OptaPipeline - INFO - [27/38] Match: 16t0fdut4ky4b4es7i0trovtg
+2026-06-03 15:37:32,272 - OptaPipeline - INFO -    ⏭️  Already exists: 16t0fdut4ky4b4es7i0trovtg
+2026-06-03 15:37:32,272 - OptaPipeline - INFO - [28/38] Match: 113wccwt50kebz0thqf0fxkpg
+2026-06-03 15:37:32,273 - OptaPipeline - INFO -    ⏭️  Already exists: 113wccwt50kebz0thqf0fxkpg
+2026-06-03 15:37:32,273 - OptaPipeline - INFO - [29/38] Match: ytxz0i1eppxxqupm27ktuln8
+2026-06-03 15:37:32,273 - OptaPipeline - INFO -    ⏭️  Already exists: ytxz0i1eppxxqupm27ktuln8
+2026-06-03 15:37:32,274 - OptaPipeline - INFO - [30/38] Match: txn45zihl3cp2bv3lj5rmot0
+2026-06-03 15:37:32,274 - OptaPipeline - INFO -    ⏭️  Already exists: txn45zihl3cp2bv3lj5rmot0
+2026-06-03 15:37:32,274 - OptaPipeline - INFO - [31/38] Match: rbyhgw1kyp0ghg2qpvznvvv8
+2026-06-03 15:37:32,275 - OptaPipeline - INFO -    ⏭️  Already exists: rbyhgw1kyp0ghg2qpvznvvv8
+2026-06-03 15:37:32,275 - OptaPipeline - INFO - [32/38] Match: mh9g8wbjyoe3ub3ouu0nnsb8
+2026-06-03 15:37:32,275 - OptaPipeline - INFO -    ⏭️  Already exists: mh9g8wbjyoe3ub3ouu0nnsb8
+2026-06-03 15:37:32,275 - OptaPipeline - INFO - [33/38] Match: kkl8x55qltpl4g1v5260df6c
+2026-06-03 15:37:32,276 - OptaPipeline - INFO -    ⏭️  Already exists: kkl8x55qltpl4g1v5260df6c
+2026-06-03 15:37:32,276 - OptaPipeline - INFO - [34/38] Match: ekk0usjk6blgzpziu4ho01zo
+2026-06-03 15:37:32,276 - OptaPipeline - INFO -    ⏭️  Already exists: ekk0usjk6blgzpziu4ho01zo
+2026-06-03 15:37:32,277 - OptaPipeline - INFO - [35/38] Match: b88u5e429cnb6ng0i5t4f9jo
+2026-06-03 15:37:32,277 - OptaPipeline - INFO -    ⏭️  Already exists: b88u5e429cnb6ng0i5t4f9jo
+2026-06-03 15:37:32,277 - OptaPipeline - INFO - [36/38] Match: a4rapcrtfjbf1vihoi65rm6s
+2026-06-03 15:37:32,277 - OptaPipeline - INFO -    ⏭️  Already exists: a4rapcrtfjbf1vihoi65rm6s
+2026-06-03 15:37:32,278 - OptaPipeline - INFO - [37/38] Match: 5pp18hcr9ery2hv17q7q6eqc
+2026-06-03 15:37:32,278 - OptaPipeline - INFO -    ⏭️  Already exists: 5pp18hcr9ery2hv17q7q6eqc
+2026-06-03 15:37:32,278 - OptaPipeline - INFO - [38/38] Match: 2d4xobwd1t1rd2kxlcjmqcyc
+2026-06-03 15:37:32,278 - OptaPipeline - INFO -    ⏭️  Already exists: 2d4xobwd1t1rd2kxlcjmqcyc
+2026-06-03 15:37:32,279 - OptaPipeline - INFO - 📊 Downloaded: 38, Failed: 0
+2026-06-03 15:37:32,279 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-06-03 15:37:32,279 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-06-03 15:37:32,279 - OptaPipeline - INFO - 🔄 Found 1 matchdata files
+2026-06-03 15:37:32,279 - OptaPipeline - INFO - 
+[1/1] Processing: 3xq4alyjtlltd6j11gckoxvkk
+2026-06-03 15:37:32,310 - OptaPipeline - INFO -    ✅ match: 2026-05-23_VAL_vs_BAR_3xq4alyjtlltd6j11gckoxvkk.parquet
+2026-06-03 15:37:32,310 - OptaPipeline - INFO - 
+✅ Transformed 1/1 match files
+2026-06-03 15:37:32,311 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-06-03 15:37:32,312 - OptaPipeline - INFO - 🔄 Found 1 matchdata files
+2026-06-03 15:37:32,312 - OptaPipeline - INFO - 
+[1/1] Processing: 3xq4alyjtlltd6j11gckoxvkk
+2026-06-03 15:37:33,099 - OptaPipeline - INFO -    ✅ match_event: 2026-05-23_VAL_vs_BAR_3xq4alyjtlltd6j11gckoxvkk.parquet (1689 events)
+2026-06-03 15:37:33,100 - OptaPipeline - INFO - 
+✅ Transformed 1/1 match events
+2026-06-03 15:37:33,100 - OptaPipeline - INFO - 👥 Transforming Lineups...
+2026-06-03 15:37:33,100 - OptaPipeline - INFO - 🔄 [lineup] Found 1 matchdata file(s)
+2026-06-03 15:37:33,108 - OptaPipeline - INFO -    ✅ lineup: 2026-05-23_VAL_vs_BAR_3xq4alyjtlltd6j11gckoxvkk.parquet (46 players, 22 starters across both teams)
+2026-06-03 15:37:33,109 - OptaPipeline - INFO - ✅ Lineup: 1/1 transformed
+2026-06-03 15:37:33,109 - OptaPipeline - INFO - 🗑️  Cleaning up temporary JSON files from data/target...
+2026-06-03 15:37:33,109 - OptaPipeline - INFO - 🗑️  Deleted 1 JSON file(s) from matchdata/
+2026-06-03 15:37:33,109 - OptaPipeline - INFO - 🗑️  Total cleaned up: 1 JSON file(s)
+2026-06-03 15:37:33,109 - OptaPipeline - INFO - ================================================================================
+2026-06-03 15:37:33,109 - OptaPipeline - INFO - 🏆 COMPETITION 3/4: Spain_Super_Cup
+2026-06-03 15:37:33,109 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-06-03 15:37:33,109 - OptaPipeline - INFO - ================================================================================
+2026-06-03 15:37:33,109 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-06-03 15:37:33,109 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/supercopa-de-espana-2025-2026/calfow53qyurf0wi9rr96m6tw/results
+2026-06-03 15:37:33,109 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-06-03 15:37:50,910 - OptaPipeline - INFO - ✓ Opta widget loaded
+2026-06-03 15:37:50,913 - OptaPipeline - INFO - 📊 Initial matches visible: 3
+2026-06-03 15:37:50,957 - OptaPipeline - INFO - 📄 No known pagination selectors found
+2026-06-03 15:37:50,993 - OptaPipeline - INFO - ✅ Scraped 2 unique matches
+2026-06-03 15:37:51,072 - OptaPipeline - INFO - ℹ️  No new matches found (all already in CSV)
+2026-06-03 15:37:51,074 - OptaPipeline - INFO - 💾 Saved 2 total matches to: /Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/../data/barcelona/result/Spain_Super_Cup/2025-2026/matches_urls.csv
+2026-06-03 15:37:51,074 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-06-03 15:37:51,075 - OptaPipeline - INFO - [1/2] Match: 18rkqb1lhon6ne1hdb6d15as
+2026-06-03 15:37:51,075 - OptaPipeline - INFO -    ⏭️  Already exists: 18rkqb1lhon6ne1hdb6d15as
+2026-06-03 15:37:51,075 - OptaPipeline - INFO - [2/2] Match: z5hatp2undeejhiga4xoytjo
+2026-06-03 15:37:51,075 - OptaPipeline - INFO -    ⏭️  Already exists: z5hatp2undeejhiga4xoytjo
+2026-06-03 15:37:51,075 - OptaPipeline - INFO - 📊 Downloaded: 2, Failed: 0
+2026-06-03 15:37:51,075 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-06-03 15:37:51,076 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-06-03 15:37:51,076 - OptaPipeline - WARNING - No matchdata files found
+2026-06-03 15:37:51,076 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-06-03 15:37:51,077 - OptaPipeline - WARNING - No matchdata files found
+2026-06-03 15:37:51,077 - OptaPipeline - INFO - 👥 Transforming Lineups...
+2026-06-03 15:37:51,077 - OptaPipeline - INFO -    [lineup] No matchdata JSON files found
+2026-06-03 15:37:51,078 - OptaPipeline - INFO - 🗑️  Cleaning up temporary JSON files from data/target...
+2026-06-03 15:37:51,078 - OptaPipeline - INFO - ================================================================================
+2026-06-03 15:37:51,078 - OptaPipeline - INFO - 🏆 COMPETITION 4/4: UEFA_Champions_League
+2026-06-03 15:37:51,078 - OptaPipeline - INFO - 📅 Season: 2025-2026
+2026-06-03 15:37:51,078 - OptaPipeline - INFO - ================================================================================
+2026-06-03 15:37:51,078 - OptaPipeline - INFO - 🔍 Scraping match URLs...
+2026-06-03 15:37:51,078 - OptaPipeline - INFO - 🔍 Scraping matches from: https://www.scoresway.com/en_GB/soccer/uefa-champions-league-2025-2026/2mr0u0l78k2gdsm79q56tb2fo/results
+2026-06-03 15:37:51,078 - OptaPipeline - INFO -    Filtering for team: Barcelona
+2026-06-03 15:38:05,998 - OptaPipeline - INFO - ✓ Opta widget loaded
+2026-06-03 15:38:06,009 - OptaPipeline - INFO - 📊 Initial matches visible: 281
+2026-06-03 15:38:06,056 - OptaPipeline - INFO - 📄 No known pagination selectors found
+2026-06-03 15:38:06,238 - OptaPipeline - INFO - ✅ Scraped 12 unique matches
+2026-06-03 15:38:06,318 - OptaPipeline - INFO - ℹ️  No new matches found (all already in CSV)
+2026-06-03 15:38:06,319 - OptaPipeline - INFO - 💾 Saved 12 total matches to: /Users/rishirajsinharay/Desktop/Final-Masters-Project/opta_pipeline/../data/barcelona/result/UEFA_Champions_League/2025-2026/matches_urls.csv
+2026-06-03 15:38:06,319 - OptaPipeline - INFO - ⬇️  Downloading match data...
+2026-06-03 15:38:06,320 - OptaPipeline - INFO - [1/12] Match: 3hvtgkttdl56azxog1v4ic844
+2026-06-03 15:38:06,320 - OptaPipeline - INFO -    ⏭️  Already exists: 3hvtgkttdl56azxog1v4ic844
+2026-06-03 15:38:06,320 - OptaPipeline - INFO - [2/12] Match: b95mome0lnr0ff5mb4vqmej2s
+2026-06-03 15:38:06,320 - OptaPipeline - INFO -    ⏭️  Already exists: b95mome0lnr0ff5mb4vqmej2s
+2026-06-03 15:38:06,320 - OptaPipeline - INFO - [3/12] Match: d3utvvilysz7lkewu7ylnqntg
+2026-06-03 15:38:06,321 - OptaPipeline - INFO -    ⏭️  Already exists: d3utvvilysz7lkewu7ylnqntg
+2026-06-03 15:38:06,321 - OptaPipeline - INFO - [4/12] Match: cy57racub2br10hm6bcv5y39w
+2026-06-03 15:38:06,321 - OptaPipeline - INFO -    ⏭️  Already exists: cy57racub2br10hm6bcv5y39w
+2026-06-03 15:38:06,321 - OptaPipeline - INFO - [5/12] Match: 65lxswiag0r6pt7m7s7nz6g44
+2026-06-03 15:38:06,321 - OptaPipeline - INFO -    ⏭️  Already exists: 65lxswiag0r6pt7m7s7nz6g44
+2026-06-03 15:38:06,321 - OptaPipeline - INFO - [6/12] Match: 61upafdbc4mwkdmp1k5ajqu50
+2026-06-03 15:38:06,322 - OptaPipeline - INFO -    ⏭️  Already exists: 61upafdbc4mwkdmp1k5ajqu50
+2026-06-03 15:38:06,322 - OptaPipeline - INFO - [7/12] Match: 5q05t4o4el0d6rhmncz6pxqms
+2026-06-03 15:38:06,322 - OptaPipeline - INFO -    ⏭️  Already exists: 5q05t4o4el0d6rhmncz6pxqms
+2026-06-03 15:38:06,322 - OptaPipeline - INFO - [8/12] Match: 5iss7tc562nnymg0uiewtt0r8
+2026-06-03 15:38:06,322 - OptaPipeline - INFO -    ⏭️  Already exists: 5iss7tc562nnymg0uiewtt0r8
+2026-06-03 15:38:06,322 - OptaPipeline - INFO - [9/12] Match: 5fbfmxmdror7xvtcq3a41pkpg
+2026-06-03 15:38:06,323 - OptaPipeline - INFO -    ⏭️  Already exists: 5fbfmxmdror7xvtcq3a41pkpg
+2026-06-03 15:38:06,323 - OptaPipeline - INFO - [10/12] Match: 547fv6pkd98zbsl3ha92ih0d0
+2026-06-03 15:38:06,323 - OptaPipeline - INFO -    ⏭️  Already exists: 547fv6pkd98zbsl3ha92ih0d0
+2026-06-03 15:38:06,323 - OptaPipeline - INFO - [11/12] Match: 535v16ejka2ckhekin6euxg5w
+2026-06-03 15:38:06,323 - OptaPipeline - INFO -    ⏭️  Already exists: 535v16ejka2ckhekin6euxg5w
+2026-06-03 15:38:06,323 - OptaPipeline - INFO - [12/12] Match: 4x2w9j51dk7kc90orh6vkm2hg
+2026-06-03 15:38:06,323 - OptaPipeline - INFO -    ⏭️  Already exists: 4x2w9j51dk7kc90orh6vkm2hg
+2026-06-03 15:38:06,324 - OptaPipeline - INFO - 📊 Downloaded: 12, Failed: 0
+2026-06-03 15:38:06,324 - OptaPipeline - INFO - 🔄 Transforming data to parquet...
+2026-06-03 15:38:06,324 - OptaPipeline - INFO - 📋 Transforming Match Info...
+2026-06-03 15:38:06,324 - OptaPipeline - WARNING - No matchdata files found
+2026-06-03 15:38:06,324 - OptaPipeline - INFO - ⚽ Transforming Match Events...
+2026-06-03 15:38:06,326 - OptaPipeline - WARNING - No matchdata files found
+2026-06-03 15:38:06,326 - OptaPipeline - INFO - 👥 Transforming Lineups...
+2026-06-03 15:38:06,326 - OptaPipeline - INFO -    [lineup] No matchdata JSON files found
+2026-06-03 15:38:06,326 - OptaPipeline - INFO - 🗑️  Cleaning up temporary JSON files from data/target...
+2026-06-03 15:38:06,326 - OptaPipeline - INFO - ================================================================================
+2026-06-03 15:38:06,326 - OptaPipeline - INFO - 📈 FINAL SUMMARY - ALL COMPETITIONS
+2026-06-03 15:38:06,326 - OptaPipeline - INFO - ================================================================================
+2026-06-03 15:38:06,326 - OptaPipeline - INFO - ✅ Successful: 4/4
+2026-06-03 15:38:06,326 - OptaPipeline - INFO - ❌ Failed: 0/4
+2026-06-03 15:38:06,326 - OptaPipeline - INFO - Match parquets:  1
+2026-06-03 15:38:06,326 - OptaPipeline - INFO - Event parquets:  1
+2026-06-03 15:38:06,327 - OptaPipeline - INFO - Lineup parquets: 1
