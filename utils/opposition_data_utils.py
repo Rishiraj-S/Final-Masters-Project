@@ -26,9 +26,12 @@ from utils.data_utils import count_goals
 # ── Paths ──────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR    = Path(__file__).parent.parent
-OPP_DATA_ROOT = SCRIPT_DIR / "data" / "opposition"
-OPP_CONFIG    = SCRIPT_DIR / "opposition_pipeline" / "config.yaml"
+DATA_ROOT     = SCRIPT_DIR / "data" / "2025-26"
+OPP_CONFIG    = SCRIPT_DIR / "opta_pipeline" / "config.yaml"
 SEASON        = "2025-2026"
+
+# Keep old name as alias for any external code that imported it directly
+OPP_DATA_ROOT = DATA_ROOT
 
 # ── Opta type-ID constants ──────────────────────────────────────────────────
 
@@ -92,8 +95,11 @@ def _load_opp_config() -> dict:
 
 
 def list_available_opponents() -> list[dict]:
-    """Return the opponents list from config.yaml."""
-    return _load_opp_config().get('opponents', [])
+    """Return all non-Barcelona teams from opta_pipeline/config.yaml."""
+    return [
+        t for t in _load_opp_config().get('teams', [])
+        if t.get('team_code') != 'BAR'
+    ]
 
 
 def get_team_competitions(team_name: str) -> list[str]:
@@ -112,17 +118,75 @@ def get_team_country(team_name: str) -> str:
     return ''
 
 
+def get_team_codes(team_name: str) -> list[str]:
+    """Return all Opta codes for a team (primary + optional alt)."""
+    for opp in list_available_opponents():
+        if opp['team_name'] == team_name:
+            codes = [opp['team_code']] if opp.get('team_code') else []
+            if opp.get('team_code_alt'):
+                codes.append(opp['team_code_alt'])
+            return codes
+    return []
+
+
+def get_team_code(team_name: str) -> str:
+    """Return the primary Opta code for a team."""
+    codes = get_team_codes(team_name)
+    return codes[0] if codes else ''
+
+
+# ── Competition → country mapping (mirrors opta_pipeline/modules/utils.py) ──
+
+_COMP_COUNTRY: dict[str, str] = {
+    'Spain':    'Spain',
+    'England':  'England',
+    'Germany':  'Germany',
+    'France':   'France',
+    'Belgium':  'Belgium',
+    'Greece':   'Greece',
+    'Denmark':  'Denmark',
+    'Czech':    'Czech_Republic',
+    'UEFA':     'Europe',
+}
+
+
+def _comp_country(comp_key: str) -> str:
+    for prefix, country in _COMP_COUNTRY.items():
+        if comp_key.startswith(prefix):
+            return country
+    return 'Other'
+
+
 # ── Path construction ───────────────────────────────────────────────────────
 
-def _opp_dir(country: str, team: str, comp_key: str,
-             season: str = SEASON, subdir: str = 'match_event') -> Path:
-    return (
-        OPP_DATA_ROOT
-        / sanitize_folder(country)
-        / sanitize_folder(team)
-        / _comp_clean(comp_key)
-        / _season_clean(season)
-        / subdir
+def _opp_dir(comp_key: str, subdir: str = 'match_event',
+             # country/team/season kept for call-site compatibility but unused
+             country: str = '', team: str = '', season: str = SEASON) -> Path:
+    """Return the flat competition subdir path.
+
+    New structure: DATA_ROOT / {country} / {comp_key} / {subdir}
+    """
+    return DATA_ROOT / _comp_country(comp_key) / _comp_clean(comp_key) / subdir
+
+
+def _team_parquets(team_codes: list[str], comp_key: str,
+                   subdir: str = 'match_event') -> list[Path]:
+    """Return sorted parquet files for a team in one competition subdir.
+
+    Filters by Opta 3-letter team code(s) embedded in filenames:
+        {date}_{HOME_CODE}_vs_{AWAY_CODE}_{match_id}.parquet
+
+    Accepts a list of codes to handle teams that use different codes across
+    competitions (e.g. PSG uses 'PSG' in UEFA feeds and 'PAR' in Ligue 1).
+    """
+    folder = _opp_dir(comp_key, subdir)
+    if not folder.exists() or not team_codes:
+        return []
+    patterns = [(f'_{c}_vs_', f'_vs_{c}_') for c in team_codes]
+    return sorted(
+        f for f in folder.iterdir()
+        if f.suffix == '.parquet'
+        and any(h in f.name or a in f.name for h, a in patterns)
     )
 
 
@@ -143,21 +207,23 @@ def get_opp_all_events(team: str, country: str, comp_key: str,
     """Load all match_event parquets for a team × competition (both teams).
 
     Results are cached in-process so repeated calls within the same session
-    (e.g. switching tabs for the same opponent) hit memory instead of disk.
+    hit memory instead of disk.
 
     Renames ``event_type_id`` → ``type_id`` so tab modules share a
     consistent column name.
+
+    country/season are kept for call-site compatibility; path is now derived
+    from comp_key alone.
     """
-    cache_key = (team, country, comp_key, season)
+    cache_key = (team, comp_key, season)
     if cache_key in _opp_events_cache:
         return _opp_events_cache[cache_key]
 
-    ev_dir = _opp_dir(country, team, comp_key, season, 'match_event')
-    if not ev_dir.exists():
+    files = _team_parquets(get_team_codes(team), comp_key, 'match_event')
+    if not files:
         return pd.DataFrame()
-    frames = [pd.read_parquet(f) for f in sorted(ev_dir.glob('*.parquet'))]
-    if not frames:
-        return pd.DataFrame()
+
+    frames = [pd.read_parquet(f) for f in files]
     df = pd.concat(frames, ignore_index=True)
     if 'event_type_id' in df.columns and 'type_id' not in df.columns:
         df = df.rename(columns={'event_type_id': 'type_id'})
@@ -199,14 +265,14 @@ def get_opp_team_matches(team: str, country: str, comp_key: str,
 
     Each dict: date, competition, is_home, opponent, gf, ga, result.
     """
-    match_dir = _opp_dir(country, team, comp_key, season, 'match')
-    if not match_dir.exists():
+    match_files = _team_parquets(get_team_codes(team), comp_key, 'match')
+    if not match_files:
         return []
 
-    ev_dir = _opp_dir(country, team, comp_key, season, 'match_event')
+    ev_dir = _opp_dir(comp_key, 'match_event')
 
     results = []
-    for f in sorted(match_dir.glob('*.parquet')):
+    for f in match_files:
         try:
             row = pd.read_parquet(f).iloc[0]
 

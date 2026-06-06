@@ -163,40 +163,57 @@ def unique_file_path(path: str) -> str:
     return f"{base}_{int(time.time())}{ext}"
 
 
+# Competition-name prefix → country folder mapping
+_COMPETITION_COUNTRY: dict[str, str] = {
+    'Spain':    'Spain',
+    'England':  'England',
+    'Germany':  'Germany',
+    'France':   'France',
+    'Belgium':  'Belgium',
+    'Greece':   'Greece',
+    'Denmark':  'Denmark',
+    'Czech':    'Czech_Republic',
+    'UEFA':     'Europe',
+}
+
+
+def get_competition_country(league_name: str) -> str:
+    """Derive the country/region folder from a competition key.
+
+    E.g. 'Spain_Primera_Division' → 'Spain', 'UEFA_Champions_League' → 'Europe'.
+    Returns 'Other' for unrecognised prefixes.
+    """
+    for prefix, country in _COMPETITION_COUNTRY.items():
+        if league_name.startswith(prefix):
+            return country
+    return 'Other'
+
+
 def get_organized_path_reversed(
-    base_dir: str, 
+    base_dir: str,
     league_name: str,
-    season: str, 
+    season: str,
     filename: str,
     subdirectory: Optional[str] = None
 ) -> str:
     """
-    Create organized path: base_dir/league_name/season/[subdirectory]/filename
-    
-    Args:
-        base_dir: Base directory (e.g., 'data/target' or 'data/result')
-        league_name: League name (e.g., 'Liga_F') - FIRST level
-        season: Season (e.g., '2024-2025') - SECOND level
-        filename: File name (e.g., 'match123.json')
-        subdirectory: Optional subdirectory (e.g., 'matches', 'squad')
-    
-    Returns:
-        Full path with organized structure
-    
+    Create organized path: base_dir/{country}/{league_name}/[subdirectory]/filename
+
+    The season is encoded in base_dir (e.g. data/2025-26/) so it is accepted
+    as a parameter for API compatibility but is not added to the path.
+
     Example:
-        get_organized_path_reversed('data/result', 'Liga_F', '2024-2025', 'players.parquet', 'squad')
-        -> 'data/result/Liga_F/2024-2025/squad/players.parquet'
+        get_organized_path_reversed('data/2025-26', 'Spain_Primera_Division', '2025-2026',
+                                    'file.parquet', 'match_event')
+        -> 'data/2025-26/Spain/Spain_Primera_Division/match_event/file.parquet'
     """
-    # Sanitize league name and season
-    league_clean = league_name.replace(" ", "_").replace("/", "-")
-    season_clean = season.replace(" ", "_").replace("/", "-")
-    
-    # Build path: base_dir/league/season/[subdirectory]/filename
+    country     = get_competition_country(league_name)
+    league_clean = league_name.replace(' ', '_').replace('/', '-')
+
     if subdirectory:
-        organized_dir = Path(base_dir) / league_clean / season_clean / subdirectory
+        organized_dir = Path(base_dir) / country / league_clean / subdirectory
     else:
-        organized_dir = Path(base_dir) / league_clean / season_clean
-    
+        organized_dir = Path(base_dir) / country / league_clean
+
     organized_dir.mkdir(parents=True, exist_ok=True)
-    
     return str(organized_dir / filename)

@@ -354,8 +354,6 @@ def create_navbar(user_info):
 
 PROGRESS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              'opta_pipeline', 'logs', 'progress.json')
-OPP_PROGRESS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                  'opposition_pipeline', 'logs', 'progress.json')
 
 
 def _read_progress(progress_file=None):
@@ -472,8 +470,8 @@ def create_update_overlay():
 
 
 def create_opp_update_overlay():
-    """Create the opposition pipeline update overlay with live progress."""
-    progress = _read_progress(OPP_PROGRESS_FILE)
+    """Create the pipeline update overlay with live team/competition progress."""
+    progress = _read_progress(PROGRESS_FILE)
 
     team        = progress.get('team', '')
     competition = progress.get('competition', '')
@@ -726,11 +724,7 @@ def handle_logout(logout_clicks):
     prevent_initial_call=True
 )
 def show_update_overlay(update_status, opp_update_status):
-    """Show/hide the database update overlay. Refresh page when update finishes."""
-    if update_status and update_status.get('updating'):
-        return create_update_overlay(), dash.no_update
-    if update_status and update_status.get('finished'):
-        return html.Div(), '/'
+    """Show/hide the pipeline overlay. Refresh page when the run finishes."""
     if opp_update_status and opp_update_status.get('updating'):
         return create_opp_update_overlay(), dash.no_update
     if opp_update_status and opp_update_status.get('finished'):
@@ -763,38 +757,24 @@ def handle_database_update(n_clicks, opp_clicks, n_intervals,
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # ── Barcelona pipeline ──────────────────────────────────────────────────
-    if trigger_id == 'update-db-button' and n_clicks:
-        if hasattr(app, '_update_thread') and app._update_thread.is_alive():
-            return {'updating': True}, opp_status, False
+    pipeline_path = os.path.join(script_dir, 'opta_pipeline', 'main.py')
+    log_path      = os.path.join(script_dir, 'opta_pipeline', 'logs', 'pipeline_error.log')
 
-        def run_pipeline():
-            pipeline_path = os.path.join(script_dir, 'opta_pipeline', 'main.py')
-            result = subprocess.run([sys.executable, pipeline_path], cwd=script_dir)
-            if result.returncode != 0:
-                log_path = os.path.join(script_dir, 'opta_pipeline', 'logs', 'pipeline_error.log')
-                os.makedirs(os.path.dirname(log_path), exist_ok=True)
-                with open(log_path, 'w') as f:
-                    f.write(f"Pipeline exited with code: {result.returncode}\n")
-                    f.write("Check opta_pipeline/logs/pipeline.log for details.\n")
+    # update-db-button now only opens the modal (handled in home.py callback)
+    if trigger_id == 'update-db-button':
+        return current_status, opp_status, True
 
-        thread = threading.Thread(target=run_pipeline, daemon=True)
-        thread.start()
-        app._update_thread = thread
-        return {'updating': True, 'started': True}, opp_status, False
-
-    # ── Opposition pipeline ─────────────────────────────────────────────────
+    # ── Pipeline (with optional team/competition filters) ────────────────────
     if trigger_id == 'update-opp-run-button' and opp_clicks:
         if hasattr(app, '_opp_update_thread') and app._opp_update_thread.is_alive():
             return current_status, {'updating': True}, False
 
-        opp_pipeline_path = os.path.join(script_dir, 'opposition_pipeline', 'main.py')
-        cmd = [sys.executable, opp_pipeline_path]
+        cmd     = [sys.executable, pipeline_path]
+        options = opp_options or []
         if opp_team:
             cmd += ['--team', opp_team]
         if opp_comp:
             cmd += ['--competition', opp_comp]
-        options = opp_options or []
         if 'force_rescrape' in options:
             cmd.append('--force-rescrape')
         if 'transform_only' in options:
@@ -803,11 +783,9 @@ def handle_database_update(n_clicks, opp_clicks, n_intervals,
         def run_opp_pipeline(cmd=cmd):
             result = subprocess.run(cmd, cwd=script_dir)
             if result.returncode != 0:
-                log_path = os.path.join(script_dir, 'opposition_pipeline', 'logs', 'pipeline_error.log')
                 os.makedirs(os.path.dirname(log_path), exist_ok=True)
                 with open(log_path, 'w') as f:
                     f.write(f"Pipeline exited with code: {result.returncode}\n")
-                    f.write("Check opposition_pipeline/logs/pipeline.log for details.\n")
 
         opp_thread = threading.Thread(target=run_opp_pipeline, daemon=True)
         opp_thread.start()
