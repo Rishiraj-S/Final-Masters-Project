@@ -2,6 +2,7 @@
 CuléVision - Data Utilities
 Functions for loading and processing Opta pipeline data
 """
+from __future__ import annotations
 
 import os
 import pandas as pd
@@ -229,7 +230,7 @@ def get_match_results():
     multiple tab builders don't each re-run the same groupby over 100k+ rows.
     """
     global _results_cache
-    if _results_cache is not None:
+    if _results_cache:
         return _results_cache
 
     events = get_all_events()

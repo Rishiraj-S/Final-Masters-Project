@@ -16,17 +16,14 @@ pytest tests/ -v                             # All tests
 pytest tests/test_phase_classifier.py::TestPitchZones -v
 pytest tests/test_phase_classifier.py::TestPossessionUtils::test_annotate_adds_abs_time_sec -v
 
-# Barcelona data pipeline
-python opta_pipeline/main.py                          # Full pipeline
-python opta_pipeline/main.py --transform-only         # Re-transform without re-downloading
+# Unified data pipeline (handles Barcelona + all opponents)
+python opta_pipeline/main.py                                    # All teams, all competitions
+python opta_pipeline/main.py --team "Barcelona"                 # Single team
+python opta_pipeline/main.py --team "Chelsea"
 python opta_pipeline/main.py --competition Spain_Primera_Division
-
-# Opposition scouting pipeline
-python opposition_pipeline/main.py                    # All opponents
-python opposition_pipeline/main.py --team "Chelsea"
-python opposition_pipeline/main.py --transform-only
-python opposition_pipeline/main.py --force-rescrape
-python opposition_pipeline/main.py --skip-download    # Scrape + transform only, no browser
+python opta_pipeline/main.py --transform-only                   # Re-transform without re-downloading
+python opta_pipeline/main.py --skip-download                    # Scrape + transform only, no browser
+python opta_pipeline/main.py --force-rescrape                   # Ignore CSV cache, re-scrape pages
 ```
 
 Login credentials: `Guest / guest` (read-only) or `Rishi / admin` (admin, can trigger pipelines).
@@ -74,9 +71,11 @@ Home  |  Barça DNA  |  Barça IQ  |  Match Report  |  Opposition Analysis
 
 ### Data Layer
 
-**Barcelona data** — loaded exclusively through `utils/data_utils.py`. Parquet files live at `data/barcelona/result/{Competition}/{Season}/{match|match_event|lineup}/`. The module maintains an in-process cache (`_events_cache`) cleared via `clear_events_cache()` after pipeline runs — page reloads alone do not clear it.
+**Barcelona data** — loaded exclusively through `utils/data_utils.py`. Parquet files live at `data/2025-26/{Country}/{Competition}/{subdir}/`. The module filters by `_BAR_vs_` or `_vs_BAR_` in filenames. Maintains an in-process cache (`_events_cache`) cleared via `clear_events_cache()` after pipeline runs.
 
-**Opposition data** — accessed through `utils/opposition_data_utils.py`, stored at `data/opposition/{Country}/{Team}/{Competition}/{Season}/`. Important: the module renames `event_type_id` → `type_id` on load, so opposition tab modules use `type_id` not `event_type_id`.
+**Opposition data** — accessed through `utils/opposition_data_utils.py`, same `data/2025-26/` root. Filters by team code in filenames. Important: the module renames `event_type_id` → `type_id` on load, so opposition tab modules use `type_id` not `event_type_id`. All event-filtering functions use the `team_code` column — never `team_name` substring matching — because Opta stored names frequently differ from config display names. Always use `get_team_codes(team_name)` → `df['team_code'].isin(codes)`. After any pipeline run, both `clear_events_cache()` and `clear_opp_events_cache()` must be called (app.py does this automatically).
+
+Both modules read from `data/2025-26/{Country}/{Competition}/{subdir}/` — there is no separate `data/barcelona/` or `data/opposition/` directory.
 
 ### Utils Layer
 
@@ -198,24 +197,28 @@ Grid-based Expected Threat model following the Soccermatics/Bellman-equation app
 
 | File | Purpose |
 |------|---------|
-| `xT_model/train.py` | Training script — loads all Opta parquets (Barcelona + opposition), builds 16×12 grid via Bellman iteration, saves `xt_grid.npy` |
+| `xT_model/train.py` | Training script — loads all Opta parquets from `data/2025-26/**/match_event/`, builds 16×12 grid via Bellman iteration, saves `xt_grid.npy` |
 | `xT_model/predictor.py` | Lazy-singleton inference — `predict_xt(x1,y1,x2,y2)` and `add_xt_column(passes_df)` |
 | `xT_model/xt_grid.npy` | Trained artifact — (16, 12) array of xT values |
 | `utils/xt_utils.py` | Public bridge — `add_xt_column(passes_df)` adding an `xT` column to any Opta pass DataFrame |
 
-**Retrain**: `python xT_model/train.py` — reads from `data/barcelona/result/**/match_event/` and `data/opposition/**/match_event/`.
+**Retrain**: `python xT_model/train.py` — reads from `data/2025-26/**/match_event/`.
 
 **Known limitation**: Ball carries are not Opta events. Wingers/progressive midfielders are under-credited vs. pure passers in any per-player xT ranking.
 
 ### Pipeline Architecture
 
-Both pipelines share modules from `opta_pipeline/modules/`. The opposition pipeline imports `opta_pipeline.modules` directly — zero code duplication. Stages: Scrape → Download → Transform, each writing Parquet files. `opta_pipeline/main.py` writes `logs/progress.json` after each step; `app.py` polls it every 2 s for live overlay updates.
+`opta_pipeline/` is the single unified pipeline for all teams. Stages: Scrape → Download → Transform, each writing Parquet files to `data/2025-26/{Country}/{Competition}/{subdir}/`. `opta_pipeline/main.py` writes `logs/progress.json` after each step; `app.py` polls it every 2 s for live overlay updates.
+
+Two-phase design:
+- **Phase 1**: Scrape each competition page once; cache as CSV in `logs/scrape_cache/`
+- **Phase 2**: For each team × competition, filter cached CSV by team name, download missing JSONs, transform to parquet
 
 **Typo note**: `"Team setp up"` (typeId=34) exists intentionally in both `mappings/opta_event_types.csv` and `opta_pipeline/modules/transformers/matchevent_transformer.py:156` — they are consistent. Fix both together or neither.
 
 ### Event Data Reference (from actual parquet files)
 
-Each parquet in `data/barcelona/result/{Competition}/{Season}/match_event/` has **250 columns** and covers all events from both teams in the match.
+Each parquet in `data/2025-26/{Country}/{Competition}/match_event/` has **250 columns** and covers all events from both teams in the match.
 
 #### Core fields (always present)
 | Column | Values / Notes |

@@ -806,6 +806,7 @@ def handle_database_update(n_clicks, opp_clicks, n_intervals,
 
         if new_opp.get('updating') and not opp_alive:
             clear_opp_events_cache()
+            clear_events_cache()
             new_opp = {'updating': False, 'finished': True}
 
         interval_disabled = not (barca_alive or opp_alive)

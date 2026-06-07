@@ -236,11 +236,10 @@ def get_opp_team_events(team: str, country: str, comp_key: str,
                         season: str = SEASON) -> pd.DataFrame:
     """Return only the events attributed to the opposition team."""
     df = get_opp_all_events(team, country, comp_key, season)
-    if df.empty or 'team_name' not in df.columns:
+    if df.empty or 'team_code' not in df.columns:
         return df
-    needle = _normalize(team)
-    mask = df['team_name'].fillna('').apply(lambda s: needle in _normalize(s))
-    return df[mask].copy()
+    codes = get_team_codes(team)
+    return df[df['team_code'].isin(codes)].copy()
 
 
 def _scores_from_goals(match_ev_path: Path) -> tuple[int, int]:
@@ -294,8 +293,8 @@ def get_opp_team_matches(team: str, country: str, comp_key: str,
                 except (ValueError, TypeError):
                     h_score = a_score = 0
 
-            needle = _normalize(team)
-            is_home = needle in _normalize(home)
+            codes = get_team_codes(team)
+            is_home = any(f'_{c}_vs_' in f.name for c in codes)
             if is_home:
                 gf, ga, opponent = h_score, a_score, away
             else:
@@ -352,10 +351,23 @@ def load_opp_events(team: str, comp_key: str,
     if date_cutoff and 'match_date' in all_ev.columns:
         all_ev = all_ev[all_ev['match_date'].astype(str).str[:10] <= date_cutoff[:10]]
 
-    # Venue filter (uses home_team column written by the match transformer)
-    if venue and venue != 'all' and 'home_team' in all_ev.columns:
-        needle  = _normalize(team)
-        is_home = all_ev['home_team'].fillna('').apply(lambda s: needle in _normalize(s))
+    # Venue filter — use team_code in home_team_code column if available,
+    # else fall back to matching team_code against the first event per match.
+    if venue and venue != 'all' and 'team_code' in all_ev.columns:
+        codes = get_team_codes(team)
+        # home_team_code column written by match_transformer; fall back to
+        # checking whether the team's code matches the home_team_code per row.
+        if 'home_team_code' in all_ev.columns:
+            is_home = all_ev['home_team_code'].isin(codes)
+        else:
+            # Derive home/away from team_position column (always present)
+            is_home = (
+                all_ev['team_position'].eq('home') &
+                all_ev['team_code'].isin(codes)
+            )
+            # Broadcast per match_id: if any row for this match has team home, all rows for that match are "home"
+            home_match_ids = set(all_ev[is_home]['match_id'].unique()) if 'match_id' in all_ev.columns else set()
+            is_home = all_ev['match_id'].isin(home_match_ids)
         if venue == 'home':
             all_ev = all_ev[is_home].copy()
         elif venue == 'away':
@@ -368,15 +380,15 @@ def load_opp_events(team: str, comp_key: str,
     if all_ev.empty:
         return pd.DataFrame(), pd.DataFrame()
 
-    # Split into opposition team and Barcelona
-    if 'team_name' in all_ev.columns:
-        needle  = _normalize(team)
-        is_opp  = all_ev['team_name'].fillna('').apply(lambda s: needle in _normalize(s))
-        opp_ev  = all_ev[is_opp].copy()
-        bar_ev  = all_ev[~is_opp].copy()
+    # Split into opposition team and Barcelona using team_code (reliable across all teams)
+    if 'team_code' in all_ev.columns:
+        codes  = get_team_codes(team)
+        is_opp = all_ev['team_code'].isin(codes)
+        opp_ev = all_ev[is_opp].copy()
+        bar_ev = all_ev[~is_opp].copy()
     else:
-        opp_ev  = all_ev.copy()
-        bar_ev  = pd.DataFrame()
+        opp_ev = all_ev.copy()
+        bar_ev = pd.DataFrame()
 
     return opp_ev, bar_ev
 
@@ -390,14 +402,12 @@ def get_opp_possession(team: str, country: str, comp_key: str,
     if comp_key == 'all':
         return 0.0
     df = get_opp_all_events(team, country, comp_key, season)
-    if df.empty or 'type_id' not in df.columns or 'team_name' not in df.columns:
+    if df.empty or 'type_id' not in df.columns or 'team_code' not in df.columns:
         return 0.0
     passes = df[df['type_id'] == PASS_TYPE_ID]
     if passes.empty:
         return 0.0
-    needle = _normalize(team)
-    team_passes = passes['team_name'].fillna('').apply(
-        lambda s: needle in _normalize(s)
-    ).sum()
+    codes = get_team_codes(team)
+    team_passes = passes['team_code'].isin(codes).sum()
     total = len(passes)
     return round(team_passes / total * 100, 1) if total > 0 else 0.0
