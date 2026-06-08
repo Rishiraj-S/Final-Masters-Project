@@ -8,6 +8,7 @@ KPI bar spans the full content area above the main columns.
 Filters: player, shot outcome, shot origin (open-play / set-piece), half-time sliders.
 All heavy computation is deferred to the callback (skeleton pattern, same as buildup.py).
 """
+from __future__ import annotations
 
 import pandas as pd
 import numpy as np

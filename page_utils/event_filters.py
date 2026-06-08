@@ -19,25 +19,23 @@ import pandas as pd
 
 #: All Opta event_type values that represent a shot.
 SHOT_TYPES: frozenset[str] = frozenset({
-    'Miss', 'Saved Shot', 'Goal', 'Post', 'Blocked Shot',
+    'Miss', 'Saved Shot', 'Goal', 'Post',
 })
 
 #: Plotly marker colour per shot outcome (attacker's perspective).
 SHOT_OUTCOME_COLOR: dict[str, str] = {
-    'Goal':         '#51cf66',
-    'Saved Shot':   '#339af0',
-    'Miss':         '#ff6b6b',
-    'Post':         '#ffd43b',
-    'Blocked Shot': '#cc5de8',
+    'Goal':       '#51cf66',
+    'Saved Shot': '#339af0',
+    'Miss':       '#ff6b6b',
+    'Post':       '#ffd43b',
 }
 
 #: Plotly marker symbol per shot outcome.
 SHOT_OUTCOME_SYMBOL: dict[str, str] = {
-    'Goal':         'star',
-    'Saved Shot':   'circle',
-    'Miss':         'x',
-    'Post':         'diamond',
-    'Blocked Shot': 'square',
+    'Goal':       'star',
+    'Saved Shot': 'circle',
+    'Miss':       'x',
+    'Post':       'diamond',
 }
 
 # ---------------------------------------------------------------------------
@@ -46,16 +44,15 @@ SHOT_OUTCOME_SYMBOL: dict[str, str] = {
 
 #: Opta event_type values that represent a defensive action.
 DEF_ACTION_TYPES: frozenset[str] = frozenset({
-    'Tackle', 'Interception', 'Ball Recovery', 'Clearance', 'Blocked Shot',
+    'Tackle', 'Interception', 'Ball recovery', 'Clearance',
 })
 
 #: Plotly marker colour per defensive action type.
 DEF_COLORS: dict[str, str] = {
     'Tackle':        '#4dabf7',
     'Interception':  '#51cf66',
-    'Ball Recovery': '#ffd43b',
+    'Ball recovery': '#ffd43b',
     'Clearance':     '#ff922b',
-    'Blocked Shot':  '#cc5de8',
 }
 
 # ---------------------------------------------------------------------------

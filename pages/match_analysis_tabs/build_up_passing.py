@@ -7,7 +7,7 @@ Sections:
   [Filters: Half]  — affect pitch plots only
   2. Pass Network   (interactive Plotly + mplsoccer bg, side-by-side)
   3. Entries into Final Third  (passes, dribbles, carries — interactive)
-  4. Entries into Zone 14      (passes, dribbles, carries — interactive)
+  4. Entries by Band           (passes, dribbles, carries — interactive)
   [All tables at bottom — unaffected by half filter]
   5. Top Combinations  (pairwise + 3-player)
   6. Player Zone Entries
@@ -22,8 +22,10 @@ import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 from mplsoccer import Pitch as _MplPitch
 from sklearn.preprocessing import MinMaxScaler
-from dash import html, dcc
+from dash import html, dcc, Input, Output
 import dash_bootstrap_components as dbc
+
+from utils.data_utils import get_match_events
 
 from utils.config import COLORS
 from utils.xt_utils import add_xt_column as _add_xt_column
@@ -324,18 +326,18 @@ def _build_entries(te: pd.DataFrame, zone: str = 'final_third') -> pd.DataFrame:
         if zone == 'final_third':
             if not (start_x < 66.67 and end_x >= 66.67):
                 continue
+            dest_zone = ('Left Band'   if end_y > 66.67
+                         else 'Right Band' if end_y < 33.33
+                         else 'Centre Band')
         elif zone == 'zone14':
-            # Zone 14: x ∈ [66.67, 83.33], y ∈ [37, 63]
-            # Left Half Space:  x > 66.67, y ∈ (63, 79]
-            # Right Half Space: x > 66.67, y ∈ [21, 37)
             in_z14 = (66.67 <= end_x <= 83.33) and (37 <= end_y <= 63)
             in_lhs = (end_x > 66.67) and (63 < end_y <= 79)
             in_rhs = (end_x > 66.67) and (21 <= end_y < 37)
             if not (in_z14 or in_lhs or in_rhs):
                 continue
-            dest_zone = ('Zone 14' if in_z14
-                         else 'Left Half Space' if in_lhs
-                         else 'Right Half Space')
+            dest_zone = ('Left Band'   if end_y > 66.67
+                         else 'Right Band' if end_y < 33.33
+                         else 'Centre Band')
 
         # Map event type to friendly label
         label_map = {'Pass': 'Pass', 'Take On': 'Dribble', 'Ball touch': 'Carry'}
@@ -548,10 +550,10 @@ _ENTRY_COLORS = {
     'Carry':   '#00bfff',
 }
 
-_ZONE14_COLORS = {
-    'Zone 14':          '#ff1493',
-    'Left Half Space':  '#00ffff',
-    'Right Half Space': '#ffd700',
+_BAND_COLORS = {
+    'Left Band':   '#00ffff',
+    'Centre Band': '#ff1493',
+    'Right Band':  '#ffd700',
 }
 
 
@@ -671,7 +673,7 @@ def _network_fig(nodes: pd.DataFrame, edges: dict, color: str, is_home: bool = T
 
 def _entries_fig(entries_df: pd.DataFrame, zone: str,
                  color: str, is_home: bool = True) -> go.Figure:
-    """Interactive Plotly pitch figure for entries into final third / Zone 14."""
+    """Interactive Plotly pitch figure for entries into final third, coloured by band."""
     fig = go.Figure()
     add_pitch_background(fig)
 
@@ -692,9 +694,8 @@ def _entries_fig(entries_df: pd.DataFrame, zone: str,
         if 'receiver_name' not in entries_df.columns:
             entries_df['receiver_name'] = ''
 
-        # Zone 14 view: colour by destination zone; final third: colour by event type
-        if zone == 'zone14' and 'dest_zone' in entries_df.columns:
-            color_iter = _ZONE14_COLORS.items()
+        if 'dest_zone' in entries_df.columns and entries_df['dest_zone'].notna().any():
+            color_iter = _BAND_COLORS.items()
             group_col  = 'dest_zone'
         else:
             color_iter = _ENTRY_COLORS.items()
@@ -819,46 +820,74 @@ def _entries_fig(entries_df: pd.DataFrame, zone: str,
     if zone == 'final_third':
         fig.add_shape(
             type='line', x0=66.67, y0=0, x1=66.67, y1=100,
-            line=dict(color='yellow', width=3, dash='dash'),
+            line=dict(color='yellow', width=2, dash='dash'),
+        )
+        fig.add_shape(
+            type='line', x0=0, y0=66.67, x1=100, y1=66.67,
+            line=dict(color='white', width=1.5, dash='dot'),
+        )
+        fig.add_shape(
+            type='line', x0=0, y0=33.33, x1=100, y1=33.33,
+            line=dict(color='white', width=1.5, dash='dot'),
         )
         fig.add_annotation(
-            x=83, y=96, text='Final Third', showarrow=False,
-            font=dict(color='yellow', size=11, family='Arial Black'),
-            bgcolor='rgba(0,0,0,0.5)', borderpad=4,
+            x=4, y=83, text='Left Band', showarrow=False,
+            font=dict(color='#00ffff', size=9, family='Arial Black'),
+            bgcolor='rgba(0,0,0,0.5)', borderpad=2,
+        )
+        fig.add_annotation(
+            x=4, y=50, text='Centre Band', showarrow=False,
+            font=dict(color='#ff1493', size=9, family='Arial Black'),
+            bgcolor='rgba(0,0,0,0.5)', borderpad=2,
+        )
+        fig.add_annotation(
+            x=4, y=17, text='Right Band', showarrow=False,
+            font=dict(color='#ffd700', size=9, family='Arial Black'),
+            bgcolor='rgba(0,0,0,0.5)', borderpad=2,
         )
     elif zone == 'zone14':
-        # Zone 14
         fig.add_shape(
             type='rect', x0=66.67, y0=37, x1=83.33, y1=63,
-            line=dict(color='#ff1493', width=2, dash='dash'),
-            fillcolor='rgba(255,20,147,0.08)',
+            line=dict(color='rgba(255,255,255,0.25)', width=1, dash='dash'),
+            fillcolor='rgba(255,255,255,0.03)',
+        )
+        fig.add_shape(
+            type='rect', x0=66.67, y0=63, x1=100, y1=79,
+            line=dict(color='rgba(255,255,255,0.25)', width=1, dash='dash'),
+            fillcolor='rgba(255,255,255,0.03)',
+        )
+        fig.add_shape(
+            type='rect', x0=66.67, y0=21, x1=100, y1=37,
+            line=dict(color='rgba(255,255,255,0.25)', width=1, dash='dash'),
+            fillcolor='rgba(255,255,255,0.03)',
         )
         fig.add_annotation(
             x=75, y=50, text='Zone 14', showarrow=False,
-            font=dict(color='#ff1493', size=10, family='Arial Black'),
-            bgcolor='rgba(0,0,0,0.5)', borderpad=3,
+            font=dict(color='rgba(255,255,255,0.35)', size=8, family='Arial'),
+            bgcolor='rgba(0,0,0,0)', borderpad=2,
         )
-        # Left Half Space (y > 63)
         fig.add_shape(
-            type='rect', x0=66.67, y0=63, x1=100, y1=79,
-            line=dict(color='#00ffff', width=2, dash='dash'),
-            fillcolor='rgba(0,255,255,0.08)',
+            type='line', x0=0, y0=66.67, x1=100, y1=66.67,
+            line=dict(color='white', width=1.5, dash='dot'),
+        )
+        fig.add_shape(
+            type='line', x0=0, y0=33.33, x1=100, y1=33.33,
+            line=dict(color='white', width=1.5, dash='dot'),
         )
         fig.add_annotation(
-            x=83, y=71, text='Left HS', showarrow=False,
-            font=dict(color='#00ffff', size=10, family='Arial Black'),
-            bgcolor='rgba(0,0,0,0.5)', borderpad=3,
-        )
-        # Right Half Space (y < 37)
-        fig.add_shape(
-            type='rect', x0=66.67, y0=21, x1=100, y1=37,
-            line=dict(color='#ffd700', width=2, dash='dash'),
-            fillcolor='rgba(255,215,0,0.08)',
+            x=4, y=83, text='Left Band', showarrow=False,
+            font=dict(color='#00ffff', size=9, family='Arial Black'),
+            bgcolor='rgba(0,0,0,0.5)', borderpad=2,
         )
         fig.add_annotation(
-            x=83, y=29, text='Right HS', showarrow=False,
-            font=dict(color='#ffd700', size=10, family='Arial Black'),
-            bgcolor='rgba(0,0,0,0.5)', borderpad=3,
+            x=4, y=50, text='Centre Band', showarrow=False,
+            font=dict(color='#ff1493', size=9, family='Arial Black'),
+            bgcolor='rgba(0,0,0,0.5)', borderpad=2,
+        )
+        fig.add_annotation(
+            x=4, y=17, text='Right Band', showarrow=False,
+            font=dict(color='#ffd700', size=9, family='Arial Black'),
+            bgcolor='rgba(0,0,0,0.5)', borderpad=2,
         )
 
     _add_attack_direction(fig, is_home=is_home)
@@ -868,7 +897,7 @@ def _entries_fig(entries_df: pd.DataFrame, zone: str,
         **layout_config(
             height=_PITCH_HEIGHT, margin=dict(l=0, r=0, t=48, b=0),
             legend=dict(
-                orientation='v', x=0.01, xanchor='left', y=0.99, yanchor='top',
+                orientation='v', x=0.99, xanchor='right', y=0.99, yanchor='top',
                 bgcolor='rgba(0,0,0,0.55)',
                 font=dict(color=COLORS['text_primary'], size=9),
             ),
@@ -960,21 +989,21 @@ def _build_player_entries_table(entries_ft: pd.DataFrame, entries_z14: pd.DataFr
         h2 = grp.apply(lambda g: (g['period_id'] == 2).sum()).rename('h2')
         return pd.concat([total, h1, h2], axis=1).reset_index()
 
-    ft   = _counts(entries_ft)
-    z14  = _counts(entries_z14, 'Zone 14')
-    lhs  = _counts(entries_z14, 'Left Half Space')
-    rhs  = _counts(entries_z14, 'Right Half Space')
+    ft  = _counts(entries_ft)
+    lb  = _counts(entries_z14, 'Left Band')
+    cb  = _counts(entries_z14, 'Centre Band')
+    rb  = _counts(entries_z14, 'Right Band')
 
     # Collect all players
     all_players = set()
-    for df in [ft, z14, lhs, rhs]:
+    for df in [ft, lb, cb, rb]:
         if not df.empty:
             all_players.update(df['player_name'].tolist())
     if not all_players:
         return pd.DataFrame()
 
     result = pd.DataFrame({'player_name': sorted(all_players)})
-    for prefix, df in [('ft', ft), ('z14', z14), ('lhs', lhs), ('rhs', rhs)]:
+    for prefix, df in [('ft', ft), ('lb', lb), ('cb', cb), ('rb', rb)]:
         if df.empty:
             result[f'{prefix}_total'] = 0
             result[f'{prefix}_h1']    = 0
@@ -989,7 +1018,7 @@ def _build_player_entries_table(entries_ft: pd.DataFrame, entries_z14: pd.DataFr
                 result[c] = result[c].astype(int)
 
     # Sort by total entries descending
-    result['_grand_total'] = result['ft_total'] + result['z14_total'] + result['lhs_total'] + result['rhs_total']
+    result['_grand_total'] = result['ft_total'] + result['lb_total'] + result['cb_total'] + result['rb_total']
     result = result[result['_grand_total'] > 0].sort_values('_grand_total', ascending=False).drop(columns='_grand_total').reset_index(drop=True)
     return result
 
@@ -1027,9 +1056,9 @@ def _player_entries_table(df: pd.DataFrame, color: str) -> html.Div:
     header = html.Tr([
         html.Th('Player',        style={**_hdr, 'textAlign': 'left'}),
         html.Th('Final Third',   style=_hdr),
-        html.Th('Zone 14',       style=_hdr),
-        html.Th('Left HS',       style=_hdr),
-        html.Th('Right HS',      style=_hdr),
+        html.Th('Left Band',     style=_hdr),
+        html.Th('Centre Band',   style=_hdr),
+        html.Th('Right Band',    style=_hdr),
     ])
     rows = []
     for i, row in df.iterrows():
@@ -1038,10 +1067,10 @@ def _player_entries_table(df: pd.DataFrame, color: str) -> html.Div:
         short_name = str(row['player_name']).split()[-1] if pd.notna(row['player_name']) else '—'
         rows.append(html.Tr([
             html.Td(short_name, style={**_lbl, 'color': color}),
-            html.Td(_fmt(row['ft_total'],  row['ft_h1'],  row['ft_h2']),  style=_val),
-            html.Td(_fmt(row['z14_total'], row['z14_h1'], row['z14_h2']), style=_val),
-            html.Td(_fmt(row['lhs_total'], row['lhs_h1'], row['lhs_h2']), style=_val),
-            html.Td(_fmt(row['rhs_total'], row['rhs_h1'], row['rhs_h2']), style=_val),
+            html.Td(_fmt(row['ft_total'], row['ft_h1'], row['ft_h2']), style=_val),
+            html.Td(_fmt(row['lb_total'], row['lb_h1'], row['lb_h2']), style=_val),
+            html.Td(_fmt(row['cb_total'], row['cb_h1'], row['cb_h2']), style=_val),
+            html.Td(_fmt(row['rb_total'], row['rb_h1'], row['rb_h2']), style=_val),
         ], style={'backgroundColor': bg}))
 
     return html.Div(
@@ -1300,9 +1329,10 @@ def _render_entries(events: pd.DataFrame) -> html.Div:
     ft_home_total  = len(hs['entries_ft'])
     ft_away_total  = len(as_['entries_ft'])
     entries_ft_section = html.Div([
-        section_header('Entries into Final Third'),
+        section_header('Final Third Entries by Band'),
         build_info_box(
-            'Passes, dribbles and carries starting before the final third line and ending beyond it. '
+            'Passes, dribbles and carries crossing the final third line, coloured by destination band. '
+            'Left Band: y > 66.67 · Centre Band: 33.33–66.67 · Right Band: y < 33.33. '
             'Hover for player, time, outcome and whether it led to a shot or goal.'
         ),
         dbc.Row([
@@ -1321,11 +1351,11 @@ def _render_entries(events: pd.DataFrame) -> html.Div:
     z14_home_total = len(hs['entries_z14'])
     z14_away_total = len(as_['entries_z14'])
     entries_z14_section = html.Div([
-        section_header('Entries into Zone 14 & Half Spaces'),
+        section_header('Zone 14 Entries by Band'),
         build_info_box(
             'Passes (solid arrows), dribbles and carries (dashed lines) ending in Zone 14, '
-            'Left Half Space (y: 63–79) or Right Half Space (y: 21–37). '
-            'Coloured by destination zone — hover for player, time, outcome and shot context.'
+            'Left Half Space or Right Half Space. '
+            'Coloured by band — Left (y > 66.67), Centre (33.33–66.67), Right (y < 33.33).'
         ),
         dbc.Row([
             _pitch_card(
@@ -1354,7 +1384,7 @@ def _render_tables(events: pd.DataFrame) -> html.Div:
     away_df = _build_player_entries_table(as_['entries_ft'], as_['entries_z14'])
     return html.Div([
         section_header('Player Zone Entries'),
-        build_info_box('Entries into Final Third, Zone 14, and Half Spaces per player — format: total(1H/2H)'),
+        build_info_box('Final Third entries per player broken down by band — format: total(1H/2H)'),
         dbc.Row([
             dbc.Col(html.Div([
                 html.Div(hs['team'], style={
@@ -1388,10 +1418,48 @@ def build_build_up_passing_tab(events: pd.DataFrame, **_) -> html.Div:
         _render_possession(events),
         _render_network(events),
         _render_combos(events),
-        _render_entries(events),
+        html.Div([
+            html.Div([
+                html.Span('Half:', style={
+                    'color': COLORS['text_secondary'], 'fontSize': '0.75rem', 'marginRight': '8px',
+                }),
+                dcc.RadioItems(
+                    id='bup-half',
+                    options=[
+                        {'label': 'Full', 'value': 'all'},
+                        {'label': '1H',   'value': '1'},
+                        {'label': '2H',   'value': '2'},
+                    ],
+                    value='all',
+                    inline=True,
+                    inputStyle={'cursor': 'pointer', 'accentColor': COLORS['gold']},
+                    labelStyle={
+                        'color': COLORS['text_secondary'], 'fontSize': '0.75rem',
+                        'cursor': 'pointer', 'marginRight': '12px',
+                    },
+                ),
+            ], style={'display': 'flex', 'alignItems': 'center', 'padding': '8px 0 4px'}),
+            html.Div(id='bup-entries-section', children=_render_entries(events)),
+        ]),
         _render_tables(events),
     ], style={'marginTop': '16px'})
 
 
 def register_build_up_passing_callbacks(app) -> None:
-    pass
+
+    @app.callback(
+        Output('bup-entries-section', 'children'),
+        Input('bup-half', 'value'),
+        Input('pma-selected-match', 'data'),
+    )
+    def _update_bup_entries(half, match_id):
+        if not match_id:
+            return html.P('No match selected.', style={'color': COLORS['text_secondary']})
+        events = get_match_events(match_id)
+        if events.empty:
+            return html.P('No event data.', style={'color': COLORS['text_secondary']})
+        if half == '1' and 'period_id' in events.columns:
+            events = events[events['period_id'] == 1]
+        elif half == '2' and 'period_id' in events.columns:
+            events = events[events['period_id'] == 2]
+        return _render_entries(events)

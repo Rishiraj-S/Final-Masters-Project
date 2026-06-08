@@ -58,10 +58,10 @@ _ENTRY_COLORS = {
     'Carry':   '#00bfff',
 }
 
-_ZONE14_COLORS = {
-    'Zone 14':          '#ff1493',
-    'Left Half Space':  '#00ffff',
-    'Right Half Space': '#ffd700',
+_BAND_COLORS = {
+    'Left Band':   '#00ffff',
+    'Centre Band': '#ff1493',
+    'Right Band':  '#ffd700',
 }
 
 # Empty base64 src — used as placeholder before callback fires
@@ -858,7 +858,7 @@ def _top5_progressive_children(passes: pd.DataFrame) -> list:
 # =============================================================================
 
 def _build_entries_bar(bar_events: pd.DataFrame, zone: str = 'final_third') -> pd.DataFrame:
-    """Entries into final third or Zone 14/Half Spaces from BAR team events.
+    """Entries into final third from BAR team events, optionally coloured by band.
 
     Fully vectorised — no Python-level for-loop over rows.
     Shot/goal lookahead uses five shift operations instead of per-row slicing.
@@ -923,19 +923,26 @@ def _build_entries_bar(bar_events: pd.DataFrame, zone: str = 'final_third') -> p
 
     if zone == 'final_third':
         ev = ev[(sx < 66.67) & (ex >= 66.67)].copy()
-        ev['dest_zone'] = None
+        if not ev.empty:
+            ey2 = ev['end_y'].astype(float)
+            ev['dest_zone'] = np.select(
+                [ey2 > 66.67, ey2 < 33.33],
+                ['Left Band', 'Right Band'],
+                default='Centre Band',
+            )
 
     elif zone == 'zone14':
         in_z14 = ex.between(66.67, 83.33) & ey.between(37, 63)
         in_lhs = (ex > 66.67) & (ey > 63)  & (ey <= 79)
         in_rhs = (ex > 66.67) & (ey >= 21) & (ey < 37)
-        entry_mask = in_z14 | in_lhs | in_rhs
-        ev = ev[entry_mask].copy()
-        ev['dest_zone'] = np.select(
-            [in_z14.loc[ev.index], in_lhs.loc[ev.index]],
-            ['Zone 14', 'Left Half Space'],
-            default='Right Half Space',
-        )
+        ev = ev[in_z14 | in_lhs | in_rhs].copy()
+        if not ev.empty:
+            ey2 = ev['end_y'].astype(float)
+            ev['dest_zone'] = np.select(
+                [ey2 > 66.67, ey2 < 33.33],
+                ['Left Band', 'Right Band'],
+                default='Centre Band',
+            )
 
     if ev.empty:
         return pd.DataFrame(columns=_EMPTY_COLS)
@@ -980,8 +987,8 @@ def _entries_fig_bar(entries_df: pd.DataFrame, zone: str) -> go.Figure:
         if 'receiver_name' not in entries_df.columns:
             entries_df['receiver_name'] = ''
 
-        if zone == 'zone14' and 'dest_zone' in entries_df.columns:
-            color_iter = _ZONE14_COLORS.items()
+        if 'dest_zone' in entries_df.columns and entries_df['dest_zone'].notna().any():
+            color_iter = _BAND_COLORS.items()
             group_col  = 'dest_zone'
         else:
             color_iter = _ENTRY_COLORS.items()
@@ -1084,29 +1091,46 @@ def _entries_fig_bar(entries_df: pd.DataFrame, zone: str) -> go.Figure:
     # Zone boundaries
     if zone == 'final_third':
         fig.add_shape(type='line', x0=66.67, y0=0, x1=66.67, y1=100,
-                      line=dict(color='yellow', width=3, dash='dash'))
-        fig.add_annotation(x=83, y=96, text='Final Third', showarrow=False,
-                           font=dict(color='yellow', size=11, family='Arial Black'),
-                           bgcolor='rgba(0,0,0,0.5)', borderpad=4)
+                      line=dict(color='yellow', width=2, dash='dash'))
+        fig.add_shape(type='line', x0=0, y0=66.67, x1=100, y1=66.67,
+                      line=dict(color='white', width=1.5, dash='dot'))
+        fig.add_shape(type='line', x0=0, y0=33.33, x1=100, y1=33.33,
+                      line=dict(color='white', width=1.5, dash='dot'))
+        fig.add_annotation(x=4, y=83, text='Left Band', showarrow=False,
+                           font=dict(color='#00ffff', size=9, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=2)
+        fig.add_annotation(x=4, y=50, text='Centre Band', showarrow=False,
+                           font=dict(color='#ff1493', size=9, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=2)
+        fig.add_annotation(x=4, y=17, text='Right Band', showarrow=False,
+                           font=dict(color='#ffd700', size=9, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=2)
     elif zone == 'zone14':
         fig.add_shape(type='rect', x0=66.67, y0=37, x1=83.33, y1=63,
-                      line=dict(color='#ff1493', width=2, dash='dash'),
-                      fillcolor='rgba(255,20,147,0.08)')
-        fig.add_annotation(x=75, y=50, text='Zone 14', showarrow=False,
-                           font=dict(color='#ff1493', size=10, family='Arial Black'),
-                           bgcolor='rgba(0,0,0,0.5)', borderpad=3)
+                      line=dict(color='rgba(255,255,255,0.25)', width=1, dash='dash'),
+                      fillcolor='rgba(255,255,255,0.03)')
         fig.add_shape(type='rect', x0=66.67, y0=63, x1=100, y1=79,
-                      line=dict(color='#00ffff', width=2, dash='dash'),
-                      fillcolor='rgba(0,255,255,0.08)')
-        fig.add_annotation(x=83, y=71, text='Left HS', showarrow=False,
-                           font=dict(color='#00ffff', size=10, family='Arial Black'),
-                           bgcolor='rgba(0,0,0,0.5)', borderpad=3)
+                      line=dict(color='rgba(255,255,255,0.25)', width=1, dash='dash'),
+                      fillcolor='rgba(255,255,255,0.03)')
         fig.add_shape(type='rect', x0=66.67, y0=21, x1=100, y1=37,
-                      line=dict(color='#ffd700', width=2, dash='dash'),
-                      fillcolor='rgba(255,215,0,0.08)')
-        fig.add_annotation(x=83, y=29, text='Right HS', showarrow=False,
-                           font=dict(color='#ffd700', size=10, family='Arial Black'),
-                           bgcolor='rgba(0,0,0,0.5)', borderpad=3)
+                      line=dict(color='rgba(255,255,255,0.25)', width=1, dash='dash'),
+                      fillcolor='rgba(255,255,255,0.03)')
+        fig.add_annotation(x=75, y=50, text='Zone 14', showarrow=False,
+                           font=dict(color='rgba(255,255,255,0.35)', size=8, family='Arial'),
+                           bgcolor='rgba(0,0,0,0)', borderpad=2)
+        fig.add_shape(type='line', x0=0, y0=66.67, x1=100, y1=66.67,
+                      line=dict(color='white', width=1.5, dash='dot'))
+        fig.add_shape(type='line', x0=0, y0=33.33, x1=100, y1=33.33,
+                      line=dict(color='white', width=1.5, dash='dot'))
+        fig.add_annotation(x=4, y=83, text='Left Band', showarrow=False,
+                           font=dict(color='#00ffff', size=9, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=2)
+        fig.add_annotation(x=4, y=50, text='Centre Band', showarrow=False,
+                           font=dict(color='#ff1493', size=9, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=2)
+        fig.add_annotation(x=4, y=17, text='Right Band', showarrow=False,
+                           font=dict(color='#ffd700', size=9, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=2)
 
     _add_attack_direction(fig)
     fig.update_layout(
@@ -1119,7 +1143,7 @@ def _entries_fig_bar(entries_df: pd.DataFrame, zone: str) -> go.Figure:
         uirevision=f'buildup-entries-{zone}',
         hovermode='closest',
         legend=dict(
-            orientation='v', x=0.01, xanchor='left', y=0.99, yanchor='top',
+            orientation='v', x=0.99, xanchor='right', y=0.99, yanchor='top',
             bgcolor='rgba(0,0,0,0.55)',
             font=dict(color=COLORS['text_primary'], size=9),
         ),
@@ -1374,7 +1398,7 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
         ], style={'marginBottom': '10px'}),
         dbc.Row([
             dbc.Col([
-                html.Div("Entries into Final Third",
+                html.Div("Final Third Entries by Band",
                          style={**_SECTION_TITLE, 'borderBottom': 'none',
                                 'paddingBottom': '4px', 'fontSize': '0.72rem'}),
                 dcc.Loading(
@@ -1393,7 +1417,7 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
                 ),
             ], md=6),
             dbc.Col([
-                html.Div("Zone 14 & Half Spaces",
+                html.Div("Zone 14 Entries by Band",
                          style={**_SECTION_TITLE, 'borderBottom': 'none',
                                 'paddingBottom': '4px', 'fontSize': '0.72rem'}),
                 dcc.Loading(

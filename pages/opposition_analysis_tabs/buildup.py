@@ -31,6 +31,7 @@ from utils.config import COLORS
 from utils.opposition_data_utils import load_opp_events, SEASON
 from page_utils import PassMap, GOLD, HOME_COLOR, AWAY_COLOR
 from page_utils.visualizations import render_xt_heatmap_img, PITCH_BG, CHART_CONFIG
+from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 
 
 # =============================================================================
@@ -69,6 +70,17 @@ _SECTION_TITLE = {
 
 _PITCH_CACHE: dict = {}
 _ZONE_IMG_CACHE: dict = {}
+
+_ENTRY_COLORS = {
+    'Pass':    AWAY_COLOR,
+    'Dribble': '#ffd700',
+    'Carry':   '#00bfff',
+}
+_BAND_COLORS = {
+    'Left Band':   '#00ffff',
+    'Centre Band': '#ff1493',
+    'Right Band':  '#ffd700',
+}
 
 
 # =============================================================================
@@ -436,6 +448,249 @@ def _network_fig(opp_ev: pd.DataFrame) -> go.Figure:
 
 
 # =============================================================================
+# Zone-3 entry helpers
+# =============================================================================
+
+def _build_opp_entries(opp_ev: pd.DataFrame, zone: str = 'final_third') -> pd.DataFrame:
+    """Build entries-into-zone DataFrame from opposition events (vectorised)."""
+    _EMPTY_COLS = [
+        'player_name', 'event_label', 'x', 'y', 'end_x', 'end_y',
+        'outcome', 'time_min', 'time_sec', 'dest_zone',
+        'led_to_shot', 'led_to_goal',
+    ]
+    if opp_ev.empty or 'event_type' not in opp_ev.columns:
+        return pd.DataFrame(columns=_EMPTY_COLS)
+
+    relevant_types = ['Pass', 'Take On', 'Ball touch']
+    sort_cols = [c for c in ['period_id', 'time_min', 'time_sec'] if c in opp_ev.columns]
+    te = opp_ev.sort_values(sort_cols).reset_index(drop=True) if sort_cols else opp_ev.reset_index(drop=True)
+
+    # Shot/goal lookahead (5 events)
+    is_shot_te = te['event_type'].isin(_SHOT_TYPES)
+    is_goal_te = te['event_type'] == 'Goal'
+    led_shot   = pd.Series(False, index=te.index)
+    led_goal   = pd.Series(False, index=te.index)
+    for _off in range(1, 6):
+        led_shot |= is_shot_te.shift(-_off, fill_value=False)
+        led_goal |= is_goal_te.shift(-_off, fill_value=False)
+    te['_led_to_shot'] = led_shot
+    te['_led_to_goal'] = led_goal
+
+    ev = te[te['event_type'].isin(relevant_types) & te['x'].notna() & te['y'].notna()].copy()
+    if ev.empty:
+        return pd.DataFrame(columns=_EMPTY_COLS)
+
+    is_pass = ev['event_type'] == 'Pass'
+    has_end = 'Pass End X' in ev.columns and 'Pass End Y' in ev.columns
+    px = pd.to_numeric(ev['Pass End X'], errors='coerce') if has_end else pd.Series(np.nan, index=ev.index)
+    py = pd.to_numeric(ev['Pass End Y'], errors='coerce') if has_end else pd.Series(np.nan, index=ev.index)
+    next_x = ev['x'].shift(-1)
+    next_y = ev['y'].shift(-1)
+    ev['end_x'] = np.where(is_pass, px, next_x)
+    ev['end_y'] = np.where(is_pass, py, next_y)
+    ev = ev.dropna(subset=['end_x', 'end_y'])
+    if ev.empty:
+        return pd.DataFrame(columns=_EMPTY_COLS)
+
+    sx = ev['x'].astype(float)
+    ex = ev['end_x'].astype(float)
+    ey = ev['end_y'].astype(float)
+    ev['dest_zone'] = None
+
+    if zone == 'final_third':
+        ev = ev[(sx < 66.67) & (ex >= 66.67)].copy()
+        if not ev.empty:
+            ey2 = ev['end_y'].astype(float)
+            ev['dest_zone'] = np.select(
+                [ey2 > 66.67, ey2 < 33.33],
+                ['Left Band', 'Right Band'],
+                default='Centre Band',
+            )
+    elif zone == 'zone14':
+        in_z14 = ex.between(66.67, 83.33) & ey.between(37, 63)
+        in_lhs = (ex > 66.67) & (ey > 63)  & (ey <= 79)
+        in_rhs = (ex > 66.67) & (ey >= 21) & (ey < 37)
+        ev = ev[in_z14 | in_lhs | in_rhs].copy()
+        if not ev.empty:
+            ey2 = ev['end_y'].astype(float)
+            ev['dest_zone'] = np.select(
+                [ey2 > 66.67, ey2 < 33.33],
+                ['Left Band', 'Right Band'],
+                default='Centre Band',
+            )
+
+    if ev.empty:
+        return pd.DataFrame(columns=_EMPTY_COLS)
+
+    ev['event_label'] = ev['event_type'].map({'Pass': 'Pass', 'Take On': 'Dribble', 'Ball touch': 'Carry'})
+    ev['outcome']     = pd.to_numeric(ev.get('outcome', pd.Series(1, index=ev.index)), errors='coerce').fillna(1).astype(int)
+    ev['led_to_shot'] = ev['_led_to_shot'].astype(bool)
+    ev['led_to_goal'] = ev['_led_to_goal'].astype(bool)
+    if 'time_min' not in ev.columns:
+        ev['time_min'] = 0
+    if 'time_sec' not in ev.columns:
+        ev['time_sec'] = 0
+
+    return ev[[c for c in _EMPTY_COLS if c in ev.columns]].dropna(subset=['x', 'end_x', 'end_y'])
+
+
+def _opp_entries_fig(entries_df: pd.DataFrame, zone: str) -> go.Figure:
+    """Plotly pitch figure for opposition zone entries."""
+    fig = go.Figure()
+    _add_pitch_background(fig)
+
+    if not entries_df.empty:
+        entries_df = entries_df.copy()
+
+        mins = entries_df.get('time_min', pd.Series(0, index=entries_df.index)).fillna(0).astype(int)
+        secs = entries_df.get('time_sec', pd.Series(0, index=entries_df.index)).fillna(0).astype(int)
+        entries_df['time_display'] = (
+            mins.astype(str) + ':' +
+            (secs // 10).astype(str) + (secs % 10).astype(str)
+        )
+        entries_df['outcome_label'] = entries_df['outcome'].map(
+            {1: '✓ Successful', 0: '✗ Unsuccessful'}).fillna('—')
+        entries_df['shot_label'] = np.where(
+            entries_df['led_to_goal'].fillna(False), '<br>⚽ Led to Goal',
+            np.where(entries_df['led_to_shot'].fillna(False), '<br>🎯 Led to Shot', ''))
+
+        if 'dest_zone' in entries_df.columns and entries_df['dest_zone'].notna().any():
+            color_iter = _BAND_COLORS.items()
+            group_col  = 'dest_zone'
+        else:
+            color_iter = _ENTRY_COLORS.items()
+            group_col  = 'event_label'
+
+        new_annotations: list = []
+
+        for group_name, ecolor in color_iter:
+            subset = entries_df[entries_df[group_col] == group_name]
+            if subset.empty:
+                continue
+
+            passes_sub    = subset[subset['event_label'] == 'Pass']
+            nonpasses_sub = subset[subset['event_label'] != 'Pass']
+
+            _ann = dict(xref='x', yref='y', axref='x', ayref='y',
+                        showarrow=True, arrowhead=2, arrowsize=1.5,
+                        arrowwidth=2, arrowcolor=ecolor, opacity=0.65)
+
+            if zone == 'zone14':
+                for _, r in passes_sub.iterrows():
+                    new_annotations.append({**_ann, 'x': r['end_x'], 'y': r['end_y'],
+                                            'ax': r['x'], 'ay': r['y']})
+                if not nonpasses_sub.empty:
+                    _x  = nonpasses_sub['x'].values
+                    _ex = nonpasses_sub['end_x'].values
+                    _y  = nonpasses_sub['y'].values
+                    _ey = nonpasses_sub['end_y'].values
+                    seg = np.empty(len(_x) * 3, dtype=object)
+                    sgy = np.empty(len(_y) * 3, dtype=object)
+                    seg[0::3] = _x; seg[1::3] = _ex; seg[2::3] = None
+                    sgy[0::3] = _y; sgy[1::3] = _ey; sgy[2::3] = None
+                    fig.add_trace(go.Scatter(x=seg.tolist(), y=sgy.tolist(), mode='lines',
+                                             line=dict(color=ecolor, width=2, dash='dash'),
+                                             showlegend=False, hoverinfo='skip'))
+            else:
+                for _, r in subset.iterrows():
+                    new_annotations.append({**_ann, 'x': r['end_x'], 'y': r['end_y'],
+                                            'ax': r['x'], 'ay': r['y']})
+
+            legend_name  = f'{group_name} ({len(subset)})'
+            legend_shown = False
+
+            if not passes_sub.empty:
+                cd = passes_sub[['player_name', 'time_display', 'outcome_label', 'shot_label']].values
+                ht = (f'<b>{group_name}</b><br>'
+                      'Pass: %{customdata[0]}<br>Time: %{customdata[1]}<br>'
+                      '%{customdata[2]}%{customdata[3]}<extra></extra>')
+                fig.add_trace(go.Scatter(
+                    x=passes_sub['end_x'], y=passes_sub['end_y'], mode='markers',
+                    marker=dict(size=8, color=ecolor, line=dict(width=1.5, color='white')),
+                    customdata=cd, hovertemplate=ht,
+                    name=legend_name, showlegend=True, legendgroup=group_name))
+                legend_shown = True
+
+            if not nonpasses_sub.empty:
+                cd = nonpasses_sub[['player_name', 'event_label', 'time_display',
+                                    'outcome_label', 'shot_label']].values
+                ht = (f'<b>{group_name}</b><br>'
+                      '%{customdata[1]}: %{customdata[0]}<br>Time: %{customdata[2]}<br>'
+                      '%{customdata[3]}%{customdata[4]}<extra></extra>')
+                fig.add_trace(go.Scatter(
+                    x=nonpasses_sub['end_x'], y=nonpasses_sub['end_y'], mode='markers',
+                    marker=dict(size=8, color=ecolor, line=dict(width=1.5, color='white')),
+                    customdata=cd, hovertemplate=ht,
+                    name=legend_name if not legend_shown else '',
+                    showlegend=not legend_shown, legendgroup=group_name))
+
+        if new_annotations:
+            fig.update_layout(annotations=list(fig.layout.annotations) + new_annotations)
+
+    # Zone boundaries
+    if zone == 'final_third':
+        fig.add_shape(type='line', x0=66.67, y0=0, x1=66.67, y1=100,
+                      line=dict(color='yellow', width=2, dash='dash'))
+        fig.add_shape(type='line', x0=0, y0=66.67, x1=100, y1=66.67,
+                      line=dict(color='white', width=1.5, dash='dot'))
+        fig.add_shape(type='line', x0=0, y0=33.33, x1=100, y1=33.33,
+                      line=dict(color='white', width=1.5, dash='dot'))
+        fig.add_annotation(x=4, y=83, text='Left Band', showarrow=False,
+                           font=dict(color='#00ffff', size=9, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=2)
+        fig.add_annotation(x=4, y=50, text='Centre Band', showarrow=False,
+                           font=dict(color='#ff1493', size=9, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=2)
+        fig.add_annotation(x=4, y=17, text='Right Band', showarrow=False,
+                           font=dict(color='#ffd700', size=9, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=2)
+    elif zone == 'zone14':
+        fig.add_shape(type='rect', x0=66.67, y0=37, x1=83.33, y1=63,
+                      line=dict(color='rgba(255,255,255,0.25)', width=1, dash='dash'),
+                      fillcolor='rgba(255,255,255,0.03)')
+        fig.add_shape(type='rect', x0=66.67, y0=63, x1=100, y1=79,
+                      line=dict(color='rgba(255,255,255,0.25)', width=1, dash='dash'),
+                      fillcolor='rgba(255,255,255,0.03)')
+        fig.add_shape(type='rect', x0=66.67, y0=21, x1=100, y1=37,
+                      line=dict(color='rgba(255,255,255,0.25)', width=1, dash='dash'),
+                      fillcolor='rgba(255,255,255,0.03)')
+        fig.add_annotation(x=75, y=50, text='Zone 14', showarrow=False,
+                           font=dict(color='rgba(255,255,255,0.35)', size=8, family='Arial'),
+                           bgcolor='rgba(0,0,0,0)', borderpad=2)
+        fig.add_shape(type='line', x0=0, y0=66.67, x1=100, y1=66.67,
+                      line=dict(color='white', width=1.5, dash='dot'))
+        fig.add_shape(type='line', x0=0, y0=33.33, x1=100, y1=33.33,
+                      line=dict(color='white', width=1.5, dash='dot'))
+        fig.add_annotation(x=4, y=83, text='Left Band', showarrow=False,
+                           font=dict(color='#00ffff', size=9, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=2)
+        fig.add_annotation(x=4, y=50, text='Centre Band', showarrow=False,
+                           font=dict(color='#ff1493', size=9, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=2)
+        fig.add_annotation(x=4, y=17, text='Right Band', showarrow=False,
+                           font=dict(color='#ffd700', size=9, family='Arial Black'),
+                           bgcolor='rgba(0,0,0,0.5)', borderpad=2)
+
+    _add_attack_direction(fig)
+    fig.update_layout(
+        **PITCH_AXIS_FULL,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=12, family='Arial, sans-serif'),
+        margin=dict(l=0, r=0, t=36, b=0),
+        height=480,
+        uirevision=f'obu-entries-{zone}',
+        hovermode='closest',
+        legend=dict(
+            orientation='v', x=0.99, xanchor='right', y=0.99, yanchor='top',
+            bgcolor='rgba(0,0,0,0.55)',
+            font=dict(color=COLORS['text_primary'], size=9),
+        ),
+    )
+    return fig
+
+
+# =============================================================================
 # Public builder
 # =============================================================================
 
@@ -547,6 +802,37 @@ def build_buildup(team: str | None = None, comp_key: str | None = None) -> html.
                 config=CHART_CONFIG, style={'width': '100%'},
             ),
         ),
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '16px 0 12px'}),
+        html.Div("Zone 3 Entries", style=_SECTION_TITLE),
+        html.Div(style={'marginBottom': '8px'}),
+        dbc.Row([
+            dbc.Col([
+                html.Div("Final Third Entries by Band", style={
+                    **_SECTION_TITLE, 'borderBottom': 'none', 'paddingBottom': '0',
+                    'fontSize': '0.72rem',
+                }),
+                dcc.Loading(
+                    type='circle', color=COLORS['gold'],
+                    children=dcc.Graph(
+                        id='obu-ft-fig', figure=_skel_fig(480),
+                        config=CHART_CONFIG, style={'width': '100%'},
+                    ),
+                ),
+            ], md=6),
+            dbc.Col([
+                html.Div("Zone 14 Entries by Band", style={
+                    **_SECTION_TITLE, 'borderBottom': 'none', 'paddingBottom': '0',
+                    'fontSize': '0.72rem',
+                }),
+                dcc.Loading(
+                    type='circle', color=COLORS['gold'],
+                    children=dcc.Graph(
+                        id='obu-z14-fig', figure=_skel_fig(480),
+                        config=CHART_CONFIG, style={'width': '100%'},
+                    ),
+                ),
+            ], md=6),
+        ], className='g-2'),
     ], style=_PANEL_STYLE)
 
     return html.Div(
@@ -571,6 +857,8 @@ def register_buildup_callbacks(app) -> None:
         Output('obu-touch-map-img',  'src'),
         Output('obu-network-fig',    'figure'),
         Output('obu-top5-prog',      'children'),
+        Output('obu-ft-fig',         'figure'),
+        Output('obu-z14-fig',        'figure'),
         Input('obu-outcome',         'value'),
         Input('obu-start-third',     'value'),
         Input('obu-end-third',       'value'),
@@ -592,7 +880,7 @@ def register_buildup_callbacks(app) -> None:
 
         def _empty():
             return (_build_pass_fig(pd.DataFrame()), [], _SKEL_SRC, _SKEL_SRC,
-                    _skel_fig(520), [])
+                    _skel_fig(520), [], _skel_fig(480), _skel_fig(480))
 
         if not team or not comp:
             return _empty()
@@ -662,8 +950,13 @@ def register_buildup_callbacks(app) -> None:
         net_fig   = _network_fig(opp_ev)
         top5_prog = _top5_progressive(filtered)
 
+        entries_ft  = _build_opp_entries(opp_ev, 'final_third')
+        entries_z14 = _build_opp_entries(opp_ev, 'zone14')
+
         return (
             _build_pass_fig(plot_passes),
             _stats_numbers_children(filtered),
             zone_src, touch_src, net_fig, top5_prog,
+            _opp_entries_fig(entries_ft,  'final_third'),
+            _opp_entries_fig(entries_z14, 'zone14'),
         )

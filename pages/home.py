@@ -15,23 +15,30 @@ import yaml
 from utils.config import COLORS
 from page_utils.visualizations import CHART_CONFIG
 
-# ── Opposition pipeline config (for modal dropdowns) ────────────────────────
+# ── Pipeline config (for modal dropdowns) ────────────────────────────────────
 
-_OPP_CONFIG_PATH = Path(__file__).parent.parent / 'opposition_pipeline' / 'config.yaml'
+_PIPELINE_CONFIG_PATH = Path(__file__).parent.parent / 'opta_pipeline' / 'config.yaml'
 try:
-    with open(_OPP_CONFIG_PATH) as _f:
-        _opp_cfg = yaml.safe_load(_f)
-    _OPP_TEAM_OPTIONS = [{'label': 'All Teams', 'value': ''}] + [
-        {'label': o['team_name'], 'value': o['team_name']}
-        for o in _opp_cfg.get('opponents', [])
-    ]
-    _OPP_COMP_OPTIONS = [{'label': 'All Competitions', 'value': ''}] + [
+    with open(_PIPELINE_CONFIG_PATH) as _f:
+        _pipeline_cfg = yaml.safe_load(_f)
+
+    # All teams: Barcelona first, then all opponents alphabetically
+    _all_teams = _pipeline_cfg.get('teams', [])
+    _barca     = [t for t in _all_teams if t.get('team_code') == 'BAR']
+    _opponents = [t for t in _all_teams if t.get('team_code') != 'BAR']
+
+    _PIPELINE_TEAM_OPTIONS = (
+        [{'label': 'All Teams', 'value': ''}]
+        + [{'label': t['team_name'], 'value': t['team_name']} for t in _barca]
+        + [{'label': t['team_name'], 'value': t['team_name']} for t in _opponents]
+    )
+    _PIPELINE_COMP_OPTIONS = [{'label': 'All Competitions', 'value': ''}] + [
         {'label': k.replace('_', ' '), 'value': k}
-        for k in _opp_cfg.get('competitions', {}).keys()
+        for k in _pipeline_cfg.get('competitions', {}).keys()
     ]
 except Exception:
-    _OPP_TEAM_OPTIONS = [{'label': 'All Teams', 'value': ''}]
-    _OPP_COMP_OPTIONS = [{'label': 'All Competitions', 'value': ''}]
+    _PIPELINE_TEAM_OPTIONS = [{'label': 'All Teams', 'value': ''}]
+    _PIPELINE_COMP_OPTIONS = [{'label': 'All Competitions', 'value': ''}]
 from utils.data_utils import (
     get_player_stats, get_season_summary,
     get_tournament_summary, get_tournament_match_results,
@@ -191,18 +198,12 @@ def _create_hero_section(is_admin=False):
     if is_admin:
         admin_btn = html.Div([
             dbc.Button(
-                [html.I(className="fas fa-database me-2"), "Update Barça Database"],
-                id='update-db-button', color="warning", className="me-2",
-                style={'fontWeight': 'bold'}
-            ),
-            dbc.Button(
-                [html.I(className="fas fa-search me-2"), "Update Opponent Databases"],
-                id='update-opp-button', color="info",
+                [html.I(className="fas fa-database me-2"), "Update Databases"],
+                id='update-db-button', color="warning",
                 style={'fontWeight': 'bold'}
             ),
         ], style={
             'position': 'absolute', 'top': '1rem', 'right': '1.5rem', 'zIndex': 2,
-            'display': 'flex', 'alignItems': 'center',
         })
 
     return html.Div([
@@ -491,10 +492,10 @@ def _create_footer_nav():
     ], className="mb-4")
 
 
-# ── Opposition pipeline modal ────────────────────────────────────────────────
+# ── Pipeline modal ────────────────────────────────────────────────────────────
 
-def _create_opp_pipeline_modal():
-    """Admin-only modal for running the opposition data pipeline with options."""
+def _create_pipeline_modal():
+    """Admin-only modal for the unified data extraction pipeline."""
     _label = {'color': COLORS['text_secondary'], 'fontSize': '0.85rem', 'fontWeight': 600,
                'marginBottom': '0.4rem', 'display': 'block'}
     _hint  = {'color': COLORS['text_secondary'], 'fontSize': '0.8rem', 'marginBottom': '0.35rem'}
@@ -502,8 +503,8 @@ def _create_opp_pipeline_modal():
     return dbc.Modal([
         dbc.ModalHeader(
             dbc.ModalTitle([
-                html.I(className="fas fa-search me-2", style={'color': '#17a2b8'}),
-                "Scout Opponents Pipeline",
+                html.I(className="fas fa-database me-2", style={'color': COLORS['gold']}),
+                "Update Databases",
             ]),
             style={'backgroundColor': COLORS['dark_secondary'],
                    'borderBottom': f"1px solid {COLORS['dark_border']}",
@@ -511,7 +512,8 @@ def _create_opp_pipeline_modal():
         ),
         dbc.ModalBody([
             html.P(
-                "Download match event data for all Barcelona opponents across their full seasons.",
+                "Download and transform match event data. "
+                "Leave Team and Competition blank to run the full pipeline for all teams.",
                 style={'color': COLORS['text_secondary'], 'marginBottom': '1.25rem'},
             ),
 
@@ -521,7 +523,7 @@ def _create_opp_pipeline_modal():
                     html.Label("Team", style=_label),
                     dcc.Dropdown(
                         id='opp-team-select',
-                        options=_OPP_TEAM_OPTIONS,
+                        options=_PIPELINE_TEAM_OPTIONS,
                         value='',
                         clearable=False,
                         placeholder="All Teams",
@@ -532,7 +534,7 @@ def _create_opp_pipeline_modal():
                     html.Label("Competition", style=_label),
                     dcc.Dropdown(
                         id='opp-comp-select',
-                        options=_OPP_COMP_OPTIONS,
+                        options=_PIPELINE_COMP_OPTIONS,
                         value='',
                         clearable=False,
                         placeholder="All Competitions",
@@ -559,13 +561,15 @@ def _create_opp_pipeline_modal():
             # ── Info box ──────────────────────────────────────────────────
             html.Div([
                 html.P([html.Strong("Full run: ", style={'color': COLORS['text_primary']}),
-                        "scrapes Scoresway pages, downloads all match JSON via browser, transforms to Parquet."],
+                        "scrapes Scoresway pages, downloads all match JSONs via browser, "
+                        "transforms to Parquet."],
                        style=_hint),
                 html.P([html.Strong("Force Re-scrape: ", style={'color': COLORS['text_primary']}),
                         "re-fetches competition result pages instead of using the local CSV cache."],
                        style=_hint),
                 html.P([html.Strong("Transform Only: ", style={'color': COLORS['text_primary']}),
-                        "re-processes previously downloaded JSONs. No browser or network required."],
+                        "re-processes previously downloaded JSONs. "
+                        "No browser or network required."],
                        style={**_hint, 'marginBottom': 0}),
             ], style={
                 'backgroundColor': COLORS['dark_bg'],
@@ -578,7 +582,7 @@ def _create_opp_pipeline_modal():
             dbc.Button("Cancel", id='opp-modal-cancel', color="secondary", className="me-2"),
             dbc.Button(
                 [html.I(className="fas fa-play me-2"), "Run Pipeline"],
-                id='update-opp-run-button', color="info",
+                id='update-opp-run-button', color="warning",
                 style={'fontWeight': 'bold'},
             ),
         ], style={'backgroundColor': COLORS['dark_secondary'],
@@ -606,7 +610,7 @@ def create_home_layout(is_admin=False):
         _create_footer_nav(),
     ]
     if is_admin:
-        children.append(_create_opp_pipeline_modal())
+        children.append(_create_pipeline_modal())
 
     return dbc.Container(children, fluid=True, className="py-4")
 
@@ -619,18 +623,18 @@ def register_home_callbacks(app):
 
     @app.callback(
         Output('opp-pipeline-modal', 'is_open'),
-        Input('update-opp-button', 'n_clicks'),
+        Input('update-db-button', 'n_clicks'),
         Input('opp-modal-cancel', 'n_clicks'),
         Input('update-opp-run-button', 'n_clicks'),
         State('opp-pipeline-modal', 'is_open'),
         prevent_initial_call=True,
     )
-    def toggle_opp_modal(open_clicks, cancel_clicks, run_clicks, is_open):
+    def toggle_pipeline_modal(open_clicks, cancel_clicks, run_clicks, is_open):
         ctx = callback_context
         if not ctx.triggered:
             return is_open
         trigger = ctx.triggered[0]['prop_id'].split('.')[0]
-        if trigger == 'update-opp-button':
+        if trigger == 'update-db-button':
             return True
         return False  # cancel or run both close
 

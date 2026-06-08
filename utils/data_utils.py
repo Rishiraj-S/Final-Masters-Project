@@ -2,6 +2,7 @@
 CuléVision - Data Utilities
 Functions for loading and processing Opta pipeline data
 """
+from __future__ import annotations
 
 import os
 import pandas as pd
@@ -9,14 +10,20 @@ from pathlib import Path
 
 # Data paths
 SCRIPT_DIR = Path(__file__).parent.parent  # Go up one level from utils/ to project root
-DATA_PATH = SCRIPT_DIR / "data" / "barcelona" / "result"
+DATA_ROOT  = SCRIPT_DIR / "data" / "2025-26"
 
-COMPETITIONS = {
-    'laliga': 'Spain_Primera_Division',
-    'ucl': 'UEFA_Champions_League',
-    'copa': 'Spain_Copa_del_Rey',
-    'supercup': 'Spain_Super_Cup'
+# Barcelona's competition keys → (country_folder, comp_folder)
+_BARCA_COMPS: dict[str, tuple[str, str]] = {
+    'laliga':   ('Spain',  'Spain_Primera_Division'),
+    'ucl':      ('Europe', 'UEFA_Champions_League'),
+    'copa':     ('Spain',  'Spain_Copa_del_Rey'),
+    'supercup': ('Spain',  'Spain_Super_Cup'),
 }
+
+# Backwards-compat alias used by external callers
+COMPETITIONS = {k: v[1] for k, v in _BARCA_COMPS.items()}
+
+BAR_CODE = 'BAR'
 
 COMPETITION_NAMES = {
     'Spain_Primera_Division': 'La Liga',
@@ -98,17 +105,25 @@ def exclude_own_goals(events_df):
     return events_df[~og_mask]
 
 
+def _barca_files(comp_folder: str, country: str, subdir: str):
+    """Yield parquet paths for Barcelona's matches in one competition subdir."""
+    folder = DATA_ROOT / country / comp_folder / subdir
+    if not folder.exists():
+        return
+    for f in sorted(folder.glob('*.parquet')):
+        if f'_{BAR_CODE}_vs_' in f.name or f'_vs_{BAR_CODE}_' in f.name:
+            yield f
+
+
 def get_all_matches(season=CURRENT_SEASON):
     """Load all match data for a given season across all competitions."""
     all_matches = []
 
-    for comp_key, comp_folder in COMPETITIONS.items():
-        match_path = DATA_PATH / comp_folder / season / "match"
-        if match_path.exists():
-            for file in sorted(match_path.glob("*.parquet")):
-                df = pd.read_parquet(file)
-                df['competition'] = COMPETITION_NAMES.get(comp_folder, comp_folder)
-                all_matches.append(df)
+    for _key, (country, comp_folder) in _BARCA_COMPS.items():
+        for f in _barca_files(comp_folder, country, 'match'):
+            df = pd.read_parquet(f)
+            df['competition'] = COMPETITION_NAMES.get(comp_folder, comp_folder)
+            all_matches.append(df)
 
     if all_matches:
         return pd.concat(all_matches, ignore_index=True).sort_values('date', ascending=False)
@@ -126,13 +141,11 @@ def get_all_events(season=CURRENT_SEASON):
         return _events_cache[season]
 
     all_events = []
-    for comp_key, comp_folder in COMPETITIONS.items():
-        event_path = DATA_PATH / comp_folder / season / "match_event"
-        if event_path.exists():
-            for file in sorted(event_path.glob("*.parquet")):
-                df = pd.read_parquet(file)
-                df['competition'] = COMPETITION_NAMES.get(comp_folder, comp_folder)
-                all_events.append(df)
+    for _key, (country, comp_folder) in _BARCA_COMPS.items():
+        for f in _barca_files(comp_folder, country, 'match_event'):
+            df = pd.read_parquet(f)
+            df['competition'] = COMPETITION_NAMES.get(comp_folder, comp_folder)
+            all_events.append(df)
 
     result = pd.concat(all_events, ignore_index=True) if all_events else pd.DataFrame()
     # Only cache non-empty results — an empty result could mean the pipeline
@@ -217,7 +230,7 @@ def get_match_results():
     multiple tab builders don't each re-run the same groupby over 100k+ rows.
     """
     global _results_cache
-    if _results_cache is not None:
+    if _results_cache:
         return _results_cache
 
     events = get_all_events()
@@ -612,68 +625,39 @@ def get_player_stats_by_competition(competition, season=CURRENT_SEASON):
 def get_available_seasons(competition=None):
     """Return sorted list of season strings present on disk.
 
-    Args:
-        competition: Optional folder name, e.g. 'Spain_Primera_Division'.
-                     If None, returns the union across all competitions.
-    Returns:
-        List[str] sorted ascending, e.g. ['2008-2009', ..., '2025-2026'].
+    Season is now encoded in the root data directory name (e.g. data/2025-26/).
+    Returns List[str] — currently always [CURRENT_SEASON].
     """
-    if competition:
-        folder = DATA_PATH / competition
-        if not folder.exists():
-            return []
-        return sorted(
-            d.name for d in folder.iterdir()
-            if d.is_dir() and '-' in d.name
-        )
-
-    seasons = set()
-    for comp_folder in COMPETITIONS.values():
-        folder = DATA_PATH / comp_folder
-        if folder.exists():
-            for d in folder.iterdir():
-                if d.is_dir() and '-' in d.name:
-                    seasons.add(d.name)
-    return sorted(seasons)
+    data_parent = DATA_ROOT.parent
+    if not data_parent.exists():
+        return [CURRENT_SEASON]
+    seasons = sorted(
+        d.name.replace('-', '-20', 1) if len(d.name) == 7 else d.name
+        for d in data_parent.iterdir()
+        if d.is_dir() and not d.name.startswith('.')
+        and any(c.isdigit() for c in d.name)
+    )
+    return seasons if seasons else [CURRENT_SEASON]
 
 
 def get_all_teams(season=None, competition=None):
     """Return sorted list of all non-Barcelona team names in the match data.
 
-    Args:
-        season: Season string, e.g. '2025-2026'. If None, all seasons.
-        competition: Friendly competition name (value from COMPETITION_NAMES),
-                     e.g. 'La Liga'. If None, all competitions.
-    Returns:
-        List[str] of team names, excluding Barcelona.
+    Scans only Barcelona's match files (which contain both teams' events),
+    extracting opponent team names.
     """
     teams = set()
-    for comp_folder in COMPETITIONS.values():
+    for _key, (country, comp_folder) in _BARCA_COMPS.items():
         comp_display = COMPETITION_NAMES.get(comp_folder, comp_folder)
         if competition and competition != 'all' and comp_display != competition:
             continue
-
-        if season and season != 'all':
-            seasons_to_check = [season]
-        else:
-            season_path = DATA_PATH / comp_folder
-            if not season_path.exists():
-                continue
-            seasons_to_check = [d.name for d in season_path.iterdir() if d.is_dir()]
-
-        for s in seasons_to_check:
-            # Read team_name from match_event files so names are consistent
-            # with the team_name column used in get_team_events()
-            event_path = DATA_PATH / comp_folder / s / 'match_event'
-            if not event_path.exists():
-                continue
-            for f in event_path.glob('*.parquet'):
-                df = pd.read_parquet(f, columns=['team_name', 'team_code'])
-                valid = df.loc[
-                    (df['team_code'] != 'BAR') & df['team_name'].notna(),
-                    'team_name'
-                ]
-                teams.update(valid.unique())
+        for f in _barca_files(comp_folder, country, 'match_event'):
+            df = pd.read_parquet(f, columns=['team_name', 'team_code'])
+            valid = df.loc[
+                (df['team_code'] != BAR_CODE) & df['team_name'].notna(),
+                'team_name'
+            ]
+            teams.update(valid.unique())
 
     return sorted(teams)
 
@@ -810,19 +794,13 @@ def get_match_lineup(match_id):
     if not match_id:
         return pd.DataFrame()
 
-    for comp_folder in COMPETITIONS.values():
-        comp_path = DATA_PATH / comp_folder
-        if not comp_path.exists():
+    for _key, (country, comp_folder) in _BARCA_COMPS.items():
+        lineup_path = DATA_ROOT / country / comp_folder / 'lineup'
+        if not lineup_path.exists():
             continue
-        for season_dir in comp_path.iterdir():
-            if not season_dir.is_dir():
-                continue
-            lineup_path = season_dir / 'lineup'
-            if not lineup_path.exists():
-                continue
-            for f in lineup_path.glob('*.parquet'):
-                if match_id in f.stem:
-                    return pd.read_parquet(f)
+        for f in lineup_path.glob('*.parquet'):
+            if match_id in f.stem:
+                return pd.read_parquet(f)
 
     return pd.DataFrame()
 
