@@ -1165,3 +1165,69 @@ div[data-dash-is-loading] > div,
 .SingleDatePickerInput_clearDate_svg {
     fill: var(--text-secondary) !important;
 }
+
+/* =============================================================================
+   SKELETON LOADING SCREENS
+   dcc.Loading hides its children with visibility:hidden and shows a spinner.
+   We (a) hide the spinner via .dash-spinner, (b) force children visible with
+   visibility:visible, and (c) add a shimmer wave over the existing skeleton
+   placeholders (_skel_fig / _SKEL_SRC / initial stat cards).
+   ============================================================================= */
+
+/* 1. Hide all Dash spinner variants */
+.dash-spinner,
+.dash-spinner-container {
+    display: none !important;
+}
+
+/* 2. Counter dcc.Loading's visibility:hidden on the children wrapper.
+      data-dash-is-loading="true" is set on the component element itself
+      (graph, img, div); visibility:visible on a child overrides a hidden parent. */
+[data-dash-is-loading="true"] {
+    visibility: visible !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+/* 3. Shimmer wave keyframe */
+@keyframes skeleton-shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX( 250%); }
+}
+
+/* 4. Travelling highlight over the now-visible skeleton placeholder */
+[data-dash-is-loading="true"]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    background: linear-gradient(
+        105deg,
+        transparent               0%,
+        rgba(255, 255, 255, 0.04) 35%,
+        rgba(255, 255, 255, 0.09) 50%,
+        rgba(255, 255, 255, 0.04) 65%,
+        transparent               100%
+    );
+    animation: skeleton-shimmer 2s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* 5. Utility class for standalone skeleton placeholder blocks */
+.skeleton-block {
+    background: linear-gradient(
+        90deg,
+        var(--dark-secondary) 0%,
+        var(--dark-tertiary)   50%,
+        var(--dark-secondary) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-block-pulse 1.8s ease-in-out infinite;
+    border-radius: 6px;
+}
+
+@keyframes skeleton-block-pulse {
+    0%   { background-position: 100% 50%; }
+    100% { background-position:   0% 50%; }
+}
