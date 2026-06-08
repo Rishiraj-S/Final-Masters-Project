@@ -522,19 +522,44 @@ def _compute_half_stats(events: pd.DataFrame, pos: str, period: int | None = Non
 
     total_xt = round(float(_add_xt_column(passes)['xT'].sum()), 3) if total_p > 0 else 0.0
 
+    # Avg passes per possession — detect possession starts from full event stream
+    _ev_f = events.copy()
+    _sc_f = [c for c in ['period_id', 'time_min', 'time_sec'] if c in _ev_f.columns]
+    if _sc_f:
+        _ev_f = _ev_f.sort_values(_sc_f).reset_index(drop=True)
+    if period is not None and 'period_id' in _ev_f.columns:
+        _ev_f = _ev_f[_ev_f['period_id'] == period]
+    if 'team_position' in _ev_f.columns and not _ev_f.empty:
+        _is_t = _ev_f['team_position'] == pos
+        _n_poss = int((_is_t & ~_is_t.shift(1, fill_value=False)).sum())
+    else:
+        _n_poss = 0
+    avg_passes_per_poss = round(total_p / _n_poss, 1) if _n_poss > 0 else 0.0
+
+    # Field tilt: team's share of all final-third passes (both teams) in this half
+    _all_p = events[events['event_type'] == 'Pass'].copy()
+    if period is not None and 'period_id' in _all_p.columns:
+        _all_p = _all_p[_all_p['period_id'] == period]
+    _all_p['x'] = pd.to_numeric(_all_p['x'], errors='coerce')
+    _all_ft  = int((_all_p['x'].dropna() > 66.67).sum()) if not _all_p.empty else 0
+    _team_ft = int((passes['x'].dropna() > 66.67).sum()) if total_p > 0 else 0
+    field_tilt = round(_team_ft / _all_ft * 100, 1) if _all_ft > 0 else 0.0
+
     return {
-        'team':       team,
-        'passes':     total_p,
-        'pass_acc':   round(len(succ_p) / total_p * 100, 1) if total_p else 0.0,
-        'long_balls': _count_si(passes, 'Long ball'),
-        'crosses':    _count_si(passes, 'Cross'),
-        'thru_balls': _count_si(passes, 'Through ball'),
-        'into_ft':    into_ft,
-        'total_xt':   total_xt,
-        'carries':    len(carries),
-        'dribbles':   total_d,
-        'drib_succ':  len(succ_d),
-        'drib_acc':   round(len(succ_d) / total_d * 100, 1) if total_d else 0.0,
+        'team':                team,
+        'passes':              total_p,
+        'pass_acc':            round(len(succ_p) / total_p * 100, 1) if total_p else 0.0,
+        'avg_passes_per_poss': avg_passes_per_poss,
+        'field_tilt':          field_tilt,
+        'long_balls':          _count_si(passes, 'Long ball'),
+        'crosses':             _count_si(passes, 'Cross'),
+        'thru_balls':          _count_si(passes, 'Through ball'),
+        'into_ft':             into_ft,
+        'total_xt':            total_xt,
+        'carries':             len(carries),
+        'dribbles':            total_d,
+        'drib_succ':           len(succ_d),
+        'drib_acc':            round(len(succ_d) / total_d * 100, 1) if total_d else 0.0,
     }
 
 
@@ -1135,9 +1160,11 @@ def _player_possession_table(poss_df: pd.DataFrame, color: str) -> html.Div:
 # =============================================================================
 
 _BUP_METRICS = [
-    ('Total Passes',     'passes',     False),
-    ('Pass Accuracy',    'pass_acc',   True),
-    ('Positional xT',    'total_xt',   False),
+    ('Total Passes',     'passes',              False),
+    ('Pass Accuracy',    'pass_acc',            True),
+    ('Field Tilt',       'field_tilt',          True),
+    ('Avg Passes/Poss',  'avg_passes_per_poss', False),
+    ('Positional xT',    'total_xt',            False),
     ('Into Final Third', 'into_ft',    False),
     ('Long Balls',       'long_balls', False),
     ('Crosses',          'crosses',    False),

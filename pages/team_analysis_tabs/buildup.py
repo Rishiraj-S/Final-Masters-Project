@@ -391,9 +391,37 @@ def _count_key_passes(bar_events: pd.DataFrame) -> int:
     return int(kp.sum())
 
 
+def _avg_passes_per_poss(all_events: pd.DataFrame, n_bar_passes: int) -> float:
+    """Avg BAR passes per possession using full event stream (both teams)."""
+    if all_events.empty or 'team_code' not in all_events.columns:
+        return 0.0
+    sort_cols = [c for c in ['period_id', 'time_min', 'time_sec'] if c in all_events.columns]
+    ev = (all_events.sort_values(sort_cols).reset_index(drop=True)
+          if sort_cols else all_events.reset_index(drop=True))
+    is_bar = ev['team_code'] == 'BAR'
+    n_poss = int((is_bar & ~is_bar.shift(1, fill_value=False)).sum())
+    return round(n_bar_passes / n_poss, 1) if n_poss > 0 else 0.0
+
+
+def _field_tilt(all_events: pd.DataFrame, bar_passes: pd.DataFrame) -> float:
+    """BAR's share of all final-third passes (both teams) in selected matches."""
+    if all_events.empty or bar_passes.empty:
+        return 0.0
+    all_passes = all_events[all_events['event_type'] == 'Pass'].copy()
+    if all_passes.empty:
+        return 0.0
+    all_passes['x'] = pd.to_numeric(all_passes['x'], errors='coerce')
+    bar_x  = pd.to_numeric(bar_passes['x'], errors='coerce')
+    all_ft = int((all_passes['x'].dropna() > 66.67).sum())
+    bar_ft = int((bar_x.dropna() > 66.67).sum())
+    return round(bar_ft / all_ft * 100, 1) if all_ft > 0 else 0.0
+
+
 def _stats_numbers_children(passes: pd.DataFrame,
-                            bar_events: pd.DataFrame | None = None) -> list:
-    """2×2 stat cards — returned as a list for use as div children."""
+                            bar_events: pd.DataFrame | None = None,
+                            avg_ppp: float | None = None,
+                            field_tilt: float | None = None) -> list:
+    """Stat cards — returned as a list for use as div children."""
     n_total = len(passes)
     n_suc   = int(passes['outcome'].eq(1).sum()) if 'outcome' in passes.columns else 0
     acc     = round(n_suc / max(n_total, 1) * 100, 1)
@@ -436,12 +464,18 @@ def _stats_numbers_children(passes: pd.DataFrame,
     def _row(*cards):
         return html.Div(list(cards), style={'display': 'flex', 'gap': '6px', 'marginBottom': '6px'})
 
-    return [
+    rows = [
         _row(_card(n_total,   'Total',       GOLD),
              _card(f'{acc}%', 'Accuracy',    HOME_COLOR)),
         _row(_card(n_prog,    'Progressive', HOME_COLOR),
              _card(n_key,     'Key Passes',  AWAY_COLOR)),
     ]
+    if avg_ppp is not None or field_tilt is not None:
+        rows.append(_row(
+            _card(avg_ppp if avg_ppp is not None else '—', 'Avg Passes/Poss', HOME_COLOR),
+            _card(f'{field_tilt}%' if field_tilt is not None else '—', 'Field Tilt', GOLD),
+        ))
+    return rows
 
 
 def _stats_col_children(initial_passes: pd.DataFrame, n_total_passes: int,
@@ -1637,6 +1671,8 @@ def register_buildup_callbacks(app) -> None:
         ft_table  = _entries_table_children(entries_ft)
         z14_table = _entries_table_children(entries_z14)
 
-        return (_build_pass_fig(plot_passes), _stats_numbers_children(filtered, filtered_bar),
+        avg_ppp    = _avg_passes_per_poss(events, len(passes))
+        fld_tilt   = _field_tilt(events, passes)
+        return (_build_pass_fig(plot_passes), _stats_numbers_children(filtered, filtered_bar, avg_ppp, fld_tilt),
                 zone_src, touch_src, net_fig, mat_fig, top5_prog, top5_poss,
                 ft_fig, z14_fig, ft_table, z14_table)

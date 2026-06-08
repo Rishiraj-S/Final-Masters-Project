@@ -280,7 +280,8 @@ def _zone_pitch_image(passes: pd.DataFrame, n_total: int) -> str:
     return result
 
 
-def _stats_numbers_children(passes: pd.DataFrame) -> list:
+def _stats_numbers_children(passes: pd.DataFrame,
+                            avg_ppp: float | None = None) -> list:
     n_total = len(passes)
     n_suc   = int(passes['outcome'].eq(1).sum()) if 'outcome' in passes.columns else 0
     acc     = round(n_suc / max(n_total, 1) * 100, 1)
@@ -310,12 +311,14 @@ def _stats_numbers_children(passes: pd.DataFrame) -> list:
     def _row(*cards):
         return html.Div(list(cards), style={'display': 'flex', 'gap': '6px', 'marginBottom': '6px'})
 
-    return [
-        _row(_card(n_total,   'Total',       GOLD),
-             _card(f'{acc}%', 'Accuracy',    HOME_COLOR)),
-        _row(_card(n_prog,    'Progressive', HOME_COLOR),
-             _card('—',       'Key Passes',  AWAY_COLOR)),
+    rows = [
+        _row(_card(n_total,   'Total',          GOLD),
+             _card(f'{acc}%', 'Accuracy',       HOME_COLOR)),
+        _row(_card(n_prog,    'Progressive',    HOME_COLOR),
+             _card(avg_ppp if avg_ppp is not None else '—',
+                   'Avg Passes/Poss',           AWAY_COLOR)),
     ]
+    return rows
 
 
 def _top5_progressive(passes: pd.DataFrame) -> list:
@@ -953,9 +956,21 @@ def register_buildup_callbacks(app) -> None:
         entries_ft  = _build_opp_entries(opp_ev, 'final_third')
         entries_z14 = _build_opp_entries(opp_ev, 'zone14')
 
+        # Avg passes per possession — proxy via possession-gaining events
+        _all_pass_n = int((opp_ev['event_type'] == 'Pass').sum()) if not opp_ev.empty else 0
+        _sc = [c for c in ['period_id', 'time_min', 'time_sec'] if c in opp_ev.columns]
+        _ev_s = opp_ev.sort_values(_sc).reset_index(drop=True) if _sc else opp_ev
+        _poss_types = {'Ball recovery', 'Interception', 'Keeper pick-up', 'Keeper Sweeper'}
+        _is_poss = _ev_s['event_type'].isin(_poss_types) if not _ev_s.empty else pd.Series(dtype=bool)
+        for _qcol in ['Free kick taken', 'Corner taken', 'Goal Kick', 'Throw In']:
+            if _qcol in _ev_s.columns:
+                _is_poss = _is_poss | (_ev_s[_qcol] == 'Si')
+        _n_poss = int(_is_poss.sum()) if not _ev_s.empty else 0
+        avg_ppp = round(_all_pass_n / _n_poss, 1) if _n_poss > 0 else 0.0
+
         return (
             _build_pass_fig(plot_passes),
-            _stats_numbers_children(filtered),
+            _stats_numbers_children(filtered, avg_ppp),
             zone_src, touch_src, net_fig, top5_prog,
             _opp_entries_fig(entries_ft,  'final_third'),
             _opp_entries_fig(entries_z14, 'zone14'),
