@@ -12,6 +12,8 @@ numpy==2.4.2
 pyarrow==23.0.1
 
 # Football Analytics Libraries
+matplotlib==3.10.0
+Pillow==11.1.0
 mplsoccer==1.6.1
 statsbombpy==1.16.0
 
