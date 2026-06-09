@@ -555,7 +555,7 @@ def create_opp_update_overlay():
     return html.Div([
         html.Div([
             html.Div(className="spinner-border text-info mb-4", role="status"),
-            html.H2("Scouting Opposition Databases",
+            html.H2("Updating Databases with latest matches",
                    style={'color': '#17a2b8', 'marginBottom': '20px'}),
             html.P("Please wait while the system downloads opposition match data...",
                   style={'color': COLORS['text_secondary'], 'fontSize': '1.1rem'}),
