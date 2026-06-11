@@ -2,7 +2,7 @@
 Team Analysis — Defensive Transition sub-tab
 
 Every time Barcelona loses possession, the team must transition into defence.
-The 30-second window after each possession-loss event is defined as the
+The 15-second window after each possession-loss event is defined as the
 defensive transition period for this app.
 
 Possession-loss types:
@@ -42,7 +42,7 @@ from page_utils.visualizations import (
     PITCH_BG,
 )
 
-_TRANSITION_WINDOW_SEC = 30  # seconds after possession loss
+_TRANSITION_WINDOW_SEC = 15  # seconds after possession loss
 
 # Raw event types that constitute a possession loss (non-Pass, non-outcome-gated)
 _POSS_LOSS_RAW = ['Miscontrol', 'Dispossessed', 'Offside Pass', 'Error']
@@ -386,7 +386,7 @@ def _pitch_map_fig(losses: pd.DataFrame) -> go.Figure:
                     'Time: %{customdata[1]}<br>'
                     'How: %{customdata[2]}'
                     '%{customdata[3]}<br>'
-                    '<b>Next 30s:</b> %{customdata[4]}'
+                    '<b>Next 15s:</b> %{customdata[4]}'
                     '%{customdata[5]}'
                     '<extra></extra>'
                 ),
@@ -405,14 +405,14 @@ def _pitch_map_fig(losses: pd.DataFrame) -> go.Figure:
                         line=dict(color='white', width=0.8)),
         ))
 
-    # Legend 2 (top-right) — Next 30s Outcome (shapes, neutral grey)
+    # Legend 2 (top-right) — Next 15s Outcome (shapes, neutral grey)
     for i, (outcome, (symbol, size)) in enumerate(_OUTCOME_SYMBOLS.items()):
         fig.add_trace(go.Scatter(
             x=[None], y=[None], mode='markers',
             name=outcome,
             legend='legend2',
             legendgroup=f'outcome_{outcome}',
-            legendgrouptitle_text='Next 30s' if i == 0 else '',
+            legendgrouptitle_text='Next 15s' if i == 0 else '',
             showlegend=True,
             marker=dict(color='#e2e8f0', symbol=symbol, size=size,
                         line=dict(color='white', width=0.8)),
@@ -509,7 +509,7 @@ def _tag_loss_outcomes(
 ) -> pd.DataFrame:
     """
     Tag each possession-loss row with a 'window_outcome' string describing
-    what happened in the 30-second window that followed.
+    what happened in the 15-second window that followed.
 
     Priority (highest wins): Goal Conceded > Shot Conceded > BAR Recovery > No Incident.
     Also stores 'window_detail': first opponent shot player name (if any).
@@ -828,7 +828,7 @@ def _filter_panel(player_options=None) -> html.Div:
         ),
 
         html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 4px'}),
-        html.Div("Next 30s Outcome", style=_LABEL_STYLE),
+        html.Div("Next 15s Outcome", style=_LABEL_STYLE),
         dcc.Checklist(
             id='dt-outcome-filter',
             options=[{'label': f'  {t}', 'value': t} for t in _ALL_OUTCOME_TYPES],
@@ -933,7 +933,7 @@ def build_defending_transition_skeleton() -> html.Div:
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
                 html.Div("Transition Outcome", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
                 html.Div(
-                    "How each 30s window resolved",
+                    "How each 15s window resolved",
                     style={'color': COLORS['text_secondary'], 'fontSize': '0.60rem',
                            'fontStyle': 'italic', 'marginBottom': '6px'},
                 ),
@@ -1057,7 +1057,7 @@ def register_defending_transition_callbacks(app) -> None:
         _types    = loss_types    if loss_types    else _ALL_LOSS_TYPES
         _outcomes = outcome_types if outcome_types else _ALL_OUTCOME_TYPES
 
-        # Tag each loss with what happened in the next 30 seconds
+        # Tag each loss with what happened in the next 15 seconds
         opp_in_windows  = _opp_events_in_windows(losses, opp)
         losses          = _tag_loss_outcomes(losses, bar, opp)
         losses_filtered = losses[

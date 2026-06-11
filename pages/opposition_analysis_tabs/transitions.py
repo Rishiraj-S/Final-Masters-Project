@@ -28,7 +28,7 @@ from page_utils.visualizations import (
     render_xt_heatmap_img,
     PITCH_BG,
 )
-_TRANSITION_WINDOW_SEC = 30
+_TRANSITION_WINDOW_SEC = 15
 
 # ── Attacking transition ──────────────────────────────────────────────────────
 _GAIN_COLORS = {
@@ -564,7 +564,7 @@ def _build_attacking_skeleton(player_opts=None) -> html.Div:
             labelStyle={'color': COLORS['text_secondary'], 'fontSize': '0.75rem', 'display': 'block', 'marginBottom': '4px'},
         ),
         html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 4px'}),
-        html.Div("Next 30s Outcome", style=_LABEL_STYLE),
+        html.Div("Next 15s Outcome", style=_LABEL_STYLE),
         dcc.Checklist(
             id='oat-outcome-filter',
             options=[{'label': f'  {t}', 'value': t} for t in _ALL_ATK_OUTCOMES],
@@ -581,7 +581,7 @@ def _build_attacking_skeleton(player_opts=None) -> html.Div:
         dbc.Row([
             dbc.Col([
                 html.Div("Possession Gain Map", style=_SECTION_TITLE),
-                html.Div("Location of every possession gain · shape = 30s outcome",
+                html.Div("Location of every possession gain · shape = 15s outcome",
                          style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
                                 'fontStyle': 'italic', 'marginBottom': '8px'}),
                 dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
@@ -631,7 +631,7 @@ def _build_defensive_skeleton(player_opts=None) -> html.Div:
             labelStyle={'color': COLORS['text_secondary'], 'fontSize': '0.75rem', 'display': 'block', 'marginBottom': '4px'},
         ),
         html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 4px'}),
-        html.Div("Next 30s Outcome", style=_LABEL_STYLE),
+        html.Div("Next 15s Outcome", style=_LABEL_STYLE),
         dcc.Checklist(
             id='odt-outcome-filter',
             options=[{'label': f'  {t}', 'value': t} for t in _ALL_DEF_OUTCOMES],
@@ -648,7 +648,7 @@ def _build_defensive_skeleton(player_opts=None) -> html.Div:
         dbc.Row([
             dbc.Col([
                 html.Div("Possession Loss Map", style=_SECTION_TITLE),
-                html.Div("Location of every possession loss · shape = 30s outcome",
+                html.Div("Location of every possession loss · shape = 15s outcome",
                          style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
                                 'fontStyle': 'italic', 'marginBottom': '8px'}),
                 dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(

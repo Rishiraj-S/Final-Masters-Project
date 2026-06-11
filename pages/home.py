@@ -45,15 +45,7 @@ from utils.data_utils import (
     get_player_stats_by_competition, get_form_timeline,
     COMPETITION_NAMES,
 )
-
-# ── Asset mappings ──────────────────────────────────────────────────────────
-
-TOURNAMENT_LOGOS = {
-    'La Liga': 'assets/logos/tournament/LALIGA-Primera-Division-v2023.svg',
-    'Champions League': 'assets/logos/tournament/UEFA-Champions-League-v2021.svg',
-    'Copa del Rey': 'assets/logos/tournament/Copa del Rey logo - Brandlogos.net.svg',
-    'Spanish Super Cup': 'assets/logos/tournament/supercopa-de-espana-seeklogo.svg',
-}
+from utils.logos import get_team_logo_path, get_tournament_logo_path
 
 # Player name (from data) -> image file mapping
 PLAYER_IMAGES = {
@@ -80,39 +72,6 @@ PLAYER_IMAGES = {
     'Gerard Martín': 'assets/players/18-Martin.webp',
     'Joan García': 'assets/players/01-Joan_Garcia.webp',
     'R. Bardghji': 'assets/players/28-Bardghji.webp',
-}
-
-# Opponent name (from data) -> team logo SVG mapping
-OPPONENT_LOGOS = {
-    'Alavés': 'assets/logos/team/Deportivo-Alaves-v2020.svg',
-    'Albacete': 'assets/logos/team/Albacete-Balompie-v2009.svg',
-    'Athletic Club': 'assets/logos/team/Athletic-Club-Bilbao-v2008.svg',
-    'Atlético de Madrid': 'assets/logos/team/Atletico-Madrid-v2024.svg',
-    'Celta de Vigo': 'assets/logos/team/RC-Celta-de-Vigo-v2010.svg',
-    'Chelsea': 'assets/logos/team/Chelsea-FC-v2006.svg',
-    'Club Brugge': 'assets/logos/team/Club-Brugge-KV-v2017.svg',
-    'Eintracht Frankfurt': 'assets/logos/team/Eintracht-Frankfurt-v1998.svg',
-    'Elche': 'assets/logos/team/Elche-CF-v2009.svg',
-    'Espanyol': 'assets/logos/team/RCD-Espanyol-v2005.svg',
-    'Getafe': 'assets/logos/team/Getafe-Club-de-Futbol-v2011.svg',
-    'Girona': 'assets/logos/team/Girona-Futbol-Club-v2021.svg',
-    'København': 'assets/logos/team/FC-Copenhagen-v1992.svg',
-    'Levante': 'assets/logos/team/Levante-UD-v2010.svg',
-    'Mallorca': 'assets/logos/team/Real-Club-Deportivo-Mallorca-v1996.svg',
-    'Newcastle United': 'assets/logos/team/Newcastle-United-Football-Club-v1988.svg',
-    'Olympiakos Piraeus': 'assets/logos/team/Olympiacos-Football-Club-v2003.svg',
-    'Osasuna': 'assets/logos/team/Club-Atletico-Osasuna-v2004.svg',
-    'Paris Saint-Germain': 'assets/logos/team/Paris-Saint-Germain-v2013.svg',
-    'Racing de Santander': 'assets/logos/team/Racing-de-Santander-v2003.svg',
-    'Rayo Vallecano': 'assets/logos/team/Rayo-Vallecano-de-Madrid-v2012.svg',
-    'Real Betis': 'assets/logos/team/Real-Betis-v2022.svg',
-    'Real Madrid': 'assets/logos/team/Real-Madrid-CF-v2002.svg',
-    'Real Oviedo': 'assets/logos/team/Real-Oviedo-v2019.svg',
-    'Real Sociedad': 'assets/logos/team/Real-Sociedad-de-Futbol-v1997.svg',
-    'Sevilla': 'assets/logos/team/Sevilla-Futbol-Club-v1995.svg',
-    'Slavia Praha': 'assets/logos/team/SK-Slavia-Praha-v0000.svg',
-    'Valencia': 'assets/logos/team/Valencia-Club-de-Futbol-v2012.svg',
-    'Villarreal': 'assets/logos/team/Villarreal-Club-de-Futbol-v2009.svg',
 }
 
 CHART_LAYOUT = dict(
@@ -144,7 +103,7 @@ def _build_recent_form(comp_name):
     for m in reversed(last_5):
         color = _result_color(m['result'])
         score = f"{m['barca_goals']}-{m['opponent_goals']}"
-        opp_logo = OPPONENT_LOGOS.get(m['opponent'], '')
+        opp_logo = get_team_logo_path(m['opponent'])
 
         logo_el = html.Div(
             m['opponent'][:3].upper(),
@@ -209,7 +168,7 @@ def _create_hero_section(is_admin=False):
     return html.Div([
         admin_btn,
         html.Div([
-            html.Img(src='assets/logos/team/FC-Barcelona-v2002.svg', className="hero-logo",
+            html.Img(src='assets/logos/team/barcelona.svg', className="hero-logo",
                      style={'height': '150px'}),
             html.H2("A Game Analysis Tool for FC Barcelona",
                      style={'fontFamily': BARCA_FONT, 'color': COLORS['text_primary'],
@@ -247,7 +206,7 @@ def _create_season_overview_header(summary):
 
 def _create_tournament_card(comp_name, stats):
     """Single tournament overview card - dark themed with yellow logo circle."""
-    logo = TOURNAMENT_LOGOS.get(comp_name, '')
+    logo = get_tournament_logo_path(comp_name)
     win_pct = stats.get('win_rate', 0)
 
     # Logo inside a yellow circle
