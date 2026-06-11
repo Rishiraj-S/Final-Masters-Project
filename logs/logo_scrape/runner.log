@@ -1,0 +1,20 @@
+===== round 1  15:42:58 =====
+RATE LIMITED at eldense.svg — aborting; retry later
+
+[summary] total=201 done=41 fresh=0 fail=0 remaining=160 banned=True
+round 1 exit=2 — quiet sleep 600s
+===== round 2  15:52:58 =====
+RATE LIMITED at eldense.svg — aborting; retry later
+
+[summary] total=201 done=41 fresh=0 fail=0 remaining=160 banned=True
+round 2 exit=2 — quiet sleep 600s
+===== round 3  16:02:59 =====
+RATE LIMITED at eldense.svg — aborting; retry later
+
+[summary] total=201 done=41 fresh=0 fail=0 remaining=160 banned=True
+round 3 exit=2 — quiet sleep 600s
+===== round 4  16:12:59 =====
+RATE LIMITED at eldense.svg — aborting; retry later
+
+[summary] total=201 done=41 fresh=0 fail=0 remaining=160 banned=True
+round 4 exit=2 — quiet sleep 600s

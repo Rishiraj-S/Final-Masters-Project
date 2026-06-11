@@ -1,34 +1,19 @@
 """
-Shared constants, helpers, and pitch-drawing utilities used across all
-match analysis tabs.
-
-Pitch backgrounds are generated using the mplsoccer library (same approach
-as utils/interactive_pitch_visualization.py) and cached for performance.
+shared.py — UI primitives shared across all match analysis tabs.
 """
+from __future__ import annotations
 
-
-
+import plotly.graph_objects as go
 from dash import html, dcc
 import dash_bootstrap_components as dbc
-import plotly.graph_objects as go
 
 from utils.config import COLORS
+from page_utils.visualizations import GOLD, CHART_CONFIG
 
-
-# =============================================================================
-# Imports for components that still rely on constants moved to visualizations
-# =============================================================================
-from page_utils.visualizations import CHART_CONFIG, GOLD
-
-# =============================================================================
-# Reusable UI components
-# =============================================================================
-
-BARCA_LOGO = '/assets/logos/team/FC-Barcelona-v2002.svg'
+BARCA_LOGO = '/assets/logos/team/barcelona.svg'
 
 
 def page_header(title: str) -> dbc.Row:
-    """Render a page heading with the Barça crest on the left."""
     return dbc.Row([
         dbc.Col(
             html.Img(src=BARCA_LOGO, style={'height': '48px', 'objectFit': 'contain'}),
@@ -42,7 +27,6 @@ def page_header(title: str) -> dbc.Row:
 
 
 def stat_card(value, label, color=None):
-    """Create a compact stat card."""
     if color is None:
         color = GOLD
     return dbc.Card([
@@ -54,8 +38,6 @@ def stat_card(value, label, color=None):
 
 
 def section_card(title, children, footer=None):
-    """Create a themed section card with a gold-accented header."""
-    # Auto-wrap bare go.Figure objects so callers don't have to
     if isinstance(children, go.Figure):
         children = dcc.Graph(figure=children, config=CHART_CONFIG)
     card_children = [
@@ -68,7 +50,6 @@ def section_card(title, children, footer=None):
 
 
 def kpi_row(kpis: dict, columns: list, colors: dict = None):
-    """Render a row of stat cards from a KPI dict."""
     if colors is None:
         colors = {}
     n = len(columns)
@@ -79,70 +60,34 @@ def kpi_row(kpis: dict, columns: list, colors: dict = None):
     ], className="mb-3")
 
 
-# =============================================================================
-# Legend / Info Box UI components
-# =============================================================================
-
-def build_legend_box(items: list[tuple[str, str, str]]) -> html.Div:
-    """
-    Build a styled legend box with colored symbols and labels.
-
-    Args:
-        items: list of (symbol_char, label, css_color) tuples.
-               e.g. [('★', 'Goal', '#51cf66'), ('●', 'Saved', '#339af0')]
-    """
+def build_legend_box(items: list) -> html.Div:
     legend_items = []
     for symbol, label, color in items:
         legend_items.append(
             html.Span([
                 html.Span(symbol, style={
-                    'color': color,
-                    'fontSize': '1rem',
-                    'marginRight': '5px',
-                    'fontWeight': '700',
-                    'textShadow': f'0 0 4px {color}40',
+                    'color': color, 'fontSize': '1rem', 'marginRight': '5px',
+                    'fontWeight': '700', 'textShadow': f'0 0 4px {color}40',
                 }),
                 html.Span(label, style={
-                    'color': COLORS['text_primary'],
-                    'fontSize': '0.75rem',
-                    'fontWeight': '500',
+                    'color': COLORS['text_primary'], 'fontSize': '0.75rem', 'fontWeight': '500',
                 }),
             ], className='culevision-legend-item')
         )
-
-    return html.Div(
-        legend_items,
-        className='culevision-legend-box',
-    )
+    return html.Div(legend_items, className='culevision-legend-box')
 
 
 def build_info_box(text: str) -> html.Div:
-    """
-    Build a styled info box for plain-text section descriptions.
-
-    Args:
-        text: the descriptive text to display.
-    """
     return html.Div([
         html.Span('ℹ', style={
-            'color': GOLD,
-            'fontSize': '0.85rem',
-            'marginRight': '8px',
-            'fontWeight': '700',
-            'flexShrink': '0',
+            'color': GOLD, 'fontSize': '0.85rem', 'marginRight': '8px',
+            'fontWeight': '700', 'flexShrink': '0',
         }),
         html.Span(text, style={
-            'color': COLORS['text_secondary'],
-            'fontSize': '0.75rem',
-            'lineHeight': '1.4',
+            'color': COLORS['text_secondary'], 'fontSize': '0.75rem', 'lineHeight': '1.4',
         }),
     ], className='culevision-info-box')
 
-
-# =============================================================================
-# Half-filter button styles (shared by build_up_passing, defensive_structure,
-# transitions_counterpressing).  goalkeeping.py uses its own slight variant.
-# =============================================================================
 
 _HALF_BTN_BASE = {
     'border': f'1px solid {COLORS["dark_border"]}',
@@ -155,60 +100,43 @@ HALF_BTN_IDLE   = {**_HALF_BTN_BASE,
                    'backgroundColor': COLORS['dark_secondary'],
                    'color': COLORS['text_primary']}
 
-
-# ── Reusable card style & section header ──────────────────────────────────
-
 CARD_STYLE = {
     'backgroundColor': COLORS['dark_secondary'],
     'border': f'1px solid {COLORS["dark_border"]}',
     'borderRadius': '8px',
     'padding': '16px',
 }
-
-# Keep old alias for backward compat inside this file
 _CARD_STYLE = CARD_STYLE
 
 
 def section_header(title: str, subtitle: str = '') -> html.Div:
-    """Gold-accented section header with optional subtitle and divider.
-
-    Canonical implementation — all tabs should import from shared.
-    """
     children = [
         html.H5(title, style={
             'color': GOLD, 'fontWeight': '700',
             'marginBottom': '2px', 'fontSize': '1rem',
-            'letterSpacing': '0.03em',
+            'letterSpacing': '0.03em', 'textAlign': 'center',
         }),
     ]
     if subtitle:
         children.append(html.Span(subtitle, style={
             'color': COLORS['text_secondary'], 'fontSize': '0.75rem',
-            'display': 'block', 'marginBottom': '4px',
+            'display': 'block', 'marginBottom': '4px', 'textAlign': 'center',
         }))
     children.append(html.Hr(style={
         'borderColor': COLORS['dark_border'],
         'marginTop': '0', 'marginBottom': '16px',
     }))
-    return html.Div(children)
+    return html.Div(children, style={'textAlign': 'center'})
 
 
 def build_team_stats_table(
     team_name: str,
     color: str,
-    metrics: list[tuple[str, str, bool]],
+    metrics: list,
     full: dict,
     h1: dict,
     h2: dict,
 ) -> html.Div:
-    """Single-team stats table with Full / 1st Half / 2nd Half columns.
-
-    Args:
-        team_name: display name.
-        color: team accent colour.
-        metrics: list of (label, dict_key, is_pct) tuples.
-        full / h1 / h2: stat dicts for full match / 1st half / 2nd half.
-    """
     _hdr = {
         'textAlign': 'center', 'padding': '6px 12px',
         'fontSize': '0.68rem', 'fontWeight': '700',

@@ -35,7 +35,7 @@ from page_utils.visualizations import (
     HOME_COLOR,
 )
 from utils.xt_utils import add_xt_column
-from pages.match_analysis_tabs.shared import page_header
+from pages.match_report import page_header
 
 logger = logging.getLogger(__name__)
 
@@ -910,7 +910,7 @@ def register_player_analysis_callbacks(app):
                 if "position" in p_ev.columns and not p_ev["position"].dropna().empty
                 else "—"
             )
-            img_url = _get_player_image_url(jersey) or "assets/logos/team/FC-Barcelona-v2002.svg"
+            img_url = _get_player_image_url(jersey) or "assets/logos/team/barcelona.svg"
 
             bio = html.Div([
                 html.Div(player_name, style={

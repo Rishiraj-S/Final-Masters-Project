@@ -1,38 +1,18 @@
-"""
-attacking_output.py
-===================
-Attacking Output tab: shot maps, top shooters, final-third actions.
-Sections: KPI Row (shooters + stat bars) | Shot Map | Final Third Actions
-"""
 from __future__ import annotations
-
+import math
 import pandas as pd
 import plotly.graph_objects as go
 from dash import html, dcc
 import dash_bootstrap_components as dbc
-
 from utils.config import COLORS
 from utils.data_utils import exclude_own_goals
 from utils.xg_utils import add_xg_column
-from utils.xt_utils import add_xt_column
+from utils.match_data_adapter import get_match_metadata, compute_team_kpis
+from utils.data_utils import get_match_results, get_match_events
+from .shared import CARD_STYLE, section_header, build_info_box, build_legend_box
+from page_utils.visualizations import HOME_COLOR, AWAY_COLOR, GOLD, CHART_CONFIG, layout_config, add_pitch_background, add_vertical_half_pitch_background, PITCH_AXIS_FULL, VPITCH_AXIS_HALF, render_xt_heatmap_img
+from page_utils.event_filters import SHOT_TYPES
 from page_utils.pitch_zones import BOX_X_MIN, BOX_Y_MIN, BOX_Y_MAX
-from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
-
-from .shared import (
-    build_legend_box,
-    build_info_box,
-    CARD_STYLE,
-    section_header,
-)
-from page_utils.visualizations import (
-    HOME_COLOR,
-    AWAY_COLOR,
-    GOLD,
-    CHART_CONFIG,
-    layout_config,
-    add_vertical_half_pitch_background,
-    VPITCH_AXIS_HALF,
-)
 
 _OUTCOME_COLOR = {
     'Goal':         '#51cf66',
@@ -48,15 +28,11 @@ _OUTCOME_SYMBOL = {
     'Post':         'diamond',
     'Blocked Shot': 'square',
 }
-# ---------------------------------------------------------------------------
-# Data helpers
-# ---------------------------------------------------------------------------
 
 _SI = ('N/A', '', 'nan', None)
 
 
 def _count_from_box(shots: pd.DataFrame) -> int:
-    """Count shots from inside the attacking penalty box (vectorised)."""
     if not {'x', 'y'}.issubset(shots.columns) or shots.empty:
         return 0
     x = pd.to_numeric(shots['x'], errors='coerce')
@@ -85,7 +61,6 @@ def _compute(events: pd.DataFrame) -> dict:
 
     for pos, team in (('home', home_team), ('away', away_team)):
         te = events[events['team_position'] == pos]
-
         sorted_te = te.sort_values(['period_id', 'time_min']).reset_index(drop=True)
         prev_acts = [''] * len(sorted_te)
         for i in range(1, len(sorted_te)):
@@ -100,35 +75,31 @@ def _compute(events: pd.DataFrame) -> dict:
                 prev_acts[i] = prev_type
         sorted_te['prev_action'] = prev_acts
 
-        shots = exclude_own_goals(
-            sorted_te[sorted_te['event_type'].isin(_SHOT_TYPES)].copy()
-        )
+        shots = exclude_own_goals(sorted_te[sorted_te['event_type'].isin(SHOT_TYPES)].copy())
         shots = add_xg_column(shots)
         goals = shots[shots['event_type'] == 'Goal']
         shots['shot_type'] = shots.apply(_get_shot_type, axis=1)
 
-        # Key passes (intentional assists leading to any shot)
-        if 'Intentional Assist' in sorted_te.columns:
+        if 'Assist' in sorted_te.columns:
             key_passes = sorted_te[
                 (sorted_te['event_type'] == 'Pass') &
-                (sorted_te['Intentional Assist'] == 'Si')
+                pd.to_numeric(sorted_te['Assist'], errors='coerce').isin([13, 14, 15, 16])
             ].copy()
         else:
             key_passes = pd.DataFrame()
 
-        # Carry / dribble lines: dotted path from pass-end → shot
-        carry_lines: list[dict] = []
+        carry_lines: list = []
         if not key_passes.empty:
             _carry_types = {'Take On', 'Carry', 'Ball touch'}
             for ki in key_passes.index:
-                kp = sorted_te.iloc[ki]
+                kp   = sorted_te.iloc[ki]
                 pe_x = pd.to_numeric(kp.get('Pass End X'), errors='coerce')
                 pe_y = pd.to_numeric(kp.get('Pass End Y'), errors='coerce')
                 if pd.isna(pe_x) or pd.isna(pe_y):
                     continue
                 shot_pos, shot_row = None, None
                 for j in range(ki + 1, min(ki + 8, len(sorted_te))):
-                    if sorted_te.iloc[j]['event_type'] in _SHOT_TYPES:
+                    if sorted_te.iloc[j]['event_type'] in SHOT_TYPES:
                         shot_pos, shot_row = j, sorted_te.iloc[j]
                         break
                 if shot_pos is None:
@@ -140,7 +111,7 @@ def _compute(events: pd.DataFrame) -> dict:
                 if ((float(sx) - float(pe_x)) ** 2 + (float(sy) - float(pe_y)) ** 2) ** 0.5 < 4.0:
                     continue
                 shooter = shot_row.get('player_name')
-                mid_pts: list[tuple[float, float]] = []
+                mid_pts: list = []
                 for k in range(ki + 1, shot_pos):
                     ev = sorted_te.iloc[k]
                     if ev['event_type'] in _carry_types and ev.get('player_name') == shooter:
@@ -151,38 +122,16 @@ def _compute(events: pd.DataFrame) -> dict:
                 pts = [(float(pe_x), float(pe_y))] + mid_pts + [(float(sx), float(sy))]
                 carry_lines.append({'points': pts, 'is_goal': shot_row['event_type'] == 'Goal'})
 
-        shooter_counts = (
-            shots['player_name'].dropna().value_counts().head(5).reset_index()
-        )
-        shooter_counts.columns = ['Player', 'Shots']
+        shooter_counts = shots['player_name'].dropna().value_counts().head(5).reset_index()
+        shooter_counts.columns = ['Player', 'S']
         goal_counts = goals['player_name'].dropna().value_counts()
-        shooter_counts['Goals'] = (
+        shooter_counts['G'] = (
             shooter_counts['Player'].map(goal_counts).fillna(0).astype(int)
-        )
-        # Goal assists per player
-        if not key_passes.empty and 'Assist' in key_passes.columns:
-            assist_counts = key_passes[
-                pd.to_numeric(key_passes['Assist'], errors='coerce') == 16
-            ]['player_name'].dropna().value_counts()
-        else:
-            assist_counts = pd.Series(dtype=int)
-        shooter_counts['Assists'] = (
-            shooter_counts['Player'].map(assist_counts).fillna(0).astype(int)
         )
         if 'xg' in shots.columns:
             xg_per_player = shots.groupby('player_name')['xg'].sum().round(2)
             shooter_counts['xG'] = (
                 shooter_counts['Player'].map(xg_per_player).fillna(0.0).round(2)
-            )
-
-        te_passes = sorted_te[sorted_te['event_type'] == 'Pass'].copy()
-        if not te_passes.empty:
-            xt_per_player = (
-                add_xt_column(te_passes)
-                .groupby('player_name')['xT'].sum().round(3)
-            )
-            shooter_counts['Pos xT'] = (
-                shooter_counts['Player'].map(xt_per_player).fillna(0.0).round(3)
             )
 
         out[pos] = {
@@ -198,88 +147,6 @@ def _compute(events: pd.DataFrame) -> dict:
             'carry_lines':  carry_lines,
         }
     return out
-
-
-# ---------------------------------------------------------------------------
-# Per-half stats helpers
-# ---------------------------------------------------------------------------
-
-def _compute_team_stats(events: pd.DataFrame, pos: str) -> tuple[dict, dict, dict]:
-    """Return (full, h1, h2) stat dicts for one team position."""
-    def _stats(ev: pd.DataFrame) -> dict:
-        te = ev[ev['team_position'] == pos]
-        shots = add_xg_column(exclude_own_goals(te[te['event_type'].isin(_SHOT_TYPES)].copy()))
-        goals = shots[shots['event_type'] == 'Goal']
-        return {
-            'shots':     len(shots),
-            'on_target': len(te[te['event_type'] == 'Saved Shot']) + len(goals),
-            'goals':     len(goals),
-            'xg':        round(shots['xg'].sum(), 2) if 'xg' in shots.columns else None,
-            'from_box':  _count_from_box(shots),
-        }
-    h1 = events[events['period_id'] == 1] if 'period_id' in events.columns else events.iloc[:0]
-    h2 = events[events['period_id'] == 2] if 'period_id' in events.columns else events.iloc[:0]
-    return _stats(events), _stats(h1), _stats(h2)
-
-
-# ---------------------------------------------------------------------------
-# UI helpers
-# ---------------------------------------------------------------------------
-
-
-
-
-def _team_stats_table(
-    team_name: str, color: str,
-    full: dict, h1: dict, h2: dict,
-) -> html.Div:
-    """Single-team stats table with Full / 1st Half / 2nd Half columns."""
-    _METRICS = [
-        ('Total Shots',     'shots'),
-        ('Shots on Target', 'on_target'),
-        ('Goals',           'goals'),
-        ('xG',              'xg'),
-        ('Shots from Box',  'from_box'),
-    ]
-    _col_style = {'textAlign': 'center', 'padding': '6px 12px',
-                  'fontSize': '0.82rem', 'fontWeight': '600',
-                  'color': COLORS['text_primary']}
-    _hdr_style = {'textAlign': 'center', 'padding': '6px 12px',
-                  'fontSize': '0.68rem', 'fontWeight': '700',
-                  'color': COLORS['text_secondary'],
-                  'textTransform': 'uppercase', 'letterSpacing': '0.06em',
-                  'borderBottom': f'1px solid {COLORS["dark_border"]}'}
-    _lbl_style = {'padding': '6px 12px', 'fontSize': '0.8rem',
-                  'color': COLORS['text_secondary'], 'whiteSpace': 'nowrap'}
-
-    header = html.Tr([
-        html.Th('', style=_hdr_style),
-        html.Th('Full', style=_hdr_style),
-        html.Th('1st Half', style=_hdr_style),
-        html.Th('2nd Half', style=_hdr_style),
-    ])
-    rows = []
-    for i, (label, key) in enumerate(_METRICS):
-        bg = COLORS.get('dark_tertiary', 'rgba(255,255,255,0.03)') if i % 2 == 0 else 'transparent'
-        rows.append(html.Tr([
-            html.Td(label, style=_lbl_style),
-            html.Td(str(full.get(key, 0)), style=_col_style),
-            html.Td(str(h1.get(key, 0)),   style=_col_style),
-            html.Td(str(h2.get(key, 0)),   style=_col_style),
-        ], style={'backgroundColor': bg}))
-
-    return html.Div([
-        html.Div(team_name, style={
-            'color': color, 'fontWeight': '700', 'fontSize': '0.95rem',
-            'marginBottom': '10px',
-            'borderBottom': f'2px solid {color}',
-            'paddingBottom': '6px',
-        }),
-        html.Table(
-            [html.Thead(header), html.Tbody(rows)],
-            style={'width': '100%', 'borderCollapse': 'collapse'},
-        ),
-    ], style=CARD_STYLE)
 
 
 def _shot_map_fig(shots: pd.DataFrame, key_passes: pd.DataFrame,
@@ -303,9 +170,6 @@ def _shot_map_fig(shots: pd.DataFrame, key_passes: pd.DataFrame,
         fig.update_layout(**layout_config(**_common))
         return fig
 
-    # ── Assist arrows (drawn first so shots render on top) ───────────────────
-    # Vertical pitch: fig_x = 100 - pitch_y  (flip so left-right is correct),
-    #                 fig_y = pitch_x
     if not key_passes.empty and 'Pass End X' in key_passes.columns:
         kp = key_passes.copy()
         kp['Pass End X'] = pd.to_numeric(kp['Pass End X'], errors='coerce')
@@ -320,57 +184,53 @@ def _shot_map_fig(shots: pd.DataFrame, key_passes: pd.DataFrame,
                 else pd.Series(False, index=kp.index)
             )
             for is_goal, grp in kp.groupby(is_goal_assist):
-                color   = GOLD if is_goal else 'rgba(220,220,220,0.55)'
+                clr     = GOLD if is_goal else 'rgba(220,220,220,0.55)'
                 width   = 3.0  if is_goal else 2.0
                 opacity = 0.95 if is_goal else 0.65
                 label   = 'Goal Assist' if is_goal else 'Key Pass'
-                # Lines
                 xs_l, ys_l = [], []
                 for _, row in grp.iterrows():
                     xs_l.extend([100 - float(row['y']), 100 - float(row['Pass End Y']), None])
-                    ys_l.extend([float(row['x']),            float(row['Pass End X']),  None])
+                    ys_l.extend([float(row['x']),       float(row['Pass End X']),        None])
                 fig.add_trace(go.Scatter(
                     x=xs_l, y=ys_l, mode='lines',
-                    line=dict(color=color, width=width),
+                    line=dict(color=clr, width=width),
                     opacity=opacity, showlegend=False, hoverinfo='skip',
                 ))
-                # Endpoint dot (no hover)
                 fig.add_trace(go.Scatter(
                     x=(100 - grp['Pass End Y']).tolist(),
                     y=grp['Pass End X'].tolist(),
                     mode='markers', name=label,
-                    marker=dict(color=color, size=9 if is_goal else 7,
+                    marker=dict(color=clr, size=9 if is_goal else 7,
                                 symbol='circle', opacity=opacity,
                                 line=dict(color='white', width=1.5 if is_goal else 1)),
                     showlegend=True, hoverinfo='skip',
                 ))
 
-    # ── Carry / dribble lines (dotted, pass-end → shot) ─────────────────────
     if carry_lines:
-        _legend_added: dict[str, bool] = {'goal': False, 'other': False}
+        _legend_added: dict = {'goal': False, 'other': False}
         for cl in carry_lines:
             is_goal = cl['is_goal']
-            color   = GOLD if is_goal else 'rgba(220,220,220,0.55)'
+            clr     = GOLD if is_goal else 'rgba(220,220,220,0.55)'
             opacity = 0.85 if is_goal else 0.55
             pts     = cl['points']
             fig_xs  = [100 - p[1] for p in pts]
             fig_ys  = [p[0]       for p in pts]
-            key     = 'goal' if is_goal else 'other'
-            show_lg = not _legend_added[key]
+            key_    = 'goal' if is_goal else 'other'
+            show_lg = not _legend_added[key_]
             fig.add_trace(go.Scatter(
                 x=fig_xs, y=fig_ys, mode='lines',
-                line=dict(color=color, width=2, dash='dot'),
+                line=dict(color=clr, width=2, dash='dot'),
                 opacity=opacity,
                 name=('Carry (goal)' if is_goal else 'Carry') if show_lg else '',
-                showlegend=show_lg,
-                hoverinfo='skip',
+                showlegend=show_lg, hoverinfo='skip',
             ))
-            _legend_added[key] = True
+            _legend_added[key_] = True
 
     for outcome, group in shots.groupby('event_type'):
-        valid = group[group['x'].notna() & group['y'].notna()].copy()
-        fig_x = (100 - valid['y']).tolist()
-        fig_y = valid['x'].tolist()
+        valid    = group[group['x'].notna() & group['y'].notna()].copy()
+        fig_x    = (100 - valid['y']).tolist()
+        fig_y    = valid['x'].tolist()
         if not fig_x:
             continue
         player_names = valid['player_name'].fillna('Unknown').tolist()
@@ -383,9 +243,7 @@ def _shot_map_fig(shots: pd.DataFrame, key_passes: pd.DataFrame,
             [' (own goal)' if v == 'Si' else '' for v in valid['own goal'].fillna('')]
             if 'own goal' in valid.columns else [''] * len(valid)
         )
-        xg_vals = (valid['xg'].fillna(0).tolist()
-                   if 'xg' in valid.columns else [0] * len(valid))
-        # Size goals at 16, other shots scaled by xG (min 8, max 18)
+        xg_vals = (valid['xg'].fillna(0).tolist() if 'xg' in valid.columns else [0] * len(valid))
         if outcome == 'Goal':
             sizes = [16] * len(valid)
         else:
@@ -394,8 +252,7 @@ def _shot_map_fig(shots: pd.DataFrame, key_passes: pd.DataFrame,
             x=fig_x, y=fig_y, mode='markers', name=outcome,
             marker=dict(color=_OUTCOME_COLOR.get(outcome, team_color),
                         symbol=_OUTCOME_SYMBOL.get(outcome, 'circle'),
-                        size=sizes,
-                        opacity=0.88, line=dict(color='white', width=1)),
+                        size=sizes, opacity=0.88, line=dict(color='white', width=1)),
             customdata=[[p, t, a, st, og, xg] for p, t, a, st, og, xg
                         in zip(player_names, times, prev_acts, shot_types, og_flags, xg_vals)],
             hovertemplate=(
@@ -410,9 +267,7 @@ def _shot_map_fig(shots: pd.DataFrame, key_passes: pd.DataFrame,
         **_common,
         hoverlabel=dict(bgcolor='#1A1D2E', font_color='white', font_size=12),
         legend=dict(
-            x=0.01, y=0.01,
-            xanchor='left', yanchor='bottom',
-            orientation='v',
+            x=0.01, y=0.01, xanchor='left', yanchor='bottom', orientation='v',
             font=dict(color=COLORS['text_primary'], size=10),
             bgcolor='rgba(26,29,46,0.80)',
             bordercolor=COLORS.get('dark_border', 'rgba(255,255,255,0.15)'),
@@ -449,19 +304,11 @@ def _player_table(df: pd.DataFrame, color: str) -> html.Div:
                       style={'width': '100%', 'borderCollapse': 'collapse'})
 
 
-# ---------------------------------------------------------------------------
-# Tab builder
-# ---------------------------------------------------------------------------
-
 def build_attacking_output_tab(events: pd.DataFrame, **_) -> html.Div:
     if events.empty:
         return html.P("No event data.", style={"color": COLORS["text_secondary"]})
 
-    # Pre-compute xG for all shot rows once.  Every helper that calls
-    # add_xg_column() on a slice of these events will detect the 'xg'
-    # column already present and return immediately — reducing model
-    # inference from ~7 calls down to 1.
-    _shot_mask = events['event_type'].isin(_SHOT_TYPES)
+    _shot_mask = events['event_type'].isin(SHOT_TYPES)
     if 'xg' not in events.columns and _shot_mask.any():
         events = events.copy()
         _shots_enriched = add_xg_column(events.loc[_shot_mask].copy())
@@ -471,23 +318,26 @@ def build_attacking_output_tab(events: pd.DataFrame, **_) -> html.Div:
     d = _compute(events)
     hs, as_ = d['home'], d['away']
 
-    # ── Per-half stats ────────────────────────────────────────────────────
-    h_full, h_h1, h_h2 = _compute_team_stats(events, 'home')
-    a_full, a_h1, a_h2 = _compute_team_stats(events, 'away')
+    def _shooter_card(data, color):
+        return html.Div([
+            html.Div('Top Performers', style={
+                'color': color, 'fontWeight': '700', 'fontSize': '0.78rem',
+                'textTransform': 'uppercase', 'letterSpacing': '0.04em',
+                'marginBottom': '8px',
+            }),
+            _player_table(data['top_shooters'], color),
+        ])
 
-    # ── Section 1: Match Statistics ───────────────────────────────────────
-    stats_section = html.Div([
-        section_header('Match Statistics'),
-        build_info_box('Shots · Shots on Target · Goals · Shots from Box — split by half'),
-        dbc.Row([
-            dbc.Col(_team_stats_table(hs['team'], HOME_COLOR, h_full, h_h1, h_h2),
-                    md=6, className='mb-3'),
-            dbc.Col(_team_stats_table(as_['team'], AWAY_COLOR, a_full, a_h1, a_h2),
-                    md=6, className='mb-3'),
-        ], className='g-3'),
-    ], style={'marginBottom': '36px'})
+    def _team_block(data, color):
+        return dbc.Col(dbc.Row([
+            dbc.Col(dcc.Graph(
+                figure=_shot_map_fig(data['shots'], data.get('key_passes', pd.DataFrame()),
+                                     color, data['team'], data.get('carry_lines', [])),
+                config=CHART_CONFIG), md=9),
+            dbc.Col(_shooter_card(data, color), md=3,
+                    style={'overflowY': 'auto', 'maxHeight': '500px'}),
+        ], className='g-2', align='start'), md=6, className='mb-3')
 
-    # ── Section 2: Shot Maps ──────────────────────────────────────────────
     shot_map_section = html.Div([
         section_header('Shot Map'),
         build_legend_box([
@@ -498,33 +348,159 @@ def build_attacking_output_tab(events: pd.DataFrame, **_) -> html.Div:
             ('■', 'Blocked', '#cc5de8'),
         ]),
         dbc.Row([
-            dbc.Col(dcc.Graph(figure=_shot_map_fig(hs['shots'],  hs.get('key_passes',  pd.DataFrame()), HOME_COLOR, hs['team'],  hs.get('carry_lines',  [])),
-                              config=CHART_CONFIG), md=6, className='mb-3'),
-            dbc.Col(dcc.Graph(figure=_shot_map_fig(as_['shots'], as_.get('key_passes', pd.DataFrame()), AWAY_COLOR, as_['team'], as_.get('carry_lines', [])),
-                              config=CHART_CONFIG), md=6, className='mb-3'),
-        ], className='g-2'),
+            _team_block(hs, HOME_COLOR),
+            _team_block(as_, AWAY_COLOR),
+        ], className='g-3'),
     ], style={'marginBottom': '36px'})
 
-    # ── Section 3: Top Performers ─────────────────────────────────────────
-    def _shooter_card(data, color):
-        return html.Div([
-            html.Div(data['team'], style={
-                'color': color, 'fontWeight': '700', 'fontSize': '0.9rem',
-                'marginBottom': '10px',
-                'borderBottom': f'2px solid {color}', 'paddingBottom': '6px',
-            }),
-            _player_table(data['top_shooters'], color),
-        ], style=CARD_STYLE)
+    return html.Div([shot_map_section], style={'marginTop': '16px'})
 
-    top_performers_section = html.Div([
-        section_header('Top Performers', 'Top 5 players by shot attempts'),
-        dbc.Row([
-            dbc.Col(_shooter_card(hs, HOME_COLOR),  md=6, className='mb-3'),
-            dbc.Col(_shooter_card(as_, AWAY_COLOR), md=6, className='mb-3'),
-        ], className='g-3'),
-    ])
 
-    return html.Div(
-        [stats_section, shot_map_section, top_performers_section],
-        style={'marginTop': '16px'},
+_ATK_RADAR_KEYS = [
+    ('Goals',           'goals'),
+    ('Shots',           'shots'),
+    ('Shots on Target', 'shots_on_target'),
+    ('xG',              'xg'),
+    ('Assists',         'assists'),
+    ('Shots from Box',  'box_shots'),
+    ('Crosses',         'crosses'),
+]
+
+_atk_league_avg_cache: dict = {}
+
+
+def _compute_atk_league_avg(events: pd.DataFrame) -> dict:
+    global _atk_league_avg_cache
+
+    competition = ''
+    if 'competition' in events.columns and not events.empty:
+        competition = str(events['competition'].iloc[0])
+    if not competition:
+        try:
+            competition = get_match_metadata(events).get('competition', '')
+        except Exception:
+            pass
+    if not competition:
+        return {}
+    if competition in _atk_league_avg_cache:
+        return _atk_league_avg_cache[competition]
+
+    try:
+        keys = [k for _, k in _ATK_RADAR_KEYS]
+        accumulated: dict = {k: [] for k in keys}
+        for r in get_match_results():
+            if r.get('competition') != competition:
+                continue
+            try:
+                ev = get_match_events(r['match_id'])
+                if ev.empty:
+                    continue
+                for pos in ('home', 'away'):
+                    s = compute_team_kpis(ev, pos)
+                    for k in keys:
+                        v = s.get(k, 0)
+                        if isinstance(v, (int, float)) and not math.isnan(float(v)):
+                            accumulated[k].append(float(v))
+            except Exception:
+                continue
+        avg = {k: round(sum(v) / len(v), 2) if v else 0.0 for k, v in accumulated.items()}
+        _atk_league_avg_cache[competition] = avg
+        return avg
+    except Exception:
+        return {}
+
+
+def _hex_to_rgba_atk(hex_color: str, alpha: float = 0.12) -> str:
+    h = hex_color.lstrip('#')
+    if len(h) == 3:
+        h = ''.join(c * 2 for c in h)
+    try:
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        return f'rgba({r},{g},{b},{alpha})'
+    except (ValueError, IndexError):
+        return f'rgba(128,128,128,{alpha})'
+
+
+def _build_atk_radar_fig(home_stats, away_stats, league_avg, home_team, away_team):
+    labels = [lbl for lbl, _ in _ATK_RADAR_KEYS]
+    keys   = [k   for _,   k in _ATK_RADAR_KEYS]
+
+    def _raw(stats):
+        return [float(stats.get(k, 0) or 0) for k in keys]
+
+    hv = _raw(home_stats); av = _raw(away_stats)
+    lv = _raw(league_avg) if league_avg else None
+    norm_h, norm_a, norm_l = [], [], []
+    for i in range(len(keys)):
+        candidates = [hv[i], av[i]] + ([lv[i]] if lv else [])
+        max_v = max(candidates) if max(candidates) > 0 else 1.0
+        norm_h.append(round(hv[i] / max_v * 100, 1))
+        norm_a.append(round(av[i] / max_v * 100, 1))
+        if lv:
+            norm_l.append(round(lv[i] / max_v * 100, 1))
+
+    labels_c = labels + [labels[0]]
+    norm_h_c = norm_h + [norm_h[0]]; norm_a_c = norm_a + [norm_a[0]]
+    hv_c = hv + [hv[0]]; av_c = av + [av[0]]
+    if lv:
+        norm_l_c = norm_l + [norm_l[0]]; lv_c = lv + [lv[0]]
+
+    def _fmt(v):
+        return f'{v:.2f}' if isinstance(v, float) and v != int(v) else str(int(v))
+
+    fig = go.Figure()
+    if lv:
+        fig.add_trace(go.Scatterpolar(
+            r=norm_l_c, theta=labels_c, mode='lines', name='League Avg',
+            line=dict(color=GOLD, width=1.5, dash='dot'), opacity=0.85,
+            customdata=[[_fmt(lv_c[i])] for i in range(len(labels_c))],
+            hovertemplate='<b>League Avg</b><br>%{theta}: %{customdata[0]}<extra></extra>',
+        ))
+    fig.add_trace(go.Scatterpolar(
+        r=norm_a_c, theta=labels_c, mode='lines+markers+text', name=away_team,
+        fill='toself', fillcolor=_hex_to_rgba_atk(AWAY_COLOR, 0.12),
+        line=dict(color=AWAY_COLOR, width=2), marker=dict(size=5, color=AWAY_COLOR),
+        text=[_fmt(av_c[i]) for i in range(len(labels_c))],
+        textposition='bottom center', textfont=dict(size=10, color='#FFFFFF'),
+        customdata=[[_fmt(av_c[i])] for i in range(len(labels_c))],
+        hovertemplate=f'<b>{away_team}</b><br>%{{theta}}: %{{customdata[0]}}<extra></extra>',
+    ))
+    fig.add_trace(go.Scatterpolar(
+        r=norm_h_c, theta=labels_c, mode='lines+markers+text', name=home_team,
+        fill='toself', fillcolor=_hex_to_rgba_atk(HOME_COLOR, 0.12),
+        line=dict(color=HOME_COLOR, width=2), marker=dict(size=5, color=HOME_COLOR),
+        text=[_fmt(hv_c[i]) for i in range(len(labels_c))],
+        textposition='top center', textfont=dict(size=10, color='#FFFFFF'),
+        customdata=[[_fmt(hv_c[i])] for i in range(len(labels_c))],
+        hovertemplate=f'<b>{home_team}</b><br>%{{theta}}: %{{customdata[0]}}<extra></extra>',
+    ))
+    fig.update_layout(
+        polar=dict(
+            bgcolor='rgba(26,29,46,0.6)',
+            radialaxis=dict(visible=True, range=[0, 105], showticklabels=False,
+                            gridcolor='rgba(255,255,255,0.08)', linecolor='rgba(255,255,255,0.08)'),
+            angularaxis=dict(tickfont=dict(size=10, color=COLORS['text_primary']),
+                             gridcolor='rgba(255,255,255,0.08)', linecolor='rgba(255,255,255,0.08)'),
+        ),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=True,
+        legend=dict(x=0.5, y=-0.06, xanchor='center', yanchor='top', orientation='h',
+                    font=dict(color=COLORS['text_primary'], size=11), bgcolor='rgba(0,0,0,0)'),
+        height=540, margin=dict(l=80, r=80, t=30, b=80),
+        hoverlabel=dict(bgcolor='#1A1D2E', font_color='white', font_size=12),
     )
+    return fig
+
+
+def build_attack_radar(events: pd.DataFrame):
+    if events.empty:
+        return None
+    home_team  = str(events['home_team'].iloc[0]) if 'home_team' in events.columns else 'Home'
+    away_team  = str(events['away_team'].iloc[0]) if 'away_team' in events.columns else 'Away'
+    home_stats = compute_team_kpis(events, 'home')
+    away_stats = compute_team_kpis(events, 'away')
+    league_avg = _compute_atk_league_avg(events)
+    return _build_atk_radar_fig(home_stats, away_stats, league_avg, home_team, away_team)
+
+
+def register_attacking_output_callbacks(app) -> None:
+    pass

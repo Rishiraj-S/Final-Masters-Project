@@ -1,0 +1,143 @@
+{
+  "Belgium_Cup": {
+    "display": "Belgian Cup",
+    "slug": "belgian-cup",
+    "country": "belgium",
+    "site_name": "Belgian Cup",
+    "svg_url": "https://images.football-logos.cc/belgium/belgian-cup.9dc9e0a7.svg",
+    "score": 1.0
+  },
+  "Belgium_First_Division_A": {
+    "display": "Pro League",
+    "slug": "belgian-pro-league",
+    "country": "belgium",
+    "site_name": "Belgian Pro League",
+    "svg_url": "https://images.football-logos.cc/belgium/belgian-pro-league.7f1ff7ca.svg",
+    "score": 0.814
+  },
+  "Czech_Cup": {
+    "display": "Czech Cup",
+    "absent": true
+  },
+  "Czech_First_League": {
+    "display": "Czech First League",
+    "slug": "chance-liga",
+    "country": "czech-republic",
+    "site_name": "Chance Liga",
+    "svg_url": "https://images.football-logos.cc/czech-republic/chance-liga.19365050.svg",
+    "score": 1.0,
+    "override": true
+  },
+  "Denmark_DBU_Pokalen": {
+    "display": "DBU Pokalen",
+    "slug": "danish-cup",
+    "country": "denmark",
+    "site_name": "Danish Cup",
+    "svg_url": "https://images.football-logos.cc/denmark/danish-cup.ad10d895.svg",
+    "score": 1.0,
+    "override": true
+  },
+  "Denmark_Superliga": {
+    "display": "Superliga",
+    "slug": "danish-super-liga",
+    "country": "denmark",
+    "site_name": "Danish Super League",
+    "svg_url": "https://images.football-logos.cc/denmark/danish-super-liga.a9801a8b.svg",
+    "score": 0.692
+  },
+  "England_EFL_Cup": {
+    "display": "EFL Cup",
+    "slug": "efl-cup",
+    "country": "england",
+    "site_name": "EFL Carabao Cup",
+    "svg_url": "https://images.football-logos.cc/england/efl-cup.b9c1128c.svg",
+    "score": 1.0
+  },
+  "England_FA_Cup": {
+    "display": "FA Cup",
+    "slug": "emirates-fa-cup",
+    "country": "england",
+    "site_name": "Emirates FA Cup",
+    "svg_url": "https://images.football-logos.cc/england/emirates-fa-cup.f9d04c2d.svg",
+    "score": 1.0,
+    "override": true
+  },
+  "England_Premier_League": {
+    "display": "Premier League",
+    "slug": "english-premier-league",
+    "country": "england",
+    "site_name": "English Premier League",
+    "svg_url": "https://images.football-logos.cc/england/english-premier-league.bdf91f4a.svg",
+    "score": 0.878
+  },
+  "UEFA_Champions_League": {
+    "display": "Champions League",
+    "absent": true
+  },
+  "France_Coupe_de_France": {
+    "display": "Coupe de France",
+    "absent": true
+  },
+  "France_Ligue_1": {
+    "display": "Ligue 1",
+    "slug": "ligue-1",
+    "country": "france",
+    "site_name": "Ligue 1",
+    "svg_url": "https://images.football-logos.cc/france/ligue-1.83ab340c.svg",
+    "score": 1.0
+  },
+  "Germany_Bundesliga": {
+    "display": "Bundesliga",
+    "slug": "bundesliga",
+    "country": "germany",
+    "site_name": "Bundesliga",
+    "svg_url": "https://images.football-logos.cc/germany/bundesliga.662d2cbd.svg",
+    "score": 1.0,
+    "override": true
+  },
+  "Germany_DFB_Pokal": {
+    "display": "DFB Pokal",
+    "slug": "dfb-pokal",
+    "country": "germany",
+    "site_name": "DFB Pokal",
+    "svg_url": "https://images.football-logos.cc/germany/dfb-pokal.544297a2.svg",
+    "score": 1.0
+  },
+  "Greece_Cup": {
+    "display": "Greek Cup",
+    "absent": true
+  },
+  "Greece_Super_League": {
+    "display": "Super League Greece",
+    "slug": "super-league-1",
+    "country": "greece",
+    "site_name": "Super League 1",
+    "svg_url": "https://images.football-logos.cc/greece/super-league-1.e2bcee05.svg",
+    "score": 1.0,
+    "override": true
+  },
+  "Spain_Copa_del_Rey": {
+    "display": "Copa del Rey",
+    "slug": "copa-del-rey",
+    "country": "spain",
+    "site_name": "Copa del Rey",
+    "svg_url": "https://images.football-logos.cc/spain/copa-del-rey.495b153b.svg",
+    "score": 1.0
+  },
+  "Spain_Primera_Division": {
+    "display": "La Liga",
+    "slug": "la-liga",
+    "country": "spain",
+    "site_name": "La Liga",
+    "svg_url": "https://images.football-logos.cc/spain/la-liga.2540a371.svg",
+    "score": 1.0
+  },
+  "Spain_Super_Cup": {
+    "display": "Supercopa",
+    "slug": "supercopa-de-espana",
+    "country": "spain",
+    "site_name": "Supercopa de España",
+    "svg_url": "https://images.football-logos.cc/spain/supercopa-de-espana.d044df1f.svg",
+    "score": 0.82
+  }
+}

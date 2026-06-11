@@ -1,0 +1,351 @@
+{
+  "brighton.svg": [
+    "Brighton & Hove Albion FC",
+    "Brighton & Hove Albion"
+  ],
+  "eldense.svg": [
+    "CD Eldense",
+    "Eldense"
+  ],
+  "cd-guadalajara.svg": [
+    "CD Guadalajara",
+    "Guadalajara"
+  ],
+  "numancia.svg": [
+    "CD Numancia de Soria",
+    "Numancia"
+  ],
+  "cercle-brugge.svg": [
+    "Cercle Brugge KSV",
+    "Cercle Brugge"
+  ],
+  "charlton.svg": [
+    "Charlton Athletic FC",
+    "Charlton Athletic"
+  ],
+  "crystal-palace.svg": [
+    "Crystal Palace FC",
+    "Crystal Palace"
+  ],
+  "esbjerg.svg": [
+    "Esbjerg fB",
+    "Esbjerg"
+  ],
+  "everton.svg": [
+    "Everton FC",
+    "Everton"
+  ],
+  "augsburg.svg": [
+    "FC Augsburg",
+    "Augsburg"
+  ],
+  "banik.svg": [
+    "FC Baník Ostrava",
+    "Baník Ostrava"
+  ],
+  "basel.svg": [
+    "FC Basel 1893",
+    "Basel"
+  ],
+  "nantes.svg": [
+    "FC Nantes",
+    "Nantes"
+  ],
+  "nordsjaelland.svg": [
+    "FC Nordsjælland",
+    "Nordsjælland"
+  ],
+  "salzburg.svg": [
+    "FC Salzburg",
+    "Salzburg"
+  ],
+  "liberec.svg": [
+    "FC Slovan Liberec",
+    "Slovan Liberec"
+  ],
+  "st-pauli.svg": [
+    "FC St. Pauli",
+    "St. Pauli"
+  ],
+  "viktoria-plzen.svg": [
+    "FC Viktoria Plzeň",
+    "Viktoria Plzeň"
+  ],
+  "zlin.svg": [
+    "FC Zlín",
+    "Zlín"
+  ],
+  "fcv-dender-eh.svg": [
+    "FCV Dender EH",
+    "Dender"
+  ],
+  "dukla.svg": [
+    "FK Dukla Praha",
+    "Dukla Praha"
+  ],
+  "jablonec.svg": [
+    "FK Jablonec",
+    "Jablonec"
+  ],
+  "mlada-boleslav.svg": [
+    "FK Mladá Boleslav",
+    "Mladá Boleslav"
+  ],
+  "pardubice.svg": [
+    "FK Pardubice",
+    "Pardubice"
+  ],
+  "teplice.svg": [
+    "FK Teplice",
+    "Teplice"
+  ],
+  "fulham.svg": [
+    "Fulham FC",
+    "Fulham"
+  ],
+  "hamburger-sv.svg": [
+    "Hamburger SV"
+  ],
+  "hull-city.svg": [
+    "Hull City AFC",
+    "Hull City"
+  ],
+  "gent.svg": [
+    "KAA Gent",
+    "Gent"
+  ],
+  "genk.svg": [
+    "KRC Genk",
+    "Genk"
+  ],
+  "mechelen.svg": [
+    "KV Mechelen",
+    "Mechelen"
+  ],
+  "westerlo.svg": [
+    "KVC Westerlo",
+    "Westerlo"
+  ],
+  "kifisia.svg": [
+    "Kifisias FC",
+    "Kifisia"
+  ],
+  "le-havre-ac.svg": [
+    "Le Havre AC",
+    "Le Havre"
+  ],
+  "leeds-united.svg": [
+    "Leeds United FC",
+    "Leeds United"
+  ],
+  "levadiakos.svg": [
+    "Levadiakos FC",
+    "Levadiakos"
+  ],
+  "lille.svg": [
+    "Lille OSC",
+    "Lille"
+  ],
+  "lincoln-city.svg": [
+    "Lincoln City FC",
+    "Lincoln City"
+  ],
+  "lyngby.svg": [
+    "Lyngby Boldklub",
+    "Lyngby"
+  ],
+  "karvina.svg": [
+    "MFK Karviná",
+    "Karviná"
+  ],
+  "malmo.svg": [
+    "Malmö FF"
+  ],
+  "manchester-united.svg": [
+    "Manchester United FC",
+    "Manchester United"
+  ],
+  "nottingham-forest.svg": [
+    "Nottingham Forest FC",
+    "Nottingham Forest"
+  ],
+  "ofi.svg": [
+    "OFI FC",
+    "OFI"
+  ],
+  "nice.svg": [
+    "OGC Nice Côte d'Azur",
+    "Nice"
+  ],
+  "odense-boldklub.svg": [
+    "Odense Boldklub",
+    "OB"
+  ],
+  "lyon.svg": [
+    "Olympique Lyonnais"
+  ],
+  "orihuela-cf.svg": [
+    "Orihuela CF",
+    "Orihuela"
+  ],
+  "oud-heverlee-leuven.svg": [
+    "Oud-Heverlee Leuven",
+    "OH Leuven"
+  ],
+  "ourense-cf.svg": [
+    "Ourense CF"
+  ],
+  "atromitos.svg": [
+    "PAE APS Atromitos Athens",
+    "Atromitos"
+  ],
+  "paok.svg": [
+    "PAOK Thessaloniki FC",
+    "PAOK"
+  ],
+  "panetolikos.svg": [
+    "Panaitolikos GFS Agrinio",
+    "Panaitolikos"
+  ],
+  "panathinaikos.svg": [
+    "Panathinaikos FC",
+    "Panathinaikos"
+  ],
+  "panserraikos.svg": [
+    "Panserraikos FC",
+    "Panserraikos"
+  ],
+  "paris-fc.svg": [
+    "Paris FC"
+  ],
+  "port-vale.svg": [
+    "Port Vale FC",
+    "Port Vale"
+  ],
+  "raal-la-louviere.svg": [
+    "RAAL La Louvière"
+  ],
+  "rc-strasbourg-alsace.svg": [
+    "RC Strasbourg Alsace",
+    "Strasbourg"
+  ],
+  "anderlecht.svg": [
+    "RSC Anderlecht",
+    "Anderlecht"
+  ],
+  "rc-lens.svg": [
+    "Racing Club de Lens",
+    "Lens"
+  ],
+  "rangers.svg": [
+    "Rangers FC",
+    "Rangers"
+  ],
+  "rb-leipzig.svg": [
+    "RasenBallsport Leipzig",
+    "RB Leipzig"
+  ],
+  "murcia.svg": [
+    "Real Murcia CF",
+    "Real Murcia"
+  ],
+  "real-avila.svg": [
+    "Real Ávila CF",
+    "Real Ávila"
+  ],
+  "antwerp.svg": [
+    "Royal Antwerp FC",
+    "Antwerp"
+  ],
+  "charleroi.svg": [
+    "Royal Charleroi SC",
+    "Sporting Charleroi"
+  ],
+  "standard-liege.svg": [
+    "Royal Standard de Liège",
+    "Standard Liège"
+  ],
+  "freiburg.svg": [
+    "SC Freiburg",
+    "Freiburg"
+  ],
+  "logrones.svg": [
+    "SD Logroñés"
+  ],
+  "ponferradina.svg": [
+    "SD Ponferradina",
+    "Ponferradina"
+  ],
+  "olomouc.svg": [
+    "SK Sigma Olomouc",
+    "Sigma Olomouc"
+  ],
+  "werder-bremen.svg": [
+    "SV Werder Bremen",
+    "Werder Bremen"
+  ],
+  "zulte-waregem.svg": [
+    "SV Zulte Waregem",
+    "Zulte Waregem"
+  ],
+  "silkeborg.svg": [
+    "Silkeborg IF",
+    "Silkeborg"
+  ],
+  "sint-truidense.svg": [
+    "Sint-Truidense VV",
+    "Sint-Truiden"
+  ],
+  "brest.svg": [
+    "Stade Brestois 29",
+    "Brest"
+  ],
+  "rennes.svg": [
+    "Stade Rennais FC",
+    "Rennes"
+  ],
+  "sunderland.svg": [
+    "Sunderland AFC",
+    "Sunderland"
+  ],
+  "sonderjyske.svg": [
+    "Sønderjyske Fodbold",
+    "Sønderjyske"
+  ],
+  "hoffenheim.svg": [
+    "TSG 1899 Hoffenheim",
+    "Hoffenheim"
+  ],
+  "toulouse.svg": [
+    "Toulouse FC",
+    "Toulouse"
+  ],
+  "vejle-boldklub.svg": [
+    "Vejle Boldklub",
+    "Vejle"
+  ],
+  "vfb-stuttgart.svg": [
+    "VfB Stuttgart 1893",
+    "Stuttgart"
+  ],
+  "wolfsburg.svg": [
+    "VfL Wolfsburg",
+    "Wolfsburg"
+  ],
+  "viborg.svg": [
+    "Viborg FF",
+    "Viborg"
+  ],
+  "volos.svg": [
+    "Volos New Football Club",
+    "Volos NFC"
+  ],
+  "west-ham.svg": [
+    "West Ham United FC",
+    "West Ham United"
+  ],
+  "wrexham.svg": [
+    "Wrexham FC",
+    "Wrexham"
+  ]
+}

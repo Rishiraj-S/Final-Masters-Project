@@ -1,0 +1,828 @@
+{
+  "Atlètic Sant Just FC": {
+    "slug": "atletico-sanluqueno",
+    "country": "spain",
+    "site": "Atlético Sanluqueño",
+    "svg_url": "https://images.football-logos.cc/spain/atletico-sanluqueno.080abfce.svg",
+    "score": 0.667
+  },
+  "Atlético Palma del Río": {
+    "slug": "atletico-madrid",
+    "country": "spain",
+    "site": "Atletico Madrid",
+    "svg_url": "https://images.football-logos.cc/spain/atletico-madrid.a8cbf02c.svg",
+    "score": 0.757
+  },
+  "Brighton & Hove Albion FC": {
+    "slug": "brighton",
+    "country": "england",
+    "site": "Brighton",
+    "svg_url": "https://images.football-logos.cc/england/brighton.15a3cedb.svg",
+    "score": 0.65
+  },
+  "CA Antoniano": {
+    "slug": "bergantinos-cf",
+    "country": "spain",
+    "site": "Bergantiños CF",
+    "svg_url": "https://images.football-logos.cc/spain/bergantinos-cf.f58b63c0.svg",
+    "score": 0.522
+  },
+  "CD Artístico Navalcarnero": {
+    "slug": "rayo-vallecano",
+    "country": "spain",
+    "site": "Rayo Vallecano",
+    "svg_url": "https://images.football-logos.cc/spain/rayo-vallecano.4822169b.svg",
+    "score": 0.556
+  },
+  "CD Atlético Baleares": {
+    "slug": "atletico-madrid",
+    "country": "spain",
+    "site": "Atletico Madrid",
+    "svg_url": "https://images.football-logos.cc/spain/atletico-madrid.a8cbf02c.svg",
+    "score": 0.688
+  },
+  "CD Cieza": {
+    "slug": "celta",
+    "country": "spain",
+    "site": "Celta",
+    "svg_url": "https://images.football-logos.cc/spain/celta.4b0928f2.svg",
+    "score": 0.6
+  },
+  "CD Ciudad de Lucena": {
+    "slug": "cultural-leonesa",
+    "country": "spain",
+    "site": "Cultural Leonesa",
+    "svg_url": "https://images.football-logos.cc/spain/cultural-leonesa.ad53249d.svg",
+    "score": 0.552
+  },
+  "CD Eldense": {
+    "slug": "eldense",
+    "country": "spain",
+    "site": "CD Eldense",
+    "svg_url": "https://images.football-logos.cc/spain/eldense.615f2026.svg",
+    "score": 1.0
+  },
+  "CD Extremadura 1924": {
+    "slug": "real-madrid",
+    "country": "spain",
+    "site": "Real Madrid",
+    "svg_url": "https://images.football-logos.cc/spain/real-madrid.210a33d7.svg",
+    "score": 0.545
+  },
+  "CD Getxo": {
+    "slug": "getafe",
+    "country": "spain",
+    "site": "Getafe",
+    "svg_url": "https://images.football-logos.cc/spain/getafe.7de24cfa.svg",
+    "score": 0.545
+  },
+  "CD Guadalajara": {
+    "slug": "cd-guadalajara",
+    "country": "spain",
+    "site": "CD Guadalajara",
+    "svg_url": "https://images.football-logos.cc/spain/cd-guadalajara.8afd2662.svg",
+    "score": 1.0
+  },
+  "CD Numancia de Soria": {
+    "slug": "numancia",
+    "country": "spain",
+    "site": "Numancia",
+    "svg_url": "https://images.football-logos.cc/spain/numancia.18de9719.svg",
+    "score": 0.877
+  },
+  "CD Quintanar del Rey": {
+    "slug": "copa-del-rey",
+    "country": "spain",
+    "site": "Copa del Rey",
+    "svg_url": "https://images.football-logos.cc/spain/copa-del-rey.495b153b.svg",
+    "score": 0.621
+  },
+  "CD Sant Jordi": {
+    "slug": "ud-samano",
+    "country": "spain",
+    "site": "UD Sámano",
+    "svg_url": "https://images.football-logos.cc/spain/ud-samano.1dfc1766.svg",
+    "score": 0.5
+  },
+  "CD Toledo": {
+    "slug": "oviedo",
+    "country": "spain",
+    "site": "Oviedo",
+    "svg_url": "https://images.football-logos.cc/spain/oviedo.1a1edb3f.svg",
+    "score": 0.667
+  },
+  "CD Yuncos": {
+    "slug": "burgos",
+    "country": "spain",
+    "site": "Burgos CF",
+    "svg_url": "https://images.football-logos.cc/spain/burgos.d8534161.svg",
+    "score": 0.5
+  },
+  "CE Atlètic Lleida 2019": {
+    "slug": "atletico-madrid",
+    "country": "spain",
+    "site": "Atletico Madrid",
+    "svg_url": "https://images.football-logos.cc/spain/atletico-madrid.a8cbf02c.svg",
+    "score": 0.541
+  },
+  "CE Constància": {
+    "slug": "numancia",
+    "country": "spain",
+    "site": "Numancia",
+    "svg_url": "https://images.football-logos.cc/spain/numancia.18de9719.svg",
+    "score": 0.571
+  },
+  "CF Inter de Valdemoro": {
+    "slug": "rayo-vallecano",
+    "country": "spain",
+    "site": "Rayo Vallecano",
+    "svg_url": "https://images.football-logos.cc/spain/rayo-vallecano.4822169b.svg",
+    "score": 0.483
+  },
+  "CF Reddis": {
+    "slug": "real-betis",
+    "country": "spain",
+    "site": "Real Betis",
+    "svg_url": "https://images.football-logos.cc/spain/real-betis.21955af7.svg",
+    "score": 0.5
+  },
+  "Cercle Brugge KSV": {
+    "slug": "cercle-brugge",
+    "country": "belgium",
+    "site": "Cercle Brugge KSV",
+    "svg_url": "https://images.football-logos.cc/belgium/cercle-brugge.3239f933.svg",
+    "score": 1.017
+  },
+  "Charlton Athletic FC": {
+    "slug": "charlton",
+    "country": "england",
+    "site": "Charlton Athletic",
+    "svg_url": "https://images.football-logos.cc/england/charlton.47761c03.svg",
+    "score": 1.0
+  },
+  "Club Portugalete": {
+    "slug": "albacete",
+    "country": "spain",
+    "site": "Albacete",
+    "svg_url": "https://images.football-logos.cc/spain/albacete.9512e99e.svg",
+    "score": 0.526
+  },
+  "Crystal Palace FC": {
+    "slug": "crystal-palace",
+    "country": "england",
+    "site": "Crystal Palace",
+    "svg_url": "https://images.football-logos.cc/england/crystal-palace.8b1d2077.svg",
+    "score": 1.0
+  },
+  "Esbjerg fB": {
+    "slug": "esbjerg",
+    "country": "denmark",
+    "site": "Esbjerg",
+    "svg_url": "https://images.football-logos.cc/denmark/esbjerg.d3611a25.svg",
+    "score": 0.974
+  },
+  "Everton FC": {
+    "slug": "everton",
+    "country": "england",
+    "site": "Everton",
+    "svg_url": "https://images.football-logos.cc/england/everton.9a4c4a48.svg",
+    "score": 1.0
+  },
+  "FC Augsburg": {
+    "slug": "augsburg",
+    "country": "germany",
+    "site": "Augsburg",
+    "svg_url": "https://images.football-logos.cc/germany/augsburg.c4a4f14f.svg",
+    "score": 1.0
+  },
+  "FC Baník Ostrava": {
+    "slug": "banik",
+    "country": "czech-republic",
+    "site": "Baník Ostrava",
+    "svg_url": "https://images.football-logos.cc/czech-republic/banik.c726315a.svg",
+    "score": 1.0
+  },
+  "FC Basel 1893": {
+    "slug": "basel",
+    "country": "switzerland",
+    "site": "Basel",
+    "svg_url": "https://images.football-logos.cc/switzerland/basel.afdc85b2.svg",
+    "score": 1.0
+  },
+  "FC La Unión Atlético": {
+    "slug": "athletic-club",
+    "country": "spain",
+    "site": "Athletic Club Bilbao",
+    "svg_url": "https://images.football-logos.cc/spain/athletic-club.fe03b359.svg",
+    "score": 0.56
+  },
+  "FC Nantes": {
+    "slug": "nantes",
+    "country": "france",
+    "site": "Nantes",
+    "svg_url": "https://images.football-logos.cc/france/nantes.6bbac903.svg",
+    "score": 1.0
+  },
+  "FC Nordsjælland": {
+    "slug": "nordsjaelland",
+    "country": "denmark",
+    "site": "FC Nordsjælland",
+    "svg_url": "https://images.football-logos.cc/denmark/nordsjaelland.8a5886b3.svg",
+    "score": 1.0
+  },
+  "FC Salzburg": {
+    "slug": "salzburg",
+    "country": "austria",
+    "site": "Salzburg",
+    "svg_url": "https://images.football-logos.cc/austria/salzburg.d8eafb02.svg",
+    "score": 1.0
+  },
+  "FC Slovan Liberec": {
+    "slug": "liberec",
+    "country": "czech-republic",
+    "site": "Slovan Liberec",
+    "svg_url": "https://images.football-logos.cc/czech-republic/liberec.d2334cf1.svg",
+    "score": 1.0
+  },
+  "FC St. Pauli": {
+    "slug": "st-pauli",
+    "country": "germany",
+    "site": "St Pauli",
+    "svg_url": "https://images.football-logos.cc/germany/st-pauli.6bfa821a.svg",
+    "score": 1.0
+  },
+  "FC Viktoria Plzeň": {
+    "slug": "viktoria-plzen",
+    "country": "czech-republic",
+    "site": "Viktoria Plzeň",
+    "svg_url": "https://images.football-logos.cc/czech-republic/viktoria-plzen.cff7cf63.svg",
+    "score": 1.0
+  },
+  "FC Zlín": {
+    "slug": "zlin",
+    "country": "czech-republic",
+    "site": "Zlín",
+    "svg_url": "https://images.football-logos.cc/czech-republic/zlin.a012d0ed.svg",
+    "score": 1.0
+  },
+  "FCV Dender EH": {
+    "slug": "fcv-dender-eh",
+    "country": "belgium",
+    "site": "FCV Dender EH",
+    "svg_url": "https://images.football-logos.cc/belgium/fcv-dender-eh.813fa70c.svg",
+    "score": 1.0
+  },
+  "FK Dukla Praha": {
+    "slug": "dukla",
+    "country": "czech-republic",
+    "site": "Dukla Prague",
+    "svg_url": "https://images.football-logos.cc/czech-republic/dukla.c41de86e.svg",
+    "score": 0.783
+  },
+  "FK Jablonec": {
+    "slug": "jablonec",
+    "country": "czech-republic",
+    "site": "Jablonec",
+    "svg_url": "https://images.football-logos.cc/czech-republic/jablonec.4749b282.svg",
+    "score": 1.0
+  },
+  "FK Mladá Boleslav": {
+    "slug": "mlada-boleslav",
+    "country": "czech-republic",
+    "site": "Mladá Boleslav",
+    "svg_url": "https://images.football-logos.cc/czech-republic/mlada-boleslav.59b8ed70.svg",
+    "score": 1.0
+  },
+  "FK Pardubice": {
+    "slug": "pardubice",
+    "country": "czech-republic",
+    "site": "Pardubice",
+    "svg_url": "https://images.football-logos.cc/czech-republic/pardubice.ed64480f.svg",
+    "score": 1.0
+  },
+  "FK Teplice": {
+    "slug": "teplice",
+    "country": "czech-republic",
+    "site": "Teplice",
+    "svg_url": "https://images.football-logos.cc/czech-republic/teplice.66d22592.svg",
+    "score": 1.0
+  },
+  "FV Engers 07": {
+    "slug": "ssvg-velbert-02",
+    "country": "germany",
+    "site": "SSVg Velbert 02",
+    "svg_url": "https://images.football-logos.cc/germany/ssvg-velbert-02.eed51c1f.svg",
+    "score": 0.519
+  },
+  "Fulham FC": {
+    "slug": "fulham",
+    "country": "england",
+    "site": "Fulham",
+    "svg_url": "https://images.football-logos.cc/england/fulham.3f4dea97.svg",
+    "score": 1.0
+  },
+  "Hamburger SV": {
+    "slug": "hamburger-sv",
+    "country": "germany",
+    "site": "Hamburger SV",
+    "svg_url": "https://images.football-logos.cc/germany/hamburger-sv.22c86879.svg",
+    "score": 1.0
+  },
+  "Hobro IK": {
+    "slug": "brondby",
+    "country": "denmark",
+    "site": "Brøndby IF",
+    "svg_url": "https://images.football-logos.cc/denmark/brondby.3c334dd4.svg",
+    "score": 0.4
+  },
+  "Hull City AFC": {
+    "slug": "hull-city",
+    "country": "england",
+    "site": "Hull City",
+    "svg_url": "https://images.football-logos.cc/england/hull-city.66235343.svg",
+    "score": 1.0
+  },
+  "KAA Gent": {
+    "slug": "gent",
+    "country": "belgium",
+    "site": "KAA Gent",
+    "svg_url": "https://images.football-logos.cc/belgium/gent.50769a24.svg",
+    "score": 1.0
+  },
+  "KRC Genk": {
+    "slug": "genk",
+    "country": "belgium",
+    "site": "KRC Genk",
+    "svg_url": "https://images.football-logos.cc/belgium/genk.eb7b7537.svg",
+    "score": 1.0
+  },
+  "KV Mechelen": {
+    "slug": "mechelen",
+    "country": "belgium",
+    "site": "KV Mechelen",
+    "svg_url": "https://images.football-logos.cc/belgium/mechelen.7bdefb08.svg",
+    "score": 1.0
+  },
+  "KVC Westerlo": {
+    "slug": "westerlo",
+    "country": "belgium",
+    "site": "KVC Westerlo",
+    "svg_url": "https://images.football-logos.cc/belgium/westerlo.d5a92a09.svg",
+    "score": 1.0
+  },
+  "Kifisias FC": {
+    "slug": "kifisia",
+    "country": "greece",
+    "site": "A.E. Kifisia",
+    "svg_url": "https://images.football-logos.cc/greece/kifisia.09112c45.svg",
+    "score": 0.933
+  },
+  "Le Havre AC": {
+    "slug": "le-havre-ac",
+    "country": "france",
+    "site": "Le Havre AC",
+    "svg_url": "https://images.football-logos.cc/france/le-havre-ac.d06c0b5e.svg",
+    "score": 1.0
+  },
+  "Leeds United FC": {
+    "slug": "leeds-united",
+    "country": "england",
+    "site": "Leeds United",
+    "svg_url": "https://images.football-logos.cc/england/leeds-united.ea2e2c2c.svg",
+    "score": 1.0
+  },
+  "Levadiakos FC": {
+    "slug": "levadiakos",
+    "country": "greece",
+    "site": "Levadiakos",
+    "svg_url": "https://images.football-logos.cc/greece/levadiakos.0e70446c.svg",
+    "score": 1.0
+  },
+  "Lille OSC": {
+    "slug": "lille",
+    "country": "france",
+    "site": "Lille",
+    "svg_url": "https://images.football-logos.cc/france/lille.e67b5438.svg",
+    "score": 0.864
+  },
+  "Lincoln City FC": {
+    "slug": "lincoln-city",
+    "country": "england",
+    "site": "Lincoln City",
+    "svg_url": "https://images.football-logos.cc/england/lincoln-city.307ea7c8.svg",
+    "score": 1.0
+  },
+  "Lyngby Boldklub": {
+    "slug": "lyngby",
+    "country": "denmark",
+    "site": "Lyngby",
+    "svg_url": "https://images.football-logos.cc/denmark/lyngby.91f37716.svg",
+    "score": 0.721
+  },
+  "MFK Karviná": {
+    "slug": "karvina",
+    "country": "czech-republic",
+    "site": "Karviná",
+    "svg_url": "https://images.football-logos.cc/czech-republic/karvina.00ed0897.svg",
+    "score": 0.928
+  },
+  "Malmö FF": {
+    "slug": "malmo",
+    "country": "sweden",
+    "site": "Malmö",
+    "svg_url": "https://images.football-logos.cc/sweden/malmo.5258a3d6.svg",
+    "score": 0.919
+  },
+  "Manchester United FC": {
+    "slug": "manchester-united",
+    "country": "england",
+    "site": "Manchester United",
+    "svg_url": "https://images.football-logos.cc/england/manchester-united.1102d912.svg",
+    "score": 1.0
+  },
+  "Nottingham Forest FC": {
+    "slug": "nottingham-forest",
+    "country": "england",
+    "site": "Nottingham Forest",
+    "svg_url": "https://images.football-logos.cc/england/nottingham-forest.88dccdb9.svg",
+    "score": 1.0
+  },
+  "OFI FC": {
+    "slug": "ofi",
+    "country": "greece",
+    "site": "OFI",
+    "svg_url": "https://images.football-logos.cc/greece/ofi.c5674b1a.svg",
+    "score": 1.0
+  },
+  "OGC Nice Côte d'Azur": {
+    "slug": "nice",
+    "country": "france",
+    "site": "Nice",
+    "svg_url": "https://images.football-logos.cc/france/nice.658235f4.svg",
+    "score": 0.483
+  },
+  "Odense Boldklub": {
+    "slug": "odense-boldklub",
+    "country": "denmark",
+    "site": "OB",
+    "svg_url": "https://images.football-logos.cc/denmark/odense-boldklub.d7d4e027.svg",
+    "score": 1.0
+  },
+  "Olympique Lyonnais": {
+    "slug": "lyon",
+    "country": "france",
+    "site": "Olympique Lyonnais",
+    "svg_url": "https://images.football-logos.cc/france/lyon.d838b677.svg",
+    "score": 1.0
+  },
+  "Orihuela CF": {
+    "slug": "orihuela-cf",
+    "country": "spain",
+    "site": "Orihuela CF",
+    "svg_url": "https://images.football-logos.cc/spain/orihuela-cf.1d3776b3.svg",
+    "score": 1.0
+  },
+  "Oud-Heverlee Leuven": {
+    "slug": "oud-heverlee-leuven",
+    "country": "belgium",
+    "site": "Oud-Heverlee Leuven",
+    "svg_url": "https://images.football-logos.cc/belgium/oud-heverlee-leuven.54477a4d.svg",
+    "score": 1.0
+  },
+  "Ourense CF": {
+    "slug": "ourense-cf",
+    "country": "spain",
+    "site": "Ourense CF",
+    "svg_url": "https://images.football-logos.cc/spain/ourense-cf.fe871fa3.svg",
+    "score": 1.0
+  },
+  "PAE APS Atromitos Athens": {
+    "slug": "atromitos",
+    "country": "greece",
+    "site": "Atromitos",
+    "svg_url": "https://images.football-logos.cc/greece/atromitos.ee05ea57.svg",
+    "score": 0.695
+  },
+  "PAOK Thessaloniki FC": {
+    "slug": "aris-thessaloniki",
+    "country": "greece",
+    "site": "Aris Thessaloniki",
+    "svg_url": "https://images.football-logos.cc/greece/aris-thessaloniki.48ddf0d8.svg",
+    "score": 0.824
+  },
+  "Panaitolikos GFS Agrinio": {
+    "slug": "panetolikos",
+    "country": "greece",
+    "site": "Panetolikos",
+    "svg_url": "https://images.football-logos.cc/greece/panetolikos.6462bf67.svg",
+    "score": 0.571
+  },
+  "Panathinaikos FC": {
+    "slug": "panathinaikos",
+    "country": "greece",
+    "site": "Panathinaikos",
+    "svg_url": "https://images.football-logos.cc/greece/panathinaikos.ed3ab8f9.svg",
+    "score": 1.0
+  },
+  "Panserraikos FC": {
+    "slug": "panserraikos",
+    "country": "greece",
+    "site": "Panserraikos",
+    "svg_url": "https://images.football-logos.cc/greece/panserraikos.aaca8ed8.svg",
+    "score": 1.0
+  },
+  "Paris FC": {
+    "slug": "paris-fc",
+    "country": "france",
+    "site": "Paris FC",
+    "svg_url": "https://images.football-logos.cc/france/paris-fc.2f1321cc.svg",
+    "score": 1.0
+  },
+  "Port Vale FC": {
+    "slug": "port-vale",
+    "country": "england",
+    "site": "Port Vale FC",
+    "svg_url": "https://images.football-logos.cc/england/port-vale.c28f28a5.svg",
+    "score": 1.0
+  },
+  "Puerto de Vega CF": {
+    "slug": "deportivo",
+    "country": "spain",
+    "site": "Deportivo Alavés",
+    "svg_url": "https://images.football-logos.cc/spain/deportivo.e23073f0.svg",
+    "score": 0.519
+  },
+  "RAAL La Louvière": {
+    "slug": "raal-la-louviere",
+    "country": "belgium",
+    "site": "RAAL La Louvière",
+    "svg_url": "https://images.football-logos.cc/belgium/raal-la-louviere.cbce5f0c.svg",
+    "score": 1.0
+  },
+  "RC Strasbourg Alsace": {
+    "slug": "rc-strasbourg-alsace",
+    "country": "france",
+    "site": "RC Strasbourg Alsace",
+    "svg_url": "https://images.football-logos.cc/france/rc-strasbourg-alsace.88437efb.svg",
+    "score": 1.0
+  },
+  "RSC Anderlecht": {
+    "slug": "anderlecht",
+    "country": "belgium",
+    "site": "RSC Anderlecht",
+    "svg_url": "https://images.football-logos.cc/belgium/anderlecht.d92a44eb.svg",
+    "score": 1.0
+  },
+  "Racing Club de Lens": {
+    "slug": "rc-lens",
+    "country": "france",
+    "site": "RC Lens",
+    "svg_url": "https://images.football-logos.cc/france/rc-lens.13678123.svg",
+    "score": 0.683
+  },
+  "Rangers FC": {
+    "slug": "rangers",
+    "country": "scotland",
+    "site": "Rangers",
+    "svg_url": "https://images.football-logos.cc/scotland/rangers.4ec9c165.svg",
+    "score": 1.0
+  },
+  "RasenBallsport Leipzig": {
+    "slug": "rb-leipzig",
+    "country": "germany",
+    "site": "RB Leipzig",
+    "svg_url": "https://images.football-logos.cc/germany/rb-leipzig.f7e9b747.svg",
+    "score": 0.625
+  },
+  "Real Murcia CF": {
+    "slug": "murcia",
+    "country": "spain",
+    "site": "Real Murcia",
+    "svg_url": "https://images.football-logos.cc/spain/murcia.081f1239.svg",
+    "score": 1.0
+  },
+  "Real Ávila CF": {
+    "slug": "real-avila",
+    "country": "spain",
+    "site": "Real Ávila",
+    "svg_url": "https://images.football-logos.cc/spain/real-avila.cfa9e61c.svg",
+    "score": 1.0
+  },
+  "Royal Antwerp FC": {
+    "slug": "antwerp",
+    "country": "belgium",
+    "site": "Royal Antwerp FC",
+    "svg_url": "https://images.football-logos.cc/belgium/antwerp.cc3e2866.svg",
+    "score": 1.0
+  },
+  "Royal Charleroi SC": {
+    "slug": "charleroi",
+    "country": "belgium",
+    "site": "Royal Charleroi S.C.",
+    "svg_url": "https://images.football-logos.cc/belgium/charleroi.5b243ee3.svg",
+    "score": 1.032
+  },
+  "Royal Standard de Liège": {
+    "slug": "standard-liege",
+    "country": "belgium",
+    "site": "Standard Liège",
+    "svg_url": "https://images.football-logos.cc/belgium/standard-liege.2b1c902b.svg",
+    "score": 0.974
+  },
+  "SC Freiburg": {
+    "slug": "freiburg",
+    "country": "germany",
+    "site": "Freiburg",
+    "svg_url": "https://images.football-logos.cc/germany/freiburg.640979ef.svg",
+    "score": 1.0
+  },
+  "SD Logroñés": {
+    "slug": "logrones",
+    "country": "spain",
+    "site": "SD Logroñés",
+    "svg_url": "https://images.football-logos.cc/spain/logrones.2505dd8f.svg",
+    "score": 1.0
+  },
+  "SD Negreira": {
+    "slug": "sd-ejea",
+    "country": "spain",
+    "site": "SD Ejea",
+    "svg_url": "https://images.football-logos.cc/spain/sd-ejea.5e65f630.svg",
+    "score": 0.667
+  },
+  "SD Ponferradina": {
+    "slug": "ponferradina",
+    "country": "spain",
+    "site": "Ponferradina",
+    "svg_url": "https://images.football-logos.cc/spain/ponferradina.c38ae53c.svg",
+    "score": 1.039
+  },
+  "SK Sigma Olomouc": {
+    "slug": "olomouc",
+    "country": "czech-republic",
+    "site": "Sigma Olomouc",
+    "svg_url": "https://images.football-logos.cc/czech-republic/olomouc.3fbf1cc7.svg",
+    "score": 1.0
+  },
+  "SV Werder Bremen": {
+    "slug": "werder-bremen",
+    "country": "germany",
+    "site": "Werder Bremen",
+    "svg_url": "https://images.football-logos.cc/germany/werder-bremen.9cdf2052.svg",
+    "score": 1.047
+  },
+  "SV Zulte Waregem": {
+    "slug": "zulte-waregem",
+    "country": "belgium",
+    "site": "Zulte Waregem",
+    "svg_url": "https://images.football-logos.cc/belgium/zulte-waregem.0a64474c.svg",
+    "score": 1.047
+  },
+  "Silkeborg IF": {
+    "slug": "silkeborg",
+    "country": "denmark",
+    "site": "Silkeborg IF",
+    "svg_url": "https://images.football-logos.cc/denmark/silkeborg.f6a470be.svg",
+    "score": 1.0
+  },
+  "Sint-Truidense VV": {
+    "slug": "sint-truidense",
+    "country": "belgium",
+    "site": "Sint-Truidense VV",
+    "svg_url": "https://images.football-logos.cc/belgium/sint-truidense.b309f409.svg",
+    "score": 1.053
+  },
+  "Stade Brestois 29": {
+    "slug": "stade-briochin",
+    "country": "france",
+    "site": "Stade Briochin",
+    "svg_url": "https://images.football-logos.cc/france/stade-briochin.f6e1b480.svg",
+    "score": 0.645
+  },
+  "Stade Rennais FC": {
+    "slug": "stade-de-reims",
+    "country": "france",
+    "site": "Stade de Reims",
+    "svg_url": "https://images.football-logos.cc/france/stade-de-reims.b0bef72d.svg",
+    "score": 0.833
+  },
+  "Sunderland AFC": {
+    "slug": "sunderland",
+    "country": "england",
+    "site": "Sunderland",
+    "svg_url": "https://images.football-logos.cc/england/sunderland.36ff1a44.svg",
+    "score": 1.0
+  },
+  "Sønderjyske Fodbold": {
+    "slug": "sonderjyske",
+    "country": "denmark",
+    "site": "Sonderjyske",
+    "svg_url": "https://images.football-logos.cc/denmark/sonderjyske.0b7a3574.svg",
+    "score": 0.883
+  },
+  "TSG 1899 Hoffenheim": {
+    "slug": "hoffenheim",
+    "country": "germany",
+    "site": "Hoffenheim",
+    "svg_url": "https://images.football-logos.cc/germany/hoffenheim.8ea06b7a.svg",
+    "score": 0.983
+  },
+  "Torrent CF": {
+    "slug": "ourense-cf",
+    "country": "spain",
+    "site": "Ourense CF",
+    "svg_url": "https://images.football-logos.cc/spain/ourense-cf.fe871fa3.svg",
+    "score": 0.571
+  },
+  "Toulouse FC": {
+    "slug": "toulouse",
+    "country": "france",
+    "site": "Toulouse",
+    "svg_url": "https://images.football-logos.cc/france/toulouse.6f2cb800.svg",
+    "score": 1.0
+  },
+  "UD Maracena": {
+    "slug": "arenas-club",
+    "country": "spain",
+    "site": "Arenas Club",
+    "svg_url": "https://images.football-logos.cc/spain/arenas-club.ee8d2aab.svg",
+    "score": 0.714
+  },
+  "UE Sant Andreu": {
+    "slug": "racing",
+    "country": "spain",
+    "site": "Racing Santander",
+    "svg_url": "https://images.football-logos.cc/spain/racing.1c4f2374.svg",
+    "score": 0.6
+  },
+  "US Raonnaise": {
+    "slug": "rennes",
+    "country": "france",
+    "site": "Rennes",
+    "svg_url": "https://images.football-logos.cc/france/rennes.f7320a91.svg",
+    "score": 0.533
+  },
+  "Unión Deportiva Los Garres": {
+    "slug": "deportivo",
+    "country": "spain",
+    "site": "Deportivo Alavés",
+    "svg_url": "https://images.football-logos.cc/spain/deportivo.e23073f0.svg",
+    "score": 0.619
+  },
+  "Vejle Boldklub": {
+    "slug": "vejle-boldklub",
+    "country": "denmark",
+    "site": "VB",
+    "svg_url": "https://images.football-logos.cc/denmark/vejle-boldklub.3b76a1c8.svg",
+    "score": 1.0
+  },
+  "Vendée Fontenay Foot": {
+    "slug": "clermont-foot",
+    "country": "france",
+    "site": "Clermont Foot",
+    "svg_url": "https://images.football-logos.cc/france/clermont-foot.c8541e3c.svg",
+    "score": 0.545
+  },
+  "VfB Stuttgart 1893": {
+    "slug": "vfb-stuttgart",
+    "country": "germany",
+    "site": "VfB Stuttgart",
+    "svg_url": "https://images.football-logos.cc/germany/vfb-stuttgart.f7cc3e2c.svg",
+    "score": 1.0
+  },
+  "VfL Wolfsburg": {
+    "slug": "wolfsburg",
+    "country": "germany",
+    "site": "Wolfsburg",
+    "svg_url": "https://images.football-logos.cc/germany/wolfsburg.e7996c38.svg",
+    "score": 0.968
+  },
+  "Viborg FF": {
+    "slug": "viborg",
+    "country": "denmark",
+    "site": "Viborg FF",
+    "svg_url": "https://images.football-logos.cc/denmark/viborg.6ebab03e.svg",
+    "score": 1.0
+  },
+  "Volos New Football Club": {
+    "slug": "volos",
+    "country": "greece",
+    "site": "Volos NFC",
+    "svg_url": "https://images.football-logos.cc/greece/volos.7c88807f.svg",
+    "score": 0.864
+  },
+  "West Ham United FC": {
+    "slug": "west-ham",
+    "country": "england",
+    "site": "West Ham",
+    "svg_url": "https://images.football-logos.cc/england/west-ham.1719fd16.svg",
+    "score": 0.846
+  },
+  "Wrexham FC": {
+    "slug": "wrexham",
+    "country": "england",
+    "site": "Wrexham AFC",
+    "svg_url": "https://images.football-logos.cc/england/wrexham.5d24b07a.svg",
+    "score": 1.0
+  }
+}

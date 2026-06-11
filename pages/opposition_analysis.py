@@ -18,7 +18,6 @@ from __future__ import annotations
 import calendar
 from datetime import datetime
 
-import pandas as pd
 from dash import html, dcc
 from dash.dependencies import Input, Output, State, ALL
 from dash import ctx
@@ -30,9 +29,8 @@ from utils.opposition_data_utils import (
     list_available_opponents,
     get_team_competitions,
     get_team_country,
-    get_opp_all_events,
     get_opp_team_matches,
-    _normalize,
+    load_opp_events,
 )
 from pages.opposition_analysis_tabs import (
     build_overview,
@@ -47,7 +45,7 @@ from pages.opposition_analysis_tabs import (
     register_defence_callbacks,
     register_set_pieces_callbacks,
 )
-from pages.match_analysis_tabs.shared import page_header
+from pages.match_report import page_header
 from utils.logos import get_team_logo_path, get_tournament_logo_path, get_country_flag_path
 from page_utils.visualizations import GOLD
 
@@ -117,14 +115,56 @@ def _no_data_alert() -> dbc.Alert:
     )
 
 
-def _apply_venue_filter(df: pd.DataFrame, team: str, venue: str) -> pd.DataFrame:
-    if venue == 'all' or df.empty or 'home_team' not in df.columns:
-        return df
-    needle  = _normalize(team)
-    is_home = df['home_team'].fillna('').apply(lambda s: needle in _normalize(s))
+# Short competition labels for the calendar badge (covers all 21 comps).
+_COMP_SHORT = {
+    'Spain_Primera_Division':   'La Liga',
+    'Spain_Copa_del_Rey':       'Copa',
+    'Spain_Super_Cup':          'Supercopa',
+    'UEFA_Champions_League':    'UCL',
+    'UEFA_Europa_League':       'UEL',
+    'UEFA_Conference_League':   'UECL',
+    'England_Premier_League':   'EPL',
+    'England_FA_Cup':           'FA Cup',
+    'England_EFL_Cup':          'EFL Cup',
+    'Germany_Bundesliga':       'Bundesliga',
+    'Germany_DFB_Pokal':        'DFB-Pokal',
+    'Belgium_First_Division_A': 'Pro League',
+    'Belgium_Cup':              'Belg. Cup',
+    'France_Ligue_1':           'Ligue 1',
+    'France_Coupe_de_France':   'Coupe FR',
+    'Greece_Super_League':      'Super Lg',
+    'Greece_Cup':               'GR Cup',
+    'Denmark_Superliga':        'Superliga',
+    'Denmark_DBU_Pokalen':      'DBU Cup',
+    'Czech_First_League':       'Chance Lg',
+    'Czech_Cup':                'CZ Cup',
+}
+def _comp_short(comp_key: str) -> str:
+    return _COMP_SHORT.get(comp_key, (comp_key or '').replace('_', ' '))
+
+
+def _comp_logo(comp_key: str) -> str:
+    # TOURNAMENT_LOGOS is keyed by competition folder key, so pass it directly.
+    return get_tournament_logo_path(comp_key)
+
+
+def _filter_results(results: list[dict], date_cutoff: str | None,
+                    venue: str | None) -> list[dict]:
+    """Apply the date-cutoff and venue filters to a match-result list.
+
+    Shared by the calendar loader and the Overview renderer so both honour the
+    same selection.  Match-id selection is handled separately (it *is* the
+    calendar's output).
+    """
+    out = results
+    if date_cutoff:
+        cut = date_cutoff[:10]
+        out = [r for r in out if str(r.get('date', '')) <= cut]
     if venue == 'home':
-        return df[is_home].copy()
-    return df[~is_home].copy()
+        out = [r for r in out if r.get('is_home')]
+    elif venue == 'away':
+        out = [r for r in out if not r.get('is_home')]
+    return out
 
 
 # ── Calendar Builder ────────────────────────────────────────────────────────────
@@ -183,10 +223,10 @@ def _build_oa_calendar_grid(
                 opponent     = m.get('opponent', '???')   # who they faced
                 score        = f"{m.get('gf', 0)}-{m.get('ga', 0)}"
                 venue_marker = 'H' if is_home else 'A'
-                competition  = m.get('competition', '')
+                comp_key_m   = m.get('competition_key', '')
 
                 opp_logo_path   = get_team_logo_path(opponent)
-                tourn_logo_path = get_tournament_logo_path(competition)
+                tourn_logo_path = _comp_logo(comp_key_m)
 
                 logo_children = []
                 if opp_logo_path:
@@ -212,7 +252,7 @@ def _build_oa_calendar_grid(
                             'objectFit': 'contain', 'marginRight': '2px',
                         },
                     ))
-                tourn_children.append(html.Span(competition[:8], style={
+                tourn_children.append(html.Span(_comp_short(comp_key_m), style={
                     'fontSize': '0.6rem', 'color': COLORS['text_primary'],
                 }))
 
@@ -449,16 +489,23 @@ def register_opposition_analysis_callbacks(app) -> None:
             options.append({'label': c.replace('_', ' '), 'value': c})
         return options, 'all', False
 
-    # ── Team/Comp → load match data + init calendar month ────────────────────
+    # ── Team/Comp/Filters → load match data + init calendar month ────────────
+    # The calendar reflects the active venue + date filters, so the matches you
+    # can see and select are exactly those that feed the tabs.  Changing only a
+    # filter keeps the current month in view; changing team/comp jumps to the
+    # latest matching match.
     @app.callback(
         Output('oa-match-data',     'data'),
         Output('oa-calendar-month', 'data'),
         Output('oa-month-label',    'children'),
-        Input('oa-team-select', 'value'),
-        Input('oa-comp-select', 'value'),
+        Input('oa-team-select',  'value'),
+        Input('oa-comp-select',  'value'),
+        Input('oa-venue-filter', 'value'),
+        Input('oa-date-filter',  'date'),
+        State('oa-calendar-month', 'data'),
         prevent_initial_call=True,
     )
-    def load_match_data(team, comp):
+    def load_match_data(team, comp, venue, date_cutoff, cur_month):
         now = datetime.now()
         default_month = {'year': now.year, 'month': now.month}
         default_label = f"{calendar.month_name[now.month]} {now.year}"
@@ -476,20 +523,22 @@ def register_opposition_analysis_callbacks(app) -> None:
         else:
             results = get_opp_team_matches(team, country, comp, CURRENT_SEASON)
 
+        results = _filter_results(results, date_cutoff, venue)
         results.sort(key=lambda r: r.get('date', ''))
 
-        if results:
+        # Keep the current month when only a filter changed; otherwise jump to
+        # the latest matching match (or fall back to the current month).
+        filter_only = ctx.triggered_id in ('oa-venue-filter', 'oa-date-filter')
+        if filter_only and cur_month:
+            month_data = cur_month
+        elif results:
             latest     = results[-1]['date']
-            init_year  = int(latest[:4])
-            init_month = int(latest[5:7])
+            month_data = {'year': int(latest[:4]), 'month': int(latest[5:7])}
         else:
-            init_year, init_month = now.year, now.month
+            month_data = default_month
 
-        return (
-            results,
-            {'year': init_year, 'month': init_month},
-            f"{calendar.month_name[init_month]} {init_year}",
-        )
+        label = f"{calendar.month_name[month_data['month']]} {month_data['year']}"
+        return results, month_data, label
 
     # ── Reset match selection when team changes ───────────────────────────────
     @app.callback(
@@ -620,28 +669,14 @@ def register_opposition_analysis_callbacks(app) -> None:
 
         # ── Overview: load data synchronously (no callbacks) ──────────────────
         if active_tab == 'oa-tab-overview':
-            if comp_key == 'all':
-                frames    = [get_opp_all_events(team, country, c, CURRENT_SEASON) for c in all_comps]
-                non_empty = [f for f in frames if not f.empty]
-                all_ev    = pd.concat(non_empty, ignore_index=True) if non_empty else pd.DataFrame()
-            else:
-                all_ev = get_opp_all_events(team, country, comp_key, CURRENT_SEASON)
+            # Events: unified loader applies venue + date + match-id filters and
+            # splits opp_ev / opponent-ev robustly by team_code.
+            opp_ev, bar_ev = load_opp_events(
+                team, comp_key, venue_filter or 'all',
+                selected_match_ids, date_cutoff, CURRENT_SEASON,
+            )
 
-            if date_cutoff and not all_ev.empty and 'match_date' in all_ev.columns:
-                all_ev = all_ev[all_ev['match_date'].astype(str).str[:10] <= date_cutoff[:10]]
-            all_ev = _apply_venue_filter(all_ev, team, venue_filter or 'all')
-            if selected_match_ids and not all_ev.empty and 'match_id' in all_ev.columns:
-                all_ev = all_ev[all_ev['match_id'].isin(selected_match_ids)]
-
-            if not all_ev.empty and 'team_name' in all_ev.columns:
-                needle = _normalize(team)
-                is_opp = all_ev['team_name'].fillna('').apply(lambda s: needle in _normalize(s))
-                opp_ev = all_ev[is_opp].copy()
-                bar_ev = all_ev[~is_opp].copy()
-            else:
-                opp_ev = all_ev.copy()
-                bar_ev = pd.DataFrame()
-
+            # Results: same filters via the shared helper.
             if comp_key == 'all':
                 all_results: list[dict] = []
                 for c in all_comps:
@@ -649,12 +684,7 @@ def register_opposition_analysis_callbacks(app) -> None:
             else:
                 all_results = get_opp_team_matches(team, country, comp_key, CURRENT_SEASON)
 
-            if date_cutoff:
-                all_results = [r for r in all_results if r.get('date', '') <= date_cutoff[:10]]
-            if venue_filter == 'home':
-                all_results = [r for r in all_results if r.get('is_home')]
-            elif venue_filter == 'away':
-                all_results = [r for r in all_results if not r.get('is_home')]
+            all_results = _filter_results(all_results, date_cutoff, venue_filter)
             if selected_match_ids:
                 all_results = [r for r in all_results if r.get('match_id') in selected_match_ids]
 

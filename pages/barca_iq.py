@@ -30,7 +30,7 @@ from pages.team_analysis_tabs.defensive_transition import register_defending_tra
 from pages.team_analysis_tabs.set_pieces import build_set_pieces_tab, register_set_pieces_callbacks
 
 # UI components from shared, and GOLD from visualizations
-from pages.match_analysis_tabs.shared import page_header
+from pages.match_report import page_header
 from page_utils.visualizations import GOLD
 
 logger = logging.getLogger(__name__)

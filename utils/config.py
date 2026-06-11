@@ -6,11 +6,13 @@ import os
 
 # FC Barcelona Brand Colors - Dark Theme
 COLORS = {
-    # Official FC Barcelona Colors
+    # Official FC Barcelona Colors (full brand palette)
     'primary_blue': '#004D98',      # Blaugrana Blue
-    'garnet': '#A50044',             # Blaugrana Garnet/Red
-    'gold': '#EDBB00',               # Gold accent
-    'white': '#FFFFFF',              # White
+    'garnet':       '#A50044',      # Blaugrana Garnet
+    'red':          '#DB0030',      # Blaugrana Red
+    'gold':         '#EDBB00',      # Gold accent
+    'yellow':       '#FFED02',      # Bright Yellow
+    'white':        '#FFFFFF',      # White
 
     # Dark Theme Colors
     'dark_bg': '#0A0E27',            # Main background
@@ -38,8 +40,8 @@ NAV_LINKS = [
     {'label': 'Home', 'href': '/'},
     {'label': 'Barça DNA', 'href': '/barca-dna'},
     {'label': 'Barça IQ', 'href': '/barca-iq'},
-    {'label': 'Match Report', 'href': '/match-report'},
     {'label': 'Opposition Analysis', 'href': '/opposition-analysis'},
+    {'label': 'Match Report', 'href': '/match-report'},
 ]
 
 
