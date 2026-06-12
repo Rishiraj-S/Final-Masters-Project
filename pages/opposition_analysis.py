@@ -39,6 +39,7 @@ from pages.opposition_analysis_tabs import (
     build_transitions,
     build_defence,
     build_set_pieces,
+    register_overview_callbacks,
     register_buildup_callbacks,
     register_chance_creation_callbacks,
     register_transitions_callbacks,
@@ -451,6 +452,7 @@ def create_opposition_analysis_layout() -> dbc.Container:
 
 def register_opposition_analysis_callbacks(app) -> None:
     # Register tab callbacks (skeleton + callback pattern)
+    register_overview_callbacks(app)
     register_buildup_callbacks(app)
     register_chance_creation_callbacks(app)
     register_transitions_callbacks(app)

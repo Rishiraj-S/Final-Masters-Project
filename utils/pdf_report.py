@@ -3,7 +3,7 @@ pdf_report.py
 =============
 Server-side match report PDF generator.
 
-Produces a multi-section A4 PDF covering every match analysis tab with
+Produces a multi-section A3 PDF covering every match analysis tab with
 Full / 1st-Half / 2nd-Half permutations where applicable. All figures are
 rendered via the same internal functions used by the interactive Dash UI.
 
@@ -47,11 +47,11 @@ _SAFE_Y   = _PAGE_H - _MARGIN_B   # 282 mm
 # Plotly → PNG helper (lazy import so kaleido is only required when called)
 # ---------------------------------------------------------------------------
 
-def _plotly_to_png(fig, w: int = 900, h: int = 480) -> Optional[bytes]:
+def _plotly_to_png(fig, w: int = 900, h: int = 480, scale: int = 1) -> Optional[bytes]:
     """Convert a Plotly figure to PNG bytes using kaleido."""
     try:
         import plotly.io as pio
-        return pio.to_image(fig, format="png", width=w, height=h)
+        return pio.to_image(fig, format="png", width=w, height=h, scale=scale)
     except Exception as exc:
         log.warning("Plotly → PNG failed: %s", exc)
         return None
@@ -62,6 +62,287 @@ def _get_figure(result):
     if result is None:
         return None
     return result.figure if hasattr(result, "figure") else result
+
+
+# ---------------------------------------------------------------------------
+# Dash component tree → static HTML (faithful, non-screenshot capture)
+#   • dcc.Graph         → kaleido PNG  (the real figure, exactly as in the app)
+#   • html.Img          → <img>        (mplsoccer pitch PNGs, logos)
+#   • dbc.Row/Col       → flexbox grid (preserves the app's column layout)
+#   • html.Table/Div/…  → same tags with the component's inline styles intact
+# ---------------------------------------------------------------------------
+import re as _re
+
+_TAG = {
+    'Div': 'div', 'Span': 'span', 'P': 'p', 'H1': 'h1', 'H2': 'h2', 'H3': 'h3',
+    'H4': 'h4', 'H5': 'h5', 'H6': 'h6', 'Hr': 'hr', 'I': 'i', 'Label': 'label',
+    'A': 'a', 'Button': 'button', 'Strong': 'strong', 'B': 'b', 'Small': 'small',
+    'Table': 'table', 'Thead': 'thead', 'Tbody': 'tbody', 'Tr': 'tr', 'Th': 'th',
+    'Td': 'td', 'Ul': 'ul', 'Li': 'li',
+    'Container': 'div', 'Card': 'div', 'CardBody': 'div', 'CardHeader': 'div',
+    'CardFooter': 'div', 'Row': 'div', 'Col': 'div', 'Loading': 'div',
+}
+_VOID = {'hr', 'br', 'img'}
+
+
+def _css_key(k: str) -> str:
+    if k.startswith('Webkit'):
+        return '-webkit-' + _re.sub('([A-Z])', lambda m: '-' + m.group(1).lower(), k[6:]).lstrip('-')
+    return _re.sub('([A-Z])', lambda m: '-' + m.group(1).lower(), k)
+
+
+# Map the app's dark palette → a clean light palette so the report reads as a
+# light document (not dark cards pasted on white).
+_DARK2LIGHT = {
+    '#0A0E27': '#FFFFFF', '#0a0e27': '#FFFFFF',
+    '#151932': '#FFFFFF', '#1A1D2E': '#FFFFFF', '#1a1d2e': '#FFFFFF',
+    '#1E2139': '#F1F3F7', '#1e2139': '#F1F3F7',
+    '#2A2F4A': '#D8DCE6', '#2a2f4a': '#D8DCE6',
+    '#E8E9ED': '#1A1D2E', '#e8e9ed': '#1A1D2E',
+    '#A5A8B8': '#5B5F70', '#a5a8b8': '#5B5F70',
+    'rgba(255,255,255,0.03)': 'rgba(0,0,0,0.035)',
+    'rgba(255,255,255,0.08)': 'rgba(0,0,0,0.06)',
+    'rgba(255,255,255,0.05)': 'rgba(0,0,0,0.035)',
+    'rgba(0,0,0,0.55)': 'rgba(255,255,255,0.9)',
+    'rgba(0,0,0,0.5)': 'rgba(255,255,255,0.9)',
+}
+
+
+def _lighten_css(css: str) -> str:
+    for d, l in _DARK2LIGHT.items():
+        css = css.replace(d, l)
+    return css
+
+
+def _style_to_css(style) -> str:
+    if not isinstance(style, dict):
+        return ''
+    return _lighten_css(';'.join(f'{_css_key(k)}:{v}' for k, v in style.items()))
+
+
+def _escape(t: str) -> str:
+    return (t.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
+
+
+def _col_basis(node) -> int:
+    # Desktop-first: the PDF page is wide, so prefer the largest breakpoint (lg)
+    # to reproduce the app's desktop column layout, not the tablet (md) fallback.
+    for a in ('lg', 'md', 'width', 'sm', 'xs'):
+        v = getattr(node, a, None)
+        if isinstance(v, int):
+            return v
+    return 12
+
+
+_LIGHT_TEXT = {'#ffffff', '#fff', 'white', '#e8e9ed', '#a5a8b8'}
+
+
+_DARK = '#1A1D2E'
+
+
+def _lighten_fig(fig):
+    """Re-theme a dark-designed Plotly figure for a white report page, and make
+    ALL labels big & dark (radars, donuts, bars) — matching the look of the
+    transition-outcomes donut."""
+    try:
+        fig.update_layout(paper_bgcolor='white', plot_bgcolor='white',
+                          font=dict(color=_DARK, size=16))
+    except Exception:
+        pass
+    # polar (radars) — dark, larger category labels
+    try:
+        if fig.layout.polar:
+            fig.update_layout(polar=dict(
+                bgcolor='white',
+                radialaxis=dict(gridcolor='rgba(0,0,0,0.12)', linecolor='rgba(0,0,0,0.12)'),
+                angularaxis=dict(gridcolor='rgba(0,0,0,0.12)', linecolor='rgba(0,0,0,0.12)',
+                                 tickfont=dict(color=_DARK, size=15)),
+            ))
+    except Exception:
+        pass
+    # cartesian axes — dark, larger tick labels
+    for ax in ('xaxis', 'yaxis'):
+        try:
+            fig.update_layout(**{ax: dict(gridcolor='rgba(0,0,0,0.10)',
+                                          tickfont=dict(color=_DARK, size=15))})
+        except Exception:
+            pass
+    # every trace's data labels → dark, big & bold
+    for tr in fig.data:
+        try:
+            tr.update(textfont=dict(color=_DARK, size=17, family='Arial Black'))
+        except Exception:
+            try:
+                tr.textfont.color = _DARK
+            except Exception:
+                pass
+    # annotations (donut centre totals, zone labels) → dark & prominent
+    try:
+        for a in (fig.layout.annotations or []):
+            if str(getattr(a.font, 'color', '')).lower() in _LIGHT_TEXT:
+                a.font.color = _DARK
+            try:
+                if a.font.size and a.font.size < 15:
+                    a.font.size = 15
+            except Exception:
+                pass
+    except Exception:
+        pass
+    # legend → dark & larger
+    try:
+        fig.update_layout(legend=dict(font=dict(color=_DARK, size=14), bgcolor='rgba(0,0,0,0)'))
+    except Exception:
+        pass
+    return fig
+
+
+def _render_fig_png(fig) -> Optional[bytes]:
+    """Render a Plotly figure to a crisp PNG.
+
+    Pitch plots (have a background layout image) stay on the app's dark pitch with
+    their white labels. Charts (radars, donuts, bars) are re-themed light and
+    rendered near-square so they fill their column instead of looking tiny.
+    """
+    try:
+        try:
+            h = int(fig.layout.height) if fig.layout.height else 460
+        except Exception:
+            h = 460
+        is_pitch = bool(getattr(fig.layout, 'images', None))
+        if is_pitch:
+            try:
+                fig.update_layout(paper_bgcolor='#151932', plot_bgcolor='#151932')
+            except Exception:
+                pass
+            return _plotly_to_png(fig, w=880, h=h, scale=2)
+
+        _lighten_fig(fig)
+        types = {type(t).__name__ for t in fig.data}
+        if 'Pie' in types:
+            # donuts (incl. small GK donuts) — enlarge ring, render square
+            h = max(h, 430)
+            try:
+                fig.update_layout(height=h)
+            except Exception:
+                pass
+            w = h
+        elif 'Bar' in types:
+            # bar plots — taller aspect so they display bigger in the column
+            w = int(h * 0.7)
+        else:
+            # radars etc. — near-square
+            w = max(int(h * 1.05), 420)
+        return _plotly_to_png(fig, w=w, h=h, scale=2)
+    except Exception as exc:
+        log.warning("fig→png: %s", exc)
+        return None
+
+
+def _children_html(children) -> str:
+    if children is None:
+        return ''
+    if isinstance(children, (list, tuple)):
+        return ''.join(_dash_to_html(c) for c in children)
+    return _dash_to_html(children)
+
+
+def _dash_to_html(node) -> str:
+    if node is None:
+        return ''
+    if isinstance(node, (str, int, float)):
+        return _escape(str(node))
+    ctype = type(node).__name__
+
+    if ctype == 'Graph':
+        png = _render_fig_png(getattr(node, 'figure', None)) if getattr(node, 'figure', None) is not None else None
+        if not png:
+            return ''
+        return ('<img style="width:100%;display:block;page-break-inside:avoid" '
+                f'src="data:image/png;base64,{base64.b64encode(png).decode()}">')
+
+    if ctype == 'Img':
+        src = getattr(node, 'src', '') or ''
+        st = _style_to_css(getattr(node, 'style', None))
+        return f'<img src="{src}" style="{st};page-break-inside:avoid">'
+
+    tag = _TAG.get(ctype)
+    if tag is None:                      # unknown wrapper → just emit children
+        return _children_html(getattr(node, 'children', None))
+
+    style = _style_to_css(getattr(node, 'style', None))
+    if ctype == 'Row':
+        style += ';display:flex;flex-wrap:wrap;align-items:flex-start'
+    elif ctype == 'Col':
+        pct = round(_col_basis(node) / 12 * 100, 4)
+        style += f';flex:0 0 {pct}%;max-width:{pct}%;box-sizing:border-box;padding:3px'
+    elif ctype == 'CardBody':
+        style += ';padding:12px'
+    elif ctype in ('Card',):
+        style += ';page-break-inside:avoid'
+
+    if tag in _VOID:
+        return f'<{tag} style="{style}">'
+    return f'<{tag} style="{style}">{_children_html(getattr(node, "children", None))}</{tag}>'
+
+
+def _selenium_html_to_pdf(html: str) -> bytes:
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    import tempfile, os
+    opts = Options()
+    opts.add_argument("--headless")
+    opts.add_argument("--disable-gpu")
+    opts.add_argument("--no-sandbox")
+    driver = webdriver.Chrome(options=opts)
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as f:
+            f.write(html.encode("utf-8"))
+            tmp = f.name
+        driver.get(f"file://{tmp}")
+        pdf = driver.execute_cdp_cmd("Page.printToPDF", {
+            'landscape': False, 'displayHeaderFooter': False,
+            'printBackground': True,
+            # Force A3 portrait explicitly (inches) — don't rely on CSS @page,
+            # which silently falls back to A4 if not honoured.
+            'preferCSSPageSize': False,
+            'paperWidth': 11.69, 'paperHeight': 16.54,
+            'marginTop': 0.3, 'marginBottom': 0.3, 'marginLeft': 0.3, 'marginRight': 0.3,
+            # Apply the 0.8 down-scale here (Chrome scales the whole print layout
+            # uniformly) instead of CSS `zoom`, which printToPDF renders
+            # inconsistently — the cause of overlap / horizontal shrink in the PDF.
+            'scale': 0.8,
+        })
+        os.unlink(tmp)
+        return base64.b64decode(pdf['data'])
+    finally:
+        driver.quit()
+
+
+def _combine_row_png(pngs, figsize=(10, 7), bg="#0A0E27") -> Optional[bytes]:
+    """Stitch PNGs side by side into one wide PNG (no PIL needed)."""
+    pngs = [p for p in pngs if p]
+    if not pngs:
+        return None
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(1, len(pngs), figsize=figsize, facecolor=bg)
+        if len(pngs) == 1:
+            axes = [axes]
+        for ax, png in zip(axes, pngs):
+            ax.imshow(plt.imread(io.BytesIO(png)))
+            ax.axis("off")
+        fig.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0.02)
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=130, facecolor=fig.get_facecolor(),
+                    bbox_inches="tight", pad_inches=0.05)
+        plt.close(fig)
+        buf.seek(0)
+        return buf.read()
+    except Exception as exc:
+        log.warning("Combine PNG failed: %s", exc)
+        return pngs[0] if pngs else None
 
 
 def _filter_period(events: pd.DataFrame, period: Optional[int]) -> pd.DataFrame:
@@ -306,7 +587,9 @@ class _HTMLReport:
                 'landscape': False,
                 'displayHeaderFooter': False,
                 'printBackground': True,
-                'preferCSSPageSize': True,
+                # Force A3 portrait explicitly (inches) — never fall back to A4.
+                'preferCSSPageSize': False,
+                'paperWidth': 11.69, 'paperHeight': 16.54,
             }
             pdf_data = driver.execute_cdp_cmd("Page.printToPDF", print_options)
             
@@ -388,154 +671,148 @@ def _tab_figures_to_pdf(
 # Main entry point
 # ---------------------------------------------------------------------------
 
+
+_REPORT_SHELL = """<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+@page {{ size: A3; margin: 10mm; }}
+body {{ margin: 0; background: #fff; color: #222;
+        font-family: Arial, Helvetica, sans-serif; font-size: 11px; }}
+img {{ max-width: 100%; }}
+table {{ border-collapse: collapse; }}
+.rep-divider {{ color: #9A7D00; font-weight: 800; font-size: 15px;
+    text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #EDBB00;
+    margin: 18px 0 12px; padding-bottom: 6px; text-align: center;
+    page-break-after: avoid; break-after: avoid; }}
+.rep-first {{ }}
+.rep-banner {{ display: flex; align-items: center; justify-content: center;
+    gap: 28px; padding: 4px 0 2px; }}
+.rep-team {{ display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; }}
+.rep-score {{ font-size: 34px; font-weight: 900; color: #C8A52D; letter-spacing: 2px; }}
+.rep-meta {{ text-align: center; color: #666; margin-bottom: 6px; font-size: 11px; }}
+.rep-sub {{ font-weight: 700; color: #9A7D00; font-size: 11px; margin-bottom: 4px;
+    text-transform: uppercase; text-align: center; }}
+</style></head><body>{body}</body></html>"""
+
+
+def _img_tag(png: bytes, style: str = "width:100%") -> str:
+    if not png:
+        return ""
+    return ('<img style="%s;page-break-inside:avoid" src="data:image/png;base64,%s">'
+            % (style, base64.b64encode(png).decode()))
+
+
 def generate_match_report_pdf(match_id) -> bytes:
     """
-    Generate a complete PDF match report for *match_id*.
-
-    Structure mirrors pages/match_report.py exactly — one section per tab,
-    using the same public build_*_tab(events) functions.
+    Full match report PDF — a faithful, non-screenshot mirror of
+    pages/match_report.py. Every section is built with the SAME public
+    build_*_tab(events) functions used by the live app, then its Dash component
+    tree is converted to static HTML (real Plotly figures via kaleido, real
+    tables, the same dbc column layout) and printed to PDF. Light page, app
+    layout & content, one section per page-break — spans as many pages as needed.
     """
-    from utils.data_utils import get_match_events, get_match_lineup
-    from utils.match_data_adapter import get_match_metadata, compute_team_kpis, get_substitutions
-    from utils.logos import TEAM_LOGOS
-    from page_utils.visualizations import HOME_COLOR, AWAY_COLOR
-    from pages.match_analysis_tabs import (
+    from utils.data_utils import get_match_events
+    from utils.match_data_adapter import get_match_metadata, compute_team_kpis
+    from utils.logos import get_team_logo_path
+    from pages.match_report import (
+        build_overview_tab,
         build_attacking_output_tab,
         build_build_up_passing_tab,
         build_defensive_structure_tab,
         build_transitions_counterpressing_tab,
         build_goalkeeping_tab,
         build_player_stats_tab,
+        build_attack_radar,
+        build_def_radar,
+        build_bup_radar,
     )
-    from pages.match_analysis_tabs.overview import _generate_team_lineup_image
 
-    # ── Load data ──────────────────────────────────────────────────────
     events = get_match_events(match_id)
     if events.empty:
         raise ValueError(f"No events found for match_id={match_id}")
 
     meta        = get_match_metadata(events)
-    lineup_df   = get_match_lineup(match_id)
     home_team   = meta.get("home_team", "Home")
     away_team   = meta.get("away_team", "Away")
     competition = meta.get("competition", "")
     raw_date    = str(meta.get("date", "") or "")[:10]
     venue       = str(meta.get("venue", "") or "")
-
     try:
-        formatted_date = datetime.strptime(raw_date, "%Y-%m-%d").strftime("%d %b %Y")
+        date_str = datetime.strptime(raw_date, "%Y-%m-%d").strftime("%d %b %Y")
     except (ValueError, TypeError):
-        formatted_date = raw_date
-
+        date_str = raw_date
     home_kpis = compute_team_kpis(events, "home")
     away_kpis = compute_team_kpis(events, "away")
     score     = f"{home_kpis['goals']} - {away_kpis['goals']}"
-    h1_events = _filter_period(events, 1)
-    h2_events = _filter_period(events, 2)
 
-    # ── Create HTML Report object ──────────────────────────────────────
-    pdf = _HTMLReport(home_team, away_team, score, competition, formatted_date, venue)
-
-    for pos, team in [("home", home_team), ("away", away_team)]:
-        logo_fn = TEAM_LOGOS.get(team)
-        if not logo_fn and "barcelona" in team.lower():
-            logo_fn = "FC-Barcelona-v2002.svg"
-        logo_path = Path(f"assets/logos/team/{logo_fn}") if logo_fn else None
-        if logo_path and logo_path.exists():
-            with open(logo_path, "rb") as f:
-                pdf.context[f"{pos}_logo_base64"] = base64.b64encode(f.read()).decode("utf-8")
-
-    pdf.set_cover_kpis([
-        ("Possession",      home_kpis.get("possession", 50),       away_kpis.get("possession", 50),     "%"),
-        ("Shots",           home_kpis.get("shots", 0),             away_kpis.get("shots", 0),           ""),
-        ("Shots on Target", home_kpis.get("shots_on_target", 0),   away_kpis.get("shots_on_target", 0), ""),
-        ("Passes",          home_kpis.get("passes", 0),            away_kpis.get("passes", 0),          ""),
-        ("Pass Accuracy",   home_kpis.get("pass_accuracy", 0),     away_kpis.get("pass_accuracy", 0),   "%"),
-        ("Fouls",           home_kpis.get("fouls", 0),             away_kpis.get("fouls", 0),           ""),
-        ("Corners",         home_kpis.get("corners", 0),           away_kpis.get("corners", 0),         ""),
-        ("Yellow Cards",    home_kpis.get("yellow_cards", 0),      away_kpis.get("yellow_cards", 0),    ""),
-        ("Red Cards",       home_kpis.get("red_cards", 0),         away_kpis.get("red_cards", 0),       ""),
-    ])
-
-    # ══════════════════════════════════════════════════════════════════
-    # SECTION 1 — OVERVIEW  (same as tab-overview in match_report.py)
-    # ══════════════════════════════════════════════════════════════════
-    pdf.add_page()
-    pdf.section_title("1. Overview")
-
-    if lineup_df is not None and not lineup_df.empty:
-        pdf.sub_title("Starting XI")
+    def _logo_b64(team):
         try:
-            home_start = lineup_df[(lineup_df["team_position"] == "home") & (lineup_df["role"] == "Start")].copy()
-            away_start = lineup_df[(lineup_df["team_position"] == "away") & (lineup_df["role"] == "Start")].copy()
-            h_fmt = home_start["formation"].iloc[0] if not home_start.empty else ""
-            a_fmt = away_start["formation"].iloc[0] if not away_start.empty else ""
-            h_b64 = _generate_team_lineup_image(home_start, h_fmt, HOME_COLOR)
-            a_b64 = _generate_team_lineup_image(away_start, a_fmt, AWAY_COLOR)
-            h_png = base64.b64decode(h_b64) if h_b64 else None
-            a_png = base64.b64decode(a_b64) if a_b64 else None
-            if h_png and a_png:
-                pdf.two_images(h_png, a_png)
-            elif h_png:
-                pdf.add_image_bytes(h_png)
-            elif a_png:
-                pdf.add_image_bytes(a_png)
-        except Exception as exc:
-            log.warning("Lineup: %s", exc)
+            p = get_team_logo_path(team)             # 'assets/logos/team/xxx.svg'
+            if p:
+                with open(p.lstrip('/'), "rb") as f:
+                    return base64.b64encode(f.read()).decode()
+        except Exception:
+            pass
+        return ""
 
-    try:
-        subs = get_substitutions(events)
-        pdf.draw_substitutions(subs.get("home", []), subs.get("away", []), home_team, away_team)
-    except Exception as exc:
-        log.warning("Substitutions: %s", exc)
+    h_logo, a_logo = _logo_b64(home_team), _logo_b64(away_team)
+    h_img = f'<img src="data:image/svg+xml;base64,{h_logo}" style="height:48px">' if h_logo else ''
+    a_img = f'<img src="data:image/svg+xml;base64,{a_logo}" style="height:48px">' if a_logo else ''
 
-    pdf.sub_title("Match Statistics")
-    try:
-        h_h1_k = compute_team_kpis(h1_events, "home") if not h1_events.empty else {}
-        h_h2_k = compute_team_kpis(h2_events, "home") if not h2_events.empty else {}
-        a_h1_k = compute_team_kpis(h1_events, "away") if not h1_events.empty else {}
-        a_h2_k = compute_team_kpis(h2_events, "away") if not h2_events.empty else {}
-        pdf.two_team_stats(
-            metrics=[
-                ("Shots",           "shots"),
-                ("Shots on Target", "shots_on_target"),
-                ("Passes",          "passes"),
-                ("Pass Accuracy",   "pass_accuracy"),
-                ("Possession",      "possession"),
-                ("Fouls",           "fouls"),
-                ("Corners",         "corners"),
-                ("Yellow Cards",    "yellow_cards"),
-                ("Red Cards",       "red_cards"),
-            ],
-            home_dicts=(home_kpis, h_h1_k, h_h2_k),
-            away_dicts=(away_kpis, a_h1_k, a_h2_k),
-            home_label=home_team,
-            away_label=away_team,
-            pct_keys={"pass_accuracy", "possession"},
-        )
-    except Exception as exc:
-        log.warning("Match stats: %s", exc)
-
-    # ══════════════════════════════════════════════════════════════════
-    # SECTIONS 2-7 — one per tab in match_report.py
-    # Each calls the same public build_*_tab(events) function,
-    # then walks the returned Dash component tree to extract figures.
-    # ══════════════════════════════════════════════════════════════════
-    _TAB_SECTIONS = [
-        ("2. Attack",                        build_attacking_output_tab),
-        ("3. Build-Up & Passing",            build_build_up_passing_tab),
-        ("4. Defense",                       build_defensive_structure_tab),
-        ("5. Transitions & Counterpressing", build_transitions_counterpressing_tab),
-        ("6. Goalkeeping",                   build_goalkeeping_tab),
-        ("7. Player Stats",                  build_player_stats_tab),
+    parts = [
+        f'<div class="rep-banner"><div class="rep-team">{h_img}<span>{_escape(home_team)}</span></div>'
+        f'<div class="rep-score">{_escape(score)}</div>'
+        f'<div class="rep-team"><span>{_escape(away_team)}</span>{a_img}</div></div>',
+        f'<div class="rep-meta">{_escape(competition)} &middot; {_escape(date_str)}'
+        + (f' &middot; {_escape(venue)}' if venue else '') + '</div>',
     ]
 
-    for section_title, build_fn in _TAB_SECTIONS:
-        pdf.add_page()
-        pdf.section_title(section_title)
-        try:
-            _tab_figures_to_pdf(pdf, build_fn, events)
-        except Exception as exc:
-            log.warning("%s: %s", section_title, exc)
+    def _divider(title, first=False):
+        cls = "rep-divider rep-first" if first else "rep-divider"
+        return f'<div class="{cls}">{_escape(title)}</div>'
 
-    return pdf.output_bytes()
+    def _radars_html():
+        cols = []
+        for label, fn in (("Attack", build_attack_radar),
+                          ("Defence", build_def_radar),
+                          ("Possession & Build-Up", build_bup_radar)):
+            try:
+                fig = _get_figure(fn(events))
+                body = _img_tag(_render_fig_png(fig)) if fig is not None else "No data"
+            except Exception as exc:
+                log.warning("radar %s: %s", label, exc)
+                body = "No data"
+            sub = '<div class="rep-sub">%s</div>' % label
+            cols.append('<div style="flex:0 0 33.33%;max-width:33.33%;box-sizing:border-box;'
+                        'padding:6px">' + sub + body + '</div>')
+        return '<div style="display:flex;flex-wrap:wrap">' + ''.join(cols) + '</div>'
+
+    # Section order mirrors the live page (radars sit between Overview and Attack)
+    _SECTIONS = [
+        ("Overview",                        build_overview_tab),
+        ("Attack",                          build_attacking_output_tab),
+        ("Build-Up & Passing",              build_build_up_passing_tab),
+        ("Defense",                         build_defensive_structure_tab),
+        ("Transitions & Counterpressing",   build_transitions_counterpressing_tab),
+        ("Goalkeeping",                     build_goalkeeping_tab),
+        ("Player Stats",                    build_player_stats_tab),
+    ]
+
+    for i, (title, fn) in enumerate(_SECTIONS):
+        if title == "Attack":
+            parts.append(_divider("Performance Radars"))
+            parts.append(_radars_html())
+        parts.append(_divider(title, first=(i == 0)))
+        try:
+            parts.append(_dash_to_html(fn(events)))
+        except Exception as exc:
+            log.warning("section %s: %s", title, exc)
+            parts.append(f'<p style="color:#c00">Error rendering {_escape(title)}: {_escape(str(exc))}</p>')
+
+    html = _REPORT_SHELL.format(body="".join(parts))
+    # Write the HTML artifact first, then render the PDF from that same HTML.
+    try:
+        out_dir = Path("logs")
+        out_dir.mkdir(exist_ok=True)
+        (out_dir / f"match_report_{match_id}.html").write_text(html, encoding="utf-8")
+    except Exception as exc:
+        log.warning("write html: %s", exc)
+    return _selenium_html_to_pdf(html)

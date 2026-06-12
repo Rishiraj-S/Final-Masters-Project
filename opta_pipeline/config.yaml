@@ -320,7 +320,9 @@ teams:
   # ── France ────────────────────────────────────────────────────────────────────
   - team_name: "Paris Saint-Germain"
     team_code: "PSG"
-    team_code_alt: "PAR"         # Opta uses PSG in UEFA feeds, PAR in Ligue 1 feed
+    # NOTE: PSG uses code "PSG" across Ligue 1, UCL and Coupe de France. "PAR" is
+    # Paris FC (promoted 2025-26), a separate club — do NOT add it as an alt code
+    # or PSG's match list absorbs Paris FC's games.
     search_name: "Paris"
     country: "France"
     competitions:

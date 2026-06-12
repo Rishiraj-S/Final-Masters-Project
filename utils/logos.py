@@ -395,10 +395,26 @@ COUNTRY_FLAGS = {
 
 # ── Competition folder key → logo filename ──
 TOURNAMENT_LOGOS = {
-    'Spain_Copa_del_Rey': 'Copa del Rey logo - Brandlogos.net.svg',
-    'Spain_Primera_Division': 'LALIGA-Primera-Division-v2023.svg',
-    'Spain_Super_Cup': 'supercopa-de-espana-seeklogo.svg',
-    'UEFA_Champions_League': 'UEFA-Champions-League-v2021.svg',
+    'Spain_Copa_del_Rey': 'spain_copa-del-rey.football-logos.cc.svg',
+    'Spain_Primera_Division': 'spain_la-liga.football-logos.cc.svg',
+    'Spain_Super_Cup': 'spain_supercopa-de-espana.football-logos.cc.svg',
+    'UEFA_Champions_League': 'tournaments_uefa-champions-league.football-logos.cc.svg',
+    # England
+    'England_Premier_League': 'england_english-premier-league.football-logos.cc.svg',
+    'England_Championship': 'england_efl-championship.football-logos.cc.svg',
+    'England_EFL_Cup': 'england_efl-cup.football-logos.cc.svg',
+    'England_FA_Cup': 'england_emirates-fa-cup.football-logos.cc.svg',
+    # France
+    'France_Ligue_1': 'france_ligue-1.football-logos.cc.svg',
+    'France_Coupe_de_France': 'france_french-cup.football-logos.cc.svg',
+    # Germany
+    'Germany_Bundesliga': 'germany_bundesliga.football-logos.cc.svg',
+    'Germany_DFB_Pokal': 'germany_dfb-pokal.football-logos.cc.svg',
+    # Italy
+    'Italy_Serie_A': 'italy_serie-a.football-logos.cc.svg',
+    'Italy_Coppa_Italia': 'italy_coppa-italia.football-logos.cc.svg',
+    # Portugal
+    'Portugal_Primeira_Liga': 'portugal_primeira-liga.football-logos.cc.svg',
 }
 
 # Barca pages pass display names; bridge them to folder keys.

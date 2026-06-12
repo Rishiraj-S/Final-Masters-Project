@@ -106,8 +106,10 @@ def _load_opp_config() -> dict:
 # as overrides (code spelling, alt codes, country/search_name).
 
 # Minimum matches a team needs to appear in Opposition Analysis.
-# The data is opponent-centric: ~31 "focus" teams have a full domestic season,
-# while incidental teams appear in only 1–2 matches.  1 = expose every team.
+# The data is opponent-centric: the ~29 "focus" teams have a full domestic
+# season (37+ matches each), while incidental opponents appear in only 1–13
+# matches (a single cup tie, or just their European games vs a tracked side).
+# 1 = expose every team we have any data for (even a single match).
 MIN_TEAM_MATCHES = 1
 
 # Data folders use ASCII underscore names; map to flag-friendly display names.
@@ -382,6 +384,18 @@ def get_opp_all_events(team: str, country: str, comp_key: str,
     if not df.empty:
         _cache_put(_opp_events_cache, cache_key, df, _OPP_EVENTS_CACHE_MAX)
     return df
+
+
+def competition_match_event_paths(comp_key: str) -> list[Path]:
+    """Return every ``match_event`` parquet path for a competition (all teams).
+
+    Used to compute competition-wide (league-average) aggregates without going
+    through the per-team filename filter.
+    """
+    folder = _opp_dir(comp_key, 'match_event')
+    if not folder.exists():
+        return []
+    return sorted(f for f in folder.iterdir() if f.suffix == '.parquet')
 
 
 def get_opp_team_events(team: str, country: str, comp_key: str,
