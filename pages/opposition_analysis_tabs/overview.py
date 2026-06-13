@@ -8,7 +8,10 @@ layout, scoped to a single opponent:
                           season record (W-D-L · GD) and recent form strip
   2. Stat pills bar     — Matches · Points · PPG · GF · GA · CS · Poss · Pass Acc
   3. Competition cards  — per-competition breakdown (only when >1 competition)
-  4. Charts row         — Game Model Radar + Last-10 GF vs GA
+  4. Phase cards        — one card per deep-dive tab with metrics + score bar
+  5. Charts row         — Game Model Radar
+  6. Season summary     — Game Model Radar + Form Trendline (tournament filter
+                          & metric toggles) + Top Contributors
 """
 
 from __future__ import annotations
@@ -55,6 +58,14 @@ _GA_C   = '#A5A8B8'
 
 _RESULT_C = {'W': _WIN_C, 'D': _DRAW_C, 'L': _LOSS_C}
 
+# Mirrors home.CHART_LAYOUT so the Form Trendline reads identically.
+_CHART_LAYOUT = dict(
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)',
+    font=dict(color='#E8E9ED', size=12),
+    margin=dict(l=40, r=40, t=50, b=40),
+)
+
 # Nicer display labels where the raw key is clunky.
 _COMP_DISPLAY = {
     'Spain Primera Division': 'La Liga',
@@ -79,6 +90,209 @@ def _safe_round(val: float, n: int = 1) -> str:
         return f'{round(val, n)}'
     except Exception:
         return '—'
+
+
+# ─── Phase cards (ported 1:1 from the Barça IQ overview) ──────────────────────
+
+_CARD = {
+    'backgroundColor': COLORS['dark_secondary'],
+    'border':          f'1px solid {COLORS["dark_border"]}',
+    'borderRadius':    '8px',
+    'padding':         '16px',
+    'height':          '100%',
+}
+
+_PHASE_COLORS = {
+    'Build-up':         HOME_COLOR,
+    'Chance Creation':  GOLD,
+    'Transitions':      '#51cf66',
+    'Def. Structure':   '#5c7cfa',
+    'Set Pieces':       '#cc5de8',
+}
+
+# Phase → the deep-dive tab it links to (opposition tab labels).
+_PHASE_TAB = {
+    'Build-up':        'Build-Up',
+    'Chance Creation': 'Chance Creation',
+    'Transitions':     'Transitions',
+    'Def. Structure':  'Defense',
+    'Set Pieces':      'Set Pieces',
+}
+
+
+def _score_bar(score: float, color: str) -> html.Div:
+    pct = max(0.0, min(100.0, score))
+    return html.Div(
+        html.Div(style={
+            'width': f'{pct:.0f}%', 'height': '5px',
+            'backgroundColor': color, 'borderRadius': '3px',
+            'transition': 'width 0.5s ease',
+        }),
+        style={
+            'backgroundColor': 'rgba(255,255,255,0.08)',
+            'borderRadius': '3px', 'marginBottom': '10px',
+        },
+    )
+
+
+def _metric_row(label: str, value: str, color: str = COLORS['text_primary']) -> html.Div:
+    return html.Div([
+        html.Span(label, style={
+            'color': COLORS['text_secondary'], 'fontSize': '0.72rem', 'flex': '1',
+        }),
+        html.Span(value, style={
+            'color': color, 'fontWeight': '700', 'fontSize': '0.80rem',
+        }),
+    ], style={
+        'display': 'flex', 'alignItems': 'center',
+        'padding': '5px 0', 'borderBottom': f'1px solid {COLORS["dark_border"]}',
+    })
+
+
+def _phase_card(title: str, tab: str, score: float, color: str,
+                metrics: list[tuple[str, str, str]]) -> html.Div:
+    """Intro card for one tactical phase — colored top accent, score bar, 3 metric rows."""
+    return html.Div([
+        html.Div(style={
+            'height': '3px', 'backgroundColor': color,
+            'borderRadius': '6px 6px 0 0',
+            'margin': '-16px -16px 14px -16px',
+        }),
+        html.Div([
+            html.Div(title, style={
+                'color': color, 'fontWeight': '800',
+                'fontSize': '0.76rem', 'letterSpacing': '0.8px',
+                'textTransform': 'uppercase',
+            }),
+            html.Div([
+                html.Span(f'{score:.0f}', style={
+                    'color': color, 'fontWeight': '800', 'fontSize': '1.05rem',
+                }),
+                html.Span('/100', style={
+                    'color': COLORS['text_secondary'], 'fontSize': '0.56rem',
+                }),
+            ]),
+        ], style={
+            'display': 'flex', 'justifyContent': 'space-between',
+            'alignItems': 'center', 'marginBottom': '8px',
+        }),
+        _score_bar(score, color),
+        html.Div([_metric_row(lbl, val, col) for lbl, val, col in metrics]),
+        html.Div([
+            html.Span('Explore → ', style={
+                'color': color, 'fontSize': '0.58rem', 'opacity': '0.8',
+                'fontStyle': 'italic',
+            }),
+            html.Span(f'{tab} tab', style={
+                'color': color, 'fontSize': '0.58rem', 'fontWeight': '600',
+                'opacity': '0.8',
+            }),
+        ], style={'marginTop': '10px', 'display': 'flex', 'alignItems': 'center'}),
+    ], style={**_CARD, 'padding': '16px'})
+
+
+def _phase_metrics(opp_ev: pd.DataFrame, bar_ev: pd.DataFrame,
+                   results: list[dict]) -> dict:
+    """Per-phase metric rows for the phase cards.
+
+    `opp_ev` are the scouted team's own events; `bar_ev` the events of the teams
+    they faced. Goals scored/conceded use the own-goal-aware result gf/ga.
+    """
+    n = max(len(results), 1)
+
+    # ── Build-up ──────────────────────────────────────────────────────────────
+    team_passes    = opp_ev[opp_ev['event_type'] == 'Pass'] if not opp_ev.empty else pd.DataFrame()
+    against_passes = bar_ev[bar_ev['event_type'] == 'Pass'] if not bar_ev.empty else pd.DataFrame()
+    poss_pct = len(team_passes) / max(len(team_passes) + len(against_passes), 1) * 100
+    pass_acc = (team_passes['outcome'].eq(1).sum() / max(len(team_passes), 1) * 100
+                if not team_passes.empty and 'outcome' in team_passes.columns else 0.0)
+    if 'Pass End X' in team_passes.columns and not team_passes.empty:
+        _ex  = pd.to_numeric(team_passes['Pass End X'], errors='coerce')
+        _sx  = pd.to_numeric(team_passes['x'],          errors='coerce')
+        prog = int((team_passes['outcome'].eq(1) & ((_ex - _sx) >= 25)).sum())
+    else:
+        prog = int(len(team_passes) * 0.15)
+
+    # ── Chance Creation ───────────────────────────────────────────────────────
+    shot_types = ['Goal', 'Saved Shot', 'Miss', 'Post', 'Blocked Shot']
+    team_shots = opp_ev[opp_ev['event_type'].isin(shot_types)] if not opp_ev.empty else pd.DataFrame()
+    n_goals    = sum(r.get('gf', 0) for r in results)
+    n_sot      = int(team_shots['event_type'].isin(['Goal', 'Saved Shot']).sum()) if not team_shots.empty else 0
+    n_shots    = len(team_shots)
+    sot_pct    = n_sot / max(n_shots, 1) * 100
+
+    # ── Transitions ───────────────────────────────────────────────────────────
+    gains = (opp_ev[opp_ev['event_type'].isin(['Ball Recovery', 'Interception'])]
+             if not opp_ev.empty else pd.DataFrame())
+    opp_half_gains = (gains[gains['x'].notna() & (gains['x'] >= 50)]
+                      if not gains.empty else pd.DataFrame())
+    n_conceded = sum(r.get('ga', 0) for r in results)
+
+    # ── Def. Structure ────────────────────────────────────────────────────────
+    against_shots = (bar_ev[bar_ev['event_type'].isin(['Goal', 'Saved Shot', 'Miss'])]
+                     if not bar_ev.empty else pd.DataFrame())
+    opp_s_pm = len(against_shots) / n
+    ga_pm    = n_conceded / n
+    cs       = sum(1 for r in results if r.get('ga', 1) == 0)
+
+    # ── Set Pieces ────────────────────────────────────────────────────────────
+    if not opp_ev.empty:
+        fk_passes = (opp_ev[(opp_ev['event_type'] == 'Pass') & (opp_ev['Free kick taken'] == 'Si')]
+                     if 'Free kick taken' in opp_ev.columns else opp_ev.head(0))
+        corner_passes = (opp_ev[(opp_ev['event_type'] == 'Pass') & (opp_ev['Corner taken'] == 'Si')]
+                         if 'Corner taken' in opp_ev.columns else opp_ev.head(0))
+        pen_shots = (opp_ev[
+            opp_ev['event_type'].isin(['Goal', 'Miss', 'Post', 'Saved Shot']) &
+            (opp_ev['Penalty'] == 'Si')
+        ] if 'Penalty' in opp_ev.columns else opp_ev.head(0))
+    else:
+        fk_passes = corner_passes = pen_shots = pd.DataFrame()
+
+    return {
+        'Build-up': [
+            ('Possession',      f'{poss_pct:.1f}%',                                HOME_COLOR),
+            ('Pass Accuracy',   f'{pass_acc:.1f}%',                                GOLD),
+            ('Prog. Passes',    f'{prog} ({_safe_round(prog / n, 1)}/m)',          HOME_COLOR),
+        ],
+        'Chance Creation': [
+            ('Goals Scored',    str(n_goals),                                      GOLD),
+            ('Shots on Target', f'{n_sot} ({sot_pct:.0f}%)',                       HOME_COLOR),
+            ('Shots/Match',     _safe_round(n_shots / n, 1),                       HOME_COLOR),
+        ],
+        'Transitions': [
+            ('Ball Gains/Match', _safe_round(len(gains) / n, 1),                   '#51cf66'),
+            ('Opp-Half Gains',  f'{len(opp_half_gains)} ({round(len(opp_half_gains)/max(len(gains),1)*100):.0f}%)', '#51cf66'),
+            ('Goals Conceded',  str(n_conceded),                                   AWAY_COLOR),
+        ],
+        'Def. Structure': [
+            ('Shots Conc/Match', _safe_round(opp_s_pm, 1),                         '#5c7cfa'),
+            ('Goals Conc/Match', _safe_round(ga_pm, 2),                            AWAY_COLOR),
+            ('Clean Sheets',    f'{cs} / {n}',                                     GOLD),
+        ],
+        'Set Pieces': [
+            ('Corners Taken',   str(len(corner_passes)),                           '#cc5de8'),
+            ('FK Passes',       str(len(fk_passes)),                               '#cc5de8'),
+            ('Penalties Taken', str(len(pen_shots)),                               GOLD),
+        ],
+    }
+
+
+def _phase_strip(scores: dict, metrics: dict) -> dbc.Row:
+    """One phase card per tactical phase (mirrors the Barça IQ overview strip)."""
+    return dbc.Row([
+        dbc.Col(
+            _phase_card(
+                title   = phase,
+                tab     = _PHASE_TAB[phase],
+                score   = scores.get(phase, 50.0),
+                color   = _PHASE_COLORS[phase],
+                metrics = metrics.get(phase, []),
+            ),
+            md=True,
+            style={'display': 'flex', 'flexDirection': 'column'},
+        )
+        for phase in _PHASE_COLORS
+    ], className='mb-4 g-2', align='stretch')
 
 
 # ─── Reusable visual components ───────────────────────────────────────────────
@@ -556,37 +770,311 @@ def _radar_panel(team: str, comp_keys: list[str], init_fig: go.Figure,
     return html.Div(children, style=panel_style)
 
 
-def _per_match_bar_fig(results: list[dict]) -> go.Figure:
-    sorted_r = sorted(results, key=lambda r: str(r.get('date', '')))[-10:]
-    labels   = [f"{r.get('opponent', '?')[:12]} ({r.get('result', '?')})" for r in sorted_r]
-    gf_vals  = [r.get('gf', 0) for r in sorted_r]
-    ga_vals  = [r.get('ga', 0) for r in sorted_r]
+# ─── Overall Season Summary (ported from home.py, scoped to the team) ─────────
 
+def _match_event_metrics(opp_ev: pd.DataFrame, bar_ev: pd.DataFrame) -> dict:
+    """Per-match event-derived metrics keyed by match_id.
+
+    Returns {match_id: {poss, pass_acc, ppda, papp}} where
+      poss     — possession % (team passes / all passes)
+      pass_acc — pass accuracy %
+      ppda     — passes allowed per defensive action (lower = more pressing)
+      papp     — average completed passes per possession
+    `opp_ev` are the scouted team's events; `bar_ev` the opponents'.
+    """
+    out: dict = {}
+    if opp_ev.empty or 'match_id' not in opp_ev.columns:
+        return out
+
+    have_bar = (not bar_ev.empty) and ('match_id' in bar_ev.columns)
+    for mid, te in opp_ev.groupby('match_id'):
+        oe = bar_ev[bar_ev['match_id'] == mid] if have_bar else pd.DataFrame()
+
+        tp = te[te['event_type'] == 'Pass']
+        op = oe[oe['event_type'] == 'Pass'] if not oe.empty else pd.DataFrame()
+        n_tp, n_op = len(tp), len(op)
+
+        poss = round(n_tp / max(n_tp + n_op, 1) * 100, 1)
+        pass_acc = (round(tp['outcome'].eq(1).sum() / max(n_tp, 1) * 100, 1)
+                    if 'outcome' in tp.columns and n_tp else 0.0)
+
+        # PPDA: opponent passes in their own build-up (x<40) ÷ our pressing
+        # actions (tackles + interceptions) in the attacking half (x>50).
+        if not op.empty and 'x' in op.columns:
+            opp_build = op[pd.to_numeric(op['x'], errors='coerce') < 40]
+        else:
+            opp_build = op
+        if 'x' in te.columns:
+            press = te[te['event_type'].isin(['Tackle', 'Interception']) &
+                       (pd.to_numeric(te['x'], errors='coerce') > 50)]
+        else:
+            press = te.head(0)
+        ppda = round(len(opp_build) / max(len(press), 1), 2)
+
+        # Passes per possession: completed passes ÷ possessions, where a
+        # possession ends in a shot or a turnover (dispossession / failed
+        # pass / failed take-on).
+        shots   = te[te['event_type'].isin(_SHOT_TYPES)]
+        disp    = te[te['event_type'] == 'Dispossessed']
+        bad_pass = tp[tp['outcome'].eq(0)] if 'outcome' in tp.columns else tp.head(0)
+        bad_to   = (te[(te['event_type'] == 'Take On') & (te['outcome'] == 0)]
+                    if 'outcome' in te.columns else te.head(0))
+        possessions = len(shots) + len(disp) + len(bad_pass) + len(bad_to)
+        papp = round(n_tp / max(possessions, 1), 2)
+
+        out[mid] = {'poss': float(poss), 'pass_acc': float(pass_acc),
+                    'ppda': float(ppda), 'papp': float(papp)}
+    return out
+
+
+def _season_timeline(results: list[dict], event_metrics: dict | None = None) -> list[dict]:
+    """Chronological per-match rows feeding the Form Trendline."""
+    em = event_metrics or {}
+    tl = []
+    for r in sorted(results, key=lambda r: str(r.get('date', ''))):
+        res = r.get('result', '')
+        pts = 3 if res == 'W' else (1 if res == 'D' else 0)
+        mid = r.get('match_id')
+        m   = em.get(mid, {})
+        tl.append({
+            'date':        str(r.get('date', ''))[:10],
+            'match_id':    mid,
+            'opponent':    r.get('opponent', ''),
+            'result':      res,
+            'gf':          r.get('gf', 0),
+            'ga':          r.get('ga', 0),
+            'points':      pts,
+            'competition': r.get('competition', ''),
+            'poss':        m.get('poss'),
+            'pass_acc':    m.get('pass_acc'),
+            'ppda':        m.get('ppda'),
+            'papp':        m.get('papp'),
+        })
+    return tl
+
+
+# Per-match metric registry: key → (label, colour, axis). 'y2' (right axis,
+# 0–100) holds the percentage metrics so they don't dwarf PPG/GF/GA on the left.
+_TREND_METRICS = [
+    ('gf',       'Goals Scored',        '#28a745', 'y'),
+    ('ga',       'Goals Conceded',      '#dc3545', 'y'),
+    ('ppda',     'PPDA',                '#E06C9F', 'y'),
+    ('papp',     'Passes / Possession', '#cc5de8', 'y'),
+    ('poss',     'Possession %',        HOME_COLOR, 'y2'),
+    ('pass_acc', 'Pass Accuracy %',     '#5BC0BE', 'y2'),
+]
+_PCT_METRICS = {'poss', 'pass_acc'}
+
+
+def _form_trendline_fig(timeline: list[dict], metrics: list[str]) -> go.Figure:
+    """Form Trendline — PPG (cumulative) plus toggleable per-match metrics.
+
+    Percentage metrics (Possession, Pass Accuracy) render on a right-hand 0–100
+    axis; everything else shares the left axis.
+    """
+    metrics = metrics or []
     fig = go.Figure()
-    fig.add_trace(go.Bar(
-        y=labels, x=gf_vals, name='Goals For', orientation='h',
-        marker=dict(color=HOME_COLOR), text=gf_vals,
-        textposition='inside', textfont=dict(color='white', size=10),
-        hovertemplate='GF: %{x}<extra></extra>',
-    ))
-    fig.add_trace(go.Bar(
-        y=labels, x=[-g for g in ga_vals], name='Goals Against', orientation='h',
-        marker=dict(color=AWAY_COLOR), text=ga_vals,
-        textposition='inside', textfont=dict(color='white', size=10),
-        hovertemplate='GA: %{x}<extra></extra>',
-    ))
-    fig.update_layout(
-        barmode='relative',
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(21,25,50,0.6)',
-        height=max(200, len(sorted_r) * 30),
-        margin=dict(l=10, r=10, t=10, b=10),
-        xaxis=dict(showgrid=False, zeroline=True,
-                   zerolinecolor='rgba(255,255,255,0.2)',
-                   showticklabels=False, fixedrange=True),
-        yaxis=dict(showgrid=False, tickfont=dict(size=9, color=COLORS['text_secondary'])),
-        legend=dict(orientation='h', y=1.05, font=dict(color=COLORS['text_secondary'], size=9)),
+
+    if timeline:
+        dates = [t['date'] for t in timeline]
+        hover = [f"{t['opponent']} ({t['result']})<br>{t['competition']}"
+                 for t in timeline]
+
+        if 'ppg' in metrics:
+            cum_pts, ppg_vals = 0, []
+            for i, t in enumerate(timeline, 1):
+                cum_pts += t['points']
+                ppg_vals.append(round(cum_pts / i, 2))
+            marker_colors = [_RESULT_C.get(t['result'], _GA_C) for t in timeline]
+            fig.add_trace(go.Scatter(
+                x=dates, y=ppg_vals, mode='lines+markers', name='Points Per Game',
+                line=dict(color=GOLD, width=2),
+                marker=dict(color=marker_colors, size=8, line=dict(color=GOLD, width=1)),
+                text=hover, hovertemplate='%{text}<br>PPG: %{y}<extra></extra>',
+                fill='tozeroy', fillcolor='rgba(237, 187, 0, 0.06)',
+            ))
+
+        for key, name, color, axis in _TREND_METRICS:
+            if key not in metrics:
+                continue
+            fig.add_trace(go.Scatter(
+                x=dates, y=[t.get(key) for t in timeline], mode='lines+markers',
+                name=name, yaxis=axis,
+                line=dict(color=color, width=2, dash='dot'),
+                marker=dict(color=color, size=6),
+                text=hover, hovertemplate='%{text}<br>' + name + ': %{y}<extra></extra>',
+                connectgaps=False,
+            ))
+
+    layout = dict(
+        **_CHART_LAYOUT,
+        height=350,
+        title=dict(text='Form Trendline', font=dict(color=GOLD, size=14)),
+        xaxis=dict(title='', gridcolor='rgba(255,255,255,0.05)', showgrid=True),
+        yaxis=dict(title='', gridcolor='rgba(255,255,255,0.05)', showgrid=True),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02,
+                    xanchor='center', x=0.5,
+                    font=dict(color=COLORS['text_primary'], size=11)),
+        showlegend=True,
     )
+    if any(m in _PCT_METRICS for m in metrics):
+        layout['yaxis2'] = dict(title='%', overlaying='y', side='right',
+                                range=[0, 100], showgrid=False,
+                                tickfont=dict(size=9))
+    fig.update_layout(**layout)
     return fig
+
+
+def _player_contributions(opp_ev: pd.DataFrame) -> list[dict]:
+    """Goals / assists / appearances per player from the team's own events."""
+    if opp_ev.empty or 'player_name' not in opp_ev.columns:
+        return []
+
+    goals = opp_ev[opp_ev['event_type'] == 'Goal']
+    goal_ct = goals.groupby('player_name').size() if not goals.empty else pd.Series(dtype=int)
+
+    if 'Assist' in opp_ev.columns:
+        ass = opp_ev[(opp_ev['event_type'] == 'Pass') & (opp_ev['Assist'].astype(str) == '16')]
+        ass_ct = ass.groupby('player_name').size() if not ass.empty else pd.Series(dtype=int)
+    else:
+        ass_ct = pd.Series(dtype=int)
+
+    apps = (opp_ev.groupby('player_name')['match_id'].nunique()
+            if 'match_id' in opp_ev.columns else pd.Series(dtype=int))
+
+    rows = []
+    for p in set(goal_ct.index) | set(ass_ct.index):
+        if not isinstance(p, str) or p.strip() in ('', 'N/A', 'None'):
+            continue
+        rows.append({
+            'player':  p,
+            'goals':   int(goal_ct.get(p, 0)),
+            'assists': int(ass_ct.get(p, 0)),
+            'apps':    int(apps.get(p, 0)),
+        })
+    rows.sort(key=lambda r: (-r['goals'], -r['assists']))
+    return rows
+
+
+def _contributor_card(player: str, goals: int, assists: int, apps: int) -> dbc.Col:
+    """Player contributor card — name + contributions only (no photo: opposition
+    players have no image assets)."""
+    return dbc.Col([
+        html.Div([
+            html.Div(player, style={
+                'fontWeight': 700, 'color': COLORS['text_primary'], 'fontSize': '0.9rem',
+                'fontFamily': BARCA_FONT, 'textAlign': 'center', 'marginBottom': '0.5rem',
+                'whiteSpace': 'nowrap', 'overflow': 'hidden', 'textOverflow': 'ellipsis'}),
+            html.Div([
+                html.Div([
+                    html.Div(str(goals), className='player-stat-num'),
+                    html.Div('Goals', className='player-stat-lbl'),
+                ], className='player-stat-item'),
+                html.Div([
+                    html.Div(str(assists), className='player-stat-num'),
+                    html.Div('Assists', className='player-stat-lbl'),
+                ], className='player-stat-item'),
+                html.Div([
+                    html.Div(str(apps), className='player-stat-num'),
+                    html.Div('Apps', className='player-stat-lbl'),
+                ], className='player-stat-item'),
+            ], className='player-stat-row'),
+        ], className='player-contrib-card h-100',
+           style={'display': 'flex', 'flexDirection': 'column', 'justifyContent': 'center'}),
+    ], lg=True, md=4, sm=6, className='mb-3')
+
+
+def _build_contributors(opp_ev: pd.DataFrame, n: int = 5) -> list:
+    rows = _player_contributions(opp_ev)
+    top  = [r for r in rows if r['goals'] > 0][:n]
+    if not top:
+        return [html.P('No scorer data available for this selection.',
+                       style={'color': COLORS['text_secondary']})]
+    return [_contributor_card(r['player'], r['goals'], r['assists'], r['apps']) for r in top]
+
+
+def _season_summary_section(timeline: list[dict], contributor_cards: list,
+                            radar_panel: html.Div) -> html.Div:
+    """Overall Season Summary — Game Model Radar + Form Trendline + Top Contributors.
+
+    The radar sits on the left, under the same heading; the trendline (with
+    metric toggles) and the Top Contributors fill the right column.
+    """
+    # Distinct competitions in view → tournament filter options.
+    comps_in_view: list[str] = []
+    seen = set()
+    for t in timeline:
+        c = t.get('competition')
+        if c and c not in seen:
+            seen.add(c)
+            comps_in_view.append(c)
+    tourn_options = ([{'label': 'All Competitions', 'value': 'all'}] +
+                     [{'label': _comp_display(c), 'value': c} for c in comps_in_view])
+
+    trendline_card = dbc.Card([dbc.CardBody([
+        # Tournament filter (mirrors the Home page).
+        dbc.Row([
+            dbc.Col([
+                html.Label('Filter by Tournament:', style={
+                    'color': COLORS['text_secondary'], 'fontSize': '0.8rem',
+                    'marginRight': '0.5rem'}),
+                dcc.Dropdown(
+                    id='oa-summary-tourn',
+                    options=tourn_options,
+                    value='all',
+                    clearable=False,
+                    className='culevision-dropdown',
+                    style={'width': '250px'},
+                ),
+            ], width='auto', className='d-flex align-items-center'),
+        ], className='mb-2'),
+
+        dbc.Row([
+            dbc.Col([
+                html.Label('Metrics:', style={
+                    'color': COLORS['text_secondary'],
+                    'fontSize': '0.8rem', 'marginRight': '0.5rem'}),
+                dcc.Checklist(
+                    id='oa-summary-metrics',
+                    options=[
+                        {'label': ' Points Per Game',      'value': 'ppg'},
+                        {'label': ' Goals Scored',         'value': 'gf'},
+                        {'label': ' Goals Conceded',       'value': 'ga'},
+                        {'label': ' Possession %',         'value': 'poss'},
+                        {'label': ' Pass Accuracy %',      'value': 'pass_acc'},
+                        {'label': ' PPDA',                 'value': 'ppda'},
+                        {'label': ' Passes / Possession',  'value': 'papp'},
+                    ],
+                    value=['ppg'],
+                    inline=True,
+                    className='trendline-checklist',
+                    style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '1rem',
+                           'color': COLORS['text_primary'], 'fontSize': '0.85rem'},
+                ),
+            ]),
+        ], className='mb-2'),
+        dcc.Graph(id='oa-form-trendline',
+                  figure=_form_trendline_fig(timeline, ['ppg']),
+                  config=CHART_CONFIG),
+        dcc.Store(id='oa-summary-timeline', data=timeline),
+    ])])
+
+    return html.Div([
+        html.H4('Overall Season Summary', className='section-header',
+                style={'fontFamily': BARCA_FONT}),
+
+        # Radar + Form Trendline side-by-side …
+        dbc.Row([
+            dbc.Col(radar_panel, lg=5, md=12, className='mb-3'),
+            dbc.Col(trendline_card, lg=7, md=12, className='mb-3'),
+        ], className='g-3'),
+
+        # … Top Contributors end-to-end below (mirrors the Home page).
+        html.H5('Top Contributors', className='mb-3',
+                style={'color': COLORS['gold'], 'fontFamily': BARCA_FONT,
+                       'fontWeight': 600, 'fontSize': '1.15rem'}),
+        dbc.Row(contributor_cards),
+    ], className='mb-4')
 
 
 # ─── Public builder ───────────────────────────────────────────────────────────
@@ -706,9 +1194,11 @@ def build_overview(team: str, country: str, comp_key: str,
             dbc.Row(comp_cards),
         ], className='mb-4'))
 
-    # ── Charts row ────────────────────────────────────────────────────────────
+    # ── Phase cards strip (mirrors the Barça IQ overview) ─────────────────────
     scores = _phase_scores(opp_ev, bar_ev, all_results)
+    children.append(_phase_strip(scores, _phase_metrics(opp_ev, bar_ev, all_results)))
 
+    # ── Charts row ────────────────────────────────────────────────────────────
     # League average for each competition the team is in (within this view).
     if comp_key == 'all':
         comp_keys = sorted({r.get('competition_key') for r in all_results
@@ -729,17 +1219,12 @@ def build_overview(team: str, country: str, comp_key: str,
         'borderRadius': '12px', 'padding': '16px', 'height': '100%',
     }
 
-    charts_row = dbc.Row([
-        dbc.Col(_radar_panel(team, comp_keys,
-                             _radar_fig(scores, team, league_avgs), _hdr, _panel),
-                md=6, className='mb-3'),
-        dbc.Col(html.Div([
-            html.Div('Last 10 Matches — GF vs GA', style=_hdr),
-            dcc.Graph(figure=_per_match_bar_fig(all_results), config=CHART_CONFIG, style={'width': '100%'}),
-        ], style=_panel), md=6, className='mb-3'),
-    ], className='g-3')
-
-    children.append(charts_row)
+    # ── Overall Season Summary (radar + trendline + contributors) ─────────────
+    timeline    = _season_timeline(all_results, _match_event_metrics(opp_ev, bar_ev))
+    radar_panel = _radar_panel(team, comp_keys,
+                               _radar_fig(scores, team, league_avgs), _hdr, _panel)
+    children.append(_season_summary_section(
+        timeline, _build_contributors(opp_ev, n=5), radar_panel))
 
     return html.Div(children)
 
@@ -774,3 +1259,17 @@ def register_overview_callbacks(app) -> None:
                                              venue, date_cutoff, match_ids)
         league_avgs = _build_league_avgs(selected, color_map)
         return _radar_fig(scores, team, league_avgs)
+
+    # ── Form Trendline: tournament filter + metric checkboxes → figure ────────
+    @app.callback(
+        Output('oa-form-trendline', 'figure'),
+        Input('oa-summary-metrics', 'value'),
+        Input('oa-summary-tourn',   'value'),
+        State('oa-summary-timeline', 'data'),
+        prevent_initial_call=True,
+    )
+    def _update_trendline(metrics, tournament, timeline):
+        timeline = timeline or []
+        if tournament and tournament != 'all':
+            timeline = [t for t in timeline if t.get('competition') == tournament]
+        return _form_trendline_fig(timeline, metrics or [])

@@ -315,6 +315,46 @@ a.report-btn:hover {
     border-bottom: 2px solid var(--barca-gold) !important;
 }
 
+/* Match Report — determinate loading bar (0–100 %, driven clientside) */
+.mr-progress-wrap {
+    max-width: 520px;
+    margin: 60px auto;
+    text-align: center;
+}
+.mr-progress-caption {
+    color: var(--text-secondary, #A5A8B8);
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+}
+.mr-progress-track {
+    position: relative;
+    width: 100%;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--dark-border, #2A2F4A);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.mr-progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #8a6d00 0%, var(--barca-gold) 100%);
+    transition: width 0.18s ease;
+}
+.mr-progress-pct {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #1A1D2E;
+    text-shadow: 0 0 3px rgba(255, 255, 255, 0.35);
+}
+
 /* Progress Bar */
 .progress {
     background-color: var(--dark-tertiary) !important;

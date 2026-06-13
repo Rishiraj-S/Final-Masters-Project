@@ -6,7 +6,7 @@ Mirrors team_analysis_tabs/def_structure.py for the selected opposition team.
 Sections:
   • Their Defensive Actions  — tackle, interception, clearance, ball recovery,
                                blocked shot map + heatmap + player table
-  • Barcelona's Attack       — entries into zones, shot map, shot zones
+  • Opposition's Attack      — entries into zones, shot map, shot zones
 
 Skeleton + callback pattern. ID prefix: ods-
 """
@@ -763,7 +763,7 @@ def _gk_stats_children(shots: pd.DataFrame, gk_events: pd.DataFrame | None = Non
 
 
 # =============================================================================
-# Barcelona Attack functions
+# Opposition Attack functions
 # =============================================================================
 
 def _bar_shot_map_fig(bar_shots: pd.DataFrame) -> go.Figure:
@@ -1174,7 +1174,7 @@ def _bar_flank_fig(bar_ev: pd.DataFrame) -> go.Figure:
 
     fig = go.Figure(go.Bar(
         x=[right_n, central_n, left_n],
-        y=['Barca Right / Opp Left', 'Central', 'Barca Left / Opp Right'],
+        y=['Opposition Right', 'Central', 'Opposition Left'],
         orientation='h',
         marker=dict(color=[AWAY_COLOR, GOLD, HOME_COLOR],
                     line=dict(color=PITCH_BG, width=1)),
@@ -1279,8 +1279,8 @@ def _build_defence_skeleton() -> html.Div:
                           style={'width': '100%'}),
 
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
-                html.Div("Barca Attacking Flanks", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
-                html.Div("Where Barcelona attacks (att half events by y-channel)",
+                html.Div("Opposition Attacking Flanks", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
+                html.Div("Where the opposition attacks (att half events by y-channel)",
                          style={'color': COLORS['text_secondary'], 'fontSize': '0.60rem',
                                 'fontStyle': 'italic', 'marginBottom': '6px'}),
                 dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
@@ -1317,7 +1317,7 @@ def _build_defence_skeleton() -> html.Div:
 
         dbc.Row([
             dbc.Col([
-                html.Div("Barca Entries into Final Third",
+                html.Div("Opposition Entries into Final Third",
                          style={**_SECTION_TITLE, 'borderBottom': 'none',
                                 'paddingBottom': '4px', 'fontSize': '0.72rem'}),
                 dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
@@ -1343,8 +1343,8 @@ def _build_defence_skeleton() -> html.Div:
 
         dbc.Row([
             dbc.Col([
-                html.Div("Barcelona Shot Map", style=_SECTION_TITLE),
-                html.Div("Where Barcelona shoots from · size = xG · stars = goals",
+                html.Div("Opposition Shot Map", style=_SECTION_TITLE),
+                html.Div("Where the opposition shoots from · size = xG · stars = goals",
                          style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
                                 'fontStyle': 'italic', 'marginBottom': '8px'}),
                 dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
@@ -1354,7 +1354,7 @@ def _build_defence_skeleton() -> html.Div:
 
             dbc.Col([
                 html.Div("Shooting Zones", style=_SECTION_TITLE),
-                html.Div("% of Barcelona shots from each zone",
+                html.Div("% of opposition shots from each zone",
                          style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
                                 'fontStyle': 'italic', 'marginBottom': '8px'}),
                 dcc.Loading(type='circle', color=GOLD, children=html.Img(

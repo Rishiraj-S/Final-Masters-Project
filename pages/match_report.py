@@ -1066,9 +1066,11 @@ def build_attacking_output_tab(events: pd.DataFrame, **_) -> html.Div:
             dbc.Col(dcc.Graph(
                 figure=_ao_shot_map_fig(data['shots'], data.get('key_passes', pd.DataFrame()),
                                      color, data['team'], data.get('carry_lines', [])),
-                config=CHART_CONFIG), md=9),
-            dbc.Col(_shooter_card(data, color), md=3,
-                    style={'overflowY': 'auto', 'maxHeight': '500px'}),
+                config=CHART_CONFIG),
+                    style={'flexBasis': '70%', 'maxWidth': '70%', 'flexGrow': 0, 'flexShrink': 0}),
+            dbc.Col(_shooter_card(data, color),
+                    style={'flexBasis': '30%', 'maxWidth': '30%', 'flexGrow': 0, 'flexShrink': 0,
+                           'overflowY': 'auto', 'maxHeight': '500px'}),
         ], className='g-2', align='start'), md=6, className='mb-3')
 
     shot_map_section = html.Div([
@@ -2304,9 +2306,11 @@ def _render_network(events: pd.DataFrame) -> html.Div:
                                   'fontSize': '0.85rem', 'marginBottom': '8px', 'textAlign': 'center'}),
             dbc.Row([
                 dbc.Col(dcc.Graph(figure=_network_fig(nodes, edges, color, is_home=is_home),
-                                  config=CHART_CONFIG), md=9),
+                                  config=CHART_CONFIG),
+                        style={'flexBasis': '70%', 'maxWidth': '70%', 'flexGrow': 0, 'flexShrink': 0}),
                 dbc.Col(html.Div(_connections_table(edges, color),
-                                 style={'overflowY': 'auto', 'maxHeight': '420px'}), md=3),
+                                 style={'overflowY': 'auto', 'maxHeight': '420px'}),
+                        style={'flexBasis': '30%', 'maxWidth': '30%', 'flexGrow': 0, 'flexShrink': 0}),
             ], className='g-2', align='start'),
         ], md=6, className='mb-3', style=CARD_STYLE)
 
@@ -2410,10 +2414,144 @@ def _render_tables(events: pd.DataFrame) -> html.Div:
     ])
 
 
+def _match_flow_fig(events: pd.DataFrame):
+    """Rolling possession-share line over the match, with goal markers.
+
+    Possession is proxied by pass volume: for each minute we take a centred
+    ±5-minute window of pass counts and plot each team's share.  Returns None
+    when there are no passes to chart.
+    """
+    home_team = str(events['home_team'].iloc[0]) if 'home_team' in events.columns else 'Home'
+    away_team = str(events['away_team'].iloc[0]) if 'away_team' in events.columns else 'Away'
+
+    play = events.copy()
+    if 'period_id' in play.columns:
+        play = play[play['period_id'].isin([1, 2, 3, 4])]   # drop admin periods (14/16)
+    play['time_min'] = pd.to_numeric(play['time_min'], errors='coerce')
+    play = play.dropna(subset=['time_min'])
+    if play.empty:
+        return None
+    play['time_min'] = play['time_min'].astype(int)
+
+    passes = play[play['event_type'] == 'Pass']
+    if passes.empty:
+        return None
+
+    max_min  = int(play['time_min'].max())
+    minutes  = list(range(0, max_min + 1))
+
+    def _per_min(pos):
+        return (passes[passes['team_position'] == pos]
+                .groupby('time_min').size().reindex(minutes, fill_value=0))
+
+    # Centred ±5-min rolling pass volume → possession share.
+    win = 11
+    home_roll = _per_min('home').rolling(win, center=True, min_periods=1).sum()
+    away_roll = _per_min('away').rolling(win, center=True, min_periods=1).sum()
+    total     = (home_roll + away_roll).replace(0, pd.NA)
+    home_pct  = (home_roll / total * 100).fillna(50.0)
+
+    # Diverging momentum: one home-possession line; area above 50 shaded home
+    # colour (home dominant), below 50 shaded away colour (away dominant).
+    h_vals = home_pct.tolist()
+    upper  = [max(v, 50.0) for v in h_vals]   # home-dominant band
+    lower  = [min(v, 50.0) for v in h_vals]   # away-dominant band
+    base   = [50.0] * len(minutes)
+
+    fig = go.Figure()
+    for dv in (45, 90, 105):                              # half-time / FT / ET dividers
+        if 0 < dv < max_min:
+            fig.add_vline(x=dv, line_dash='dot', line_color='rgba(255,255,255,0.18)', line_width=1)
+
+    # Home-dominant fill (between the 50 baseline and the upper band).
+    fig.add_trace(go.Scatter(x=minutes, y=base, mode='lines', line=dict(width=0),
+                             hoverinfo='skip', showlegend=False))
+    fig.add_trace(go.Scatter(
+        x=minutes, y=upper, mode='none', fill='tonexty',
+        fillcolor=_hex_to_rgba(HOME_COLOR, 0.45), name=home_team, hoverinfo='skip',
+    ))
+    # Away-dominant fill (between the 50 baseline and the lower band).
+    fig.add_trace(go.Scatter(x=minutes, y=base, mode='lines', line=dict(width=0),
+                             hoverinfo='skip', showlegend=False))
+    fig.add_trace(go.Scatter(
+        x=minutes, y=lower, mode='none', fill='tonexty',
+        fillcolor=_hex_to_rgba(AWAY_COLOR, 0.45), name=away_team, hoverinfo='skip',
+    ))
+    # 50% parity line + the possession line itself on top.
+    fig.add_hline(y=50, line_dash='dash', line_color='rgba(255,255,255,0.25)', line_width=1)
+    fig.add_trace(go.Scatter(
+        x=minutes, y=h_vals, mode='lines', showlegend=False,
+        line=dict(color='#E8E9ED', width=2, shape='spline'),
+        customdata=[[home_team, round(v), away_team, round(100 - v)] for v in h_vals],
+        hovertemplate=("<b>%{customdata[0]}</b>: %{customdata[1]}%<br>"
+                       "<b>%{customdata[2]}</b>: %{customdata[3]}%<extra></extra>"),
+    ))
+
+    # ── Goal markers — placed on the scoring team's line ─────────────────────
+    sort_cols = [c for c in ('period_id', 'time_min', 'time_sec') if c in play.columns]
+    goals = play[play['event_type'] == 'Goal'].sort_values(sort_cols)
+    gx, gy, gcolor, gtext = [], [], [], []
+    h_sc = a_sc = 0
+    for _, g in goals.iterrows():
+        mm = int(g['time_min'])
+        tp = g.get('team_position')
+        if tp == 'home':
+            h_sc += 1
+            clr = HOME_COLOR
+        else:
+            a_sc += 1
+            clr = AWAY_COLOR
+        y = float(home_pct.get(mm, 50.0))   # markers sit on the possession line
+        scorer = str(g.get('player_name') or 'Unknown')
+        fig.add_vline(x=mm, line_color=clr, line_width=1, opacity=0.35)
+        gx.append(mm); gy.append(y); gcolor.append(clr)
+        gtext.append(f"⚽ {scorer} · {h_sc}–{a_sc} ({mm}')")
+
+    if gx:
+        fig.add_trace(go.Scatter(
+            x=gx, y=gy, name='Goal', mode='markers+text',
+            text=['⚽'] * len(gx), textposition='top center', textfont=dict(size=13),
+            marker=dict(color=gcolor, size=9, line=dict(color='white', width=1.5)),
+            customdata=gtext,
+            hovertemplate='%{customdata}<extra></extra>',
+        ))
+
+    fig.update_layout(
+        height=340,
+        margin=dict(l=44, r=20, t=24, b=40),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        legend=dict(orientation='h', x=0.5, xanchor='center', y=1.14, yanchor='top',
+                    font=dict(color=COLORS['text_primary'], size=10), bgcolor='rgba(0,0,0,0)'),
+        xaxis=dict(title=dict(text='Match minute', font=dict(color=COLORS['text_secondary'], size=10)),
+                   tickfont=dict(color=COLORS['text_secondary'], size=9),
+                   showgrid=False, zeroline=False, range=[0, max_min]),
+        yaxis=dict(title=dict(text='Possession %', font=dict(color=COLORS['text_secondary'], size=10)),
+                   tickfont=dict(color=COLORS['text_secondary'], size=9),
+                   gridcolor='rgba(255,255,255,0.08)', zeroline=False,
+                   range=[0, 100], tickvals=[0, 25, 50, 75, 100]),
+    )
+    return fig
+
+
+def _render_match_flow(events: pd.DataFrame) -> html.Div:
+    if events.empty:
+        return html.Div()
+    fig = _match_flow_fig(events)
+    if fig is None:
+        return html.Div()
+    return html.Div([
+        section_header('Match Flow'),
+        build_info_box('Rolling possession share (±5-minute window of pass volume) across the match. '
+                       'The dashed line marks 50% parity; ⚽ markers show goals — hover for scorer and running score.'),
+        html.Div(dcc.Graph(figure=fig, config=CHART_CONFIG), style=CARD_STYLE),
+    ], style={'marginBottom': '36px'})
+
+
 def build_build_up_passing_tab(events: pd.DataFrame, **_) -> html.Div:
     if events.empty:
         return html.P('No event data.', style={'color': COLORS['text_secondary']})
     return html.Div([
+        _render_match_flow(events),
         _render_possession(events),
         _render_network(events),
         _render_entries(events),
@@ -5384,22 +5522,16 @@ def _section_divider(title):
 
 
 def _sections_shell():
+    # No per-section spinners. Each section's output Div carries the
+    # `pma-progress-target` class so the clientside progress callback can count
+    # how many are still loading (via their `data-dash-is-loading` attribute) and
+    # quantify the bar. The report only appears once all are done.
     children = []
     for key, title in _SECTIONS:
         if key == 'attack':
-            children.append(
-                dcc.Loading(
-                    type='circle', color=GOLD,
-                    children=html.Div(id='pma-radars'),
-                )
-            )
+            children.append(html.Div(id='pma-radars', className='pma-progress-target'))
         children.append(_section_divider(title))
-        children.append(
-            dcc.Loading(
-                type='circle', color=GOLD,
-                children=html.Div(id=f'pma-sec-{key}'),
-            )
-        )
+        children.append(html.Div(id=f'pma-sec-{key}', className='pma-progress-target'))
     return html.Div(children)
 
 
@@ -5493,8 +5625,25 @@ def create_match_analysis_layout():
             ),
             className="mb-3",
         ),
-        html.Div(id='pma-score-headline', className="mb-3"),
-        _sections_shell(),
+        # Determinate progress bar. A clientside callback (registered below) ticks
+        # every 100 ms, counts how many of the report's section callbacks are still
+        # in their loading state, and fills the bar 0→100 %. The report stays hidden
+        # until every section is ready, so nothing pops in piecemeal.
+        html.Div([
+            html.Div("Loading match report…", className='mr-progress-caption'),
+            html.Div([
+                html.Div(id='pma-progress-fill', className='mr-progress-fill',
+                         style={'width': '0%'}),
+                html.Span('0%', id='pma-progress-label', className='mr-progress-pct'),
+            ], className='mr-progress-track'),
+        ], id='pma-progress-wrap', className='mr-progress-wrap'),
+
+        dcc.Interval(id='pma-progress-tick', interval=100, n_intervals=0),
+
+        html.Div([
+            html.Div(id='pma-score-headline', className="mb-3"),
+            _sections_shell(),
+        ], id='pma-content', style={'display': 'none'}),
     ], fluid=True, className="py-4")
 
 
@@ -5503,6 +5652,51 @@ def create_match_analysis_layout():
 # =============================================================================
 
 def register_match_analysis_callbacks(app):
+
+    # ── Determinate loading bar ───────────────────────────────────────────────
+    # Runs entirely in the browser every 100 ms. It counts how many of the
+    # `.pma-progress-target` Divs (the radars + 7 section outputs) are still in
+    # their Dash loading state (`data-dash-is-loading="true"`), fills the bar by
+    # the fraction completed, and only reveals the report once all are done.
+    #
+    # IMPORTANT: it returns `no_update` whenever nothing changed since the last
+    # tick. Without that guard the callback re-emits fresh style/children objects
+    # 10×/s forever, which re-renders the whole report (incl. the score header)
+    # every tick and makes it flicker. With the guard it only emits on an actual
+    # transition (a new percentage step, or load→done) and then goes quiet.
+    app.clientside_callback(
+        """
+        function(_n) {
+            var nu = window.dash_clientside.no_update;
+            var targets = document.querySelectorAll('.pma-progress-target');
+            var total = targets.length;
+            var loading = 0;
+            targets.forEach(function(el) {
+                if (el.getAttribute('data-dash-is-loading') === 'true') loading++;
+            });
+            var done = (total > 0 && loading === 0);
+            var pct = total ? Math.round((total - loading) / total * 100) : 0;
+            var key = done ? 'done' : ('load:' + pct);
+            if (window.__pmaProgKey === key) {
+                return [nu, nu, nu, nu];   // unchanged → don't touch the DOM
+            }
+            window.__pmaProgKey = key;
+            if (done) {
+                // Everything ready: hide the bar, reveal the report.
+                return [{width: '100%'}, '100%',
+                        {display: 'none'}, {display: 'block'}];
+            }
+            // Still loading: keep the report hidden, show the bar.
+            return [{width: pct + '%'}, pct + '%',
+                    {display: 'block'}, {display: 'none'}];
+        }
+        """,
+        Output('pma-progress-fill', 'style'),
+        Output('pma-progress-label', 'children'),
+        Output('pma-progress-wrap', 'style'),
+        Output('pma-content', 'style'),
+        Input('pma-progress-tick', 'n_intervals'),
+    )
 
     @app.callback(
         Output('pma-calendar-month', 'data'),

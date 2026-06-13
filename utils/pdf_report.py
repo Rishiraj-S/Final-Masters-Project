@@ -226,11 +226,19 @@ def _render_fig_png(fig) -> Optional[bytes]:
             except Exception:
                 pass
             w = h
+        elif 'Scatterpolar' in types:
+            # radars — near-square
+            w = max(int(h * 1.05), 420)
         elif 'Bar' in types:
             # bar plots — taller aspect so they display bigger in the column
             w = int(h * 0.7)
+        elif 'Scatter' in types:
+            # wide time-series / line charts (e.g. Match Flow). Keep their natural
+            # wide aspect so they don't blow up to a near-square full-page image
+            # when displayed at width:100% in the column.
+            w = int(h * 2.6)
         else:
-            # radars etc. — near-square
+            # anything else — near-square
             w = max(int(h * 1.05), 420)
         return _plotly_to_png(fig, w=w, h=h, scale=2)
     except Exception as exc:
@@ -273,8 +281,16 @@ def _dash_to_html(node) -> str:
     if ctype == 'Row':
         style += ';display:flex;flex-wrap:wrap;align-items:flex-start'
     elif ctype == 'Col':
-        pct = round(_col_basis(node) / 12 * 100, 4)
-        style += f';flex:0 0 {pct}%;max-width:{pct}%;box-sizing:border-box;padding:3px'
+        # Honor an explicit percentage width from style (e.g. flexBasis: '70%')
+        # for splits the 12-col grid can't express (Shot Map / Touch Map 70/30);
+        # otherwise fall back to the bootstrap column basis.
+        _sd = getattr(node, 'style', None) or {}
+        _fb = _sd.get('flexBasis')
+        if isinstance(_fb, str) and _fb.strip().endswith('%'):
+            basis = _fb.strip()
+        else:
+            basis = f"{round(_col_basis(node) / 12 * 100, 4)}%"
+        style += f';flex:0 0 {basis};max-width:{basis};box-sizing:border-box;padding:3px'
     elif ctype == 'CardBody':
         style += ';padding:12px'
     elif ctype in ('Card',):
