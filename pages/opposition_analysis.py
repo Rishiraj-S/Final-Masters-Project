@@ -18,7 +18,6 @@ from __future__ import annotations
 import calendar
 from datetime import datetime
 
-import pandas as pd
 from dash import html, dcc
 from dash.dependencies import Input, Output, State, ALL
 from dash import ctx
@@ -30,9 +29,8 @@ from utils.opposition_data_utils import (
     list_available_opponents,
     get_team_competitions,
     get_team_country,
-    get_opp_all_events,
     get_opp_team_matches,
-    _normalize,
+    load_opp_events,
 )
 from pages.opposition_analysis_tabs import (
     build_overview,
@@ -41,15 +39,17 @@ from pages.opposition_analysis_tabs import (
     build_transitions,
     build_defence,
     build_set_pieces,
+    register_overview_callbacks,
     register_buildup_callbacks,
     register_chance_creation_callbacks,
     register_transitions_callbacks,
     register_defence_callbacks,
     register_set_pieces_callbacks,
 )
-from pages.match_analysis_tabs.shared import page_header
+from pages.match_report import page_header
 from utils.logos import get_team_logo_path, get_tournament_logo_path, get_country_flag_path
 from page_utils.visualizations import GOLD
+from page_utils.match_calendar import build_calendar_grid, register_calendar_callbacks
 
 CURRENT_SEASON = SEASON
 
@@ -58,12 +58,6 @@ _DROPDOWN_STYLE = {
     'color': COLORS['text_primary'],
     'border': f"1px solid {COLORS['dark_border']}",
     'borderRadius': '4px',
-}
-
-RESULT_COLORS = {
-    'W': '#28a745',
-    'D': '#ffc107',
-    'L': '#dc3545',
 }
 
 _LOGO_LABEL_STYLE = {'display': 'flex', 'alignItems': 'center', 'gap': '8px'}
@@ -117,14 +111,56 @@ def _no_data_alert() -> dbc.Alert:
     )
 
 
-def _apply_venue_filter(df: pd.DataFrame, team: str, venue: str) -> pd.DataFrame:
-    if venue == 'all' or df.empty or 'home_team' not in df.columns:
-        return df
-    needle  = _normalize(team)
-    is_home = df['home_team'].fillna('').apply(lambda s: needle in _normalize(s))
+# Short competition labels for the calendar badge (covers all 21 comps).
+_COMP_SHORT = {
+    'Spain_Primera_Division':   'La Liga',
+    'Spain_Copa_del_Rey':       'Copa',
+    'Spain_Super_Cup':          'Supercopa',
+    'UEFA_Champions_League':    'UCL',
+    'UEFA_Europa_League':       'UEL',
+    'UEFA_Conference_League':   'UECL',
+    'England_Premier_League':   'EPL',
+    'England_FA_Cup':           'FA Cup',
+    'England_EFL_Cup':          'EFL Cup',
+    'Germany_Bundesliga':       'Bundesliga',
+    'Germany_DFB_Pokal':        'DFB-Pokal',
+    'Belgium_First_Division_A': 'Pro League',
+    'Belgium_Cup':              'Belg. Cup',
+    'France_Ligue_1':           'Ligue 1',
+    'France_Coupe_de_France':   'Coupe FR',
+    'Greece_Super_League':      'Super Lg',
+    'Greece_Cup':               'GR Cup',
+    'Denmark_Superliga':        'Superliga',
+    'Denmark_DBU_Pokalen':      'DBU Cup',
+    'Czech_First_League':       'Chance Lg',
+    'Czech_Cup':                'CZ Cup',
+}
+def _comp_short(comp_key: str) -> str:
+    return _COMP_SHORT.get(comp_key, (comp_key or '').replace('_', ' '))
+
+
+def _comp_logo(comp_key: str) -> str:
+    # TOURNAMENT_LOGOS is keyed by competition folder key, so pass it directly.
+    return get_tournament_logo_path(comp_key)
+
+
+def _filter_results(results: list[dict], date_cutoff: str | None,
+                    venue: str | None) -> list[dict]:
+    """Apply the date-cutoff and venue filters to a match-result list.
+
+    Shared by the calendar loader and the Overview renderer so both honour the
+    same selection.  Match-id selection is handled separately (it *is* the
+    calendar's output).
+    """
+    out = results
+    if date_cutoff:
+        cut = date_cutoff[:10]
+        out = [r for r in out if str(r.get('date', '')) <= cut]
     if venue == 'home':
-        return df[is_home].copy()
-    return df[~is_home].copy()
+        out = [r for r in out if r.get('is_home')]
+    elif venue == 'away':
+        out = [r for r in out if not r.get('is_home')]
+    return out
 
 
 # ── Calendar Builder ────────────────────────────────────────────────────────────
@@ -134,148 +170,20 @@ def _build_oa_calendar_grid(
     match_data: list[dict],
     selected_match_ids: list[str],
 ) -> html.Div:
-    """Build a monthly calendar grid for the opposition team's matches."""
-    cal = calendar.Calendar(firstweekday=0)
-    month_days = cal.monthdayscalendar(year, month)
-
-    matches_by_day: dict[int, list] = {}
-    for m in match_data:
-        m_date = str(m.get('date', ''))[:10]
-        if len(m_date) == 10:
-            m_year  = int(m_date[:4])
-            m_month = int(m_date[5:7])
-            m_day   = int(m_date[8:10])
-            if m_year == year and m_month == month:
-                matches_by_day.setdefault(m_day, []).append(m)
-
-    days_of_week = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    header = html.Div(
-        [html.Div(d, style={
-            'flex': '1', 'textAlign': 'center', 'padding': '8px 0',
-            'color': COLORS['text_secondary'], 'fontWeight': 'bold',
-            'fontSize': '0.8rem',
-        }) for d in days_of_week],
-        style={'display': 'flex', 'borderBottom': f'1px solid {COLORS["dark_border"]}'},
+    """Opposition calendar grid — thin wrapper over the shared builder."""
+    return build_calendar_grid(
+        year, month, match_data, selected_match_ids,
+        id_type='oa-cal-match-btn',
+        score_fn=lambda m: f"{m.get('gf', 0)}-{m.get('ga', 0)}",
+        comp_value_fn=lambda m: m.get('competition_key', ''),
+        comp_short_fn=_comp_short,
+        comp_logo_fn=_comp_logo,
+        opp_logo_size=18, opp_logo_margin=3, opp_font='0.75rem',
+        tourn_logo_size=12, tourn_logo_margin=2, tourn_font='0.6rem',
+        tourn_pad='1px 3px',
+        score_font='0.65rem', score_margin=4,
+        button_padding='3px 5px',
     )
-
-    week_rows = []
-    for week in month_days:
-        day_cells = []
-        for day_num in week:
-            if day_num == 0:
-                day_cells.append(html.Div(style={'flex': '1', 'minHeight': '80px'}))
-                continue
-
-            day_matches = matches_by_day.get(day_num, [])
-            cell_children = [
-                html.Div(str(day_num), style={
-                    'fontSize': '0.75rem',
-                    'color': COLORS['text_secondary'],
-                    'marginBottom': '2px',
-                })
-            ]
-
-            for m in day_matches:
-                match_id    = m.get('match_id')
-                is_selected = match_id in (selected_match_ids or [])
-                result_color = RESULT_COLORS.get(m.get('result', ''), COLORS['text_secondary'])
-                is_home      = m.get('is_home', True)
-                opponent     = m.get('opponent', '???')   # who they faced
-                score        = f"{m.get('gf', 0)}-{m.get('ga', 0)}"
-                venue_marker = 'H' if is_home else 'A'
-                competition  = m.get('competition', '')
-
-                opp_logo_path   = get_team_logo_path(opponent)
-                tourn_logo_path = get_tournament_logo_path(competition)
-
-                logo_children = []
-                if opp_logo_path:
-                    logo_children.append(html.Img(
-                        src=opp_logo_path,
-                        style={
-                            'height': '18px', 'width': '18px',
-                            'objectFit': 'contain', 'marginRight': '3px', 'flexShrink': '0',
-                        },
-                    ))
-                logo_children.append(html.Span(opponent, style={
-                    'fontSize': '0.75rem', 'fontWeight': 'bold', 'color': '#E8E9ED',
-                    'lineHeight': '1.2', 'overflow': 'hidden',
-                    'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap',
-                }))
-
-                tourn_children = []
-                if tourn_logo_path:
-                    tourn_children.append(html.Img(
-                        src=tourn_logo_path,
-                        style={
-                            'height': '12px', 'width': '12px',
-                            'objectFit': 'contain', 'marginRight': '2px',
-                        },
-                    ))
-                tourn_children.append(html.Span(competition[:8], style={
-                    'fontSize': '0.6rem', 'color': COLORS['text_primary'],
-                }))
-
-                check_span = html.Span('✓ ', style={
-                    'color': GOLD, 'fontSize': '0.7rem',
-                    'fontWeight': '700', 'marginRight': '2px',
-                }) if is_selected else None
-
-                cell_children.append(
-                    html.Button(
-                        html.Div([
-                            html.Div(
-                                ([check_span] if check_span else []) + logo_children,
-                                style={'display': 'flex', 'alignItems': 'center', 'overflow': 'hidden'},
-                            ),
-                            html.Div([
-                                html.Span(f"{score} ({venue_marker})", style={
-                                    'fontSize': '0.65rem',
-                                    'color': GOLD if is_selected else result_color,
-                                    'fontWeight': 'bold', 'marginRight': '4px',
-                                }),
-                                html.Span(tourn_children, style={
-                                    'display': 'inline-flex', 'alignItems': 'center',
-                                    'backgroundColor': 'rgba(255,255,255,0.08)',
-                                    'borderRadius': '3px', 'padding': '1px 3px',
-                                }),
-                            ], style={'display': 'flex', 'alignItems': 'center', 'marginTop': '2px'}),
-                        ]),
-                        id={'type': 'oa-cal-match-btn', 'match_id': match_id},
-                        n_clicks=0,
-                        style={
-                            'background': 'rgba(237,187,0,0.15)' if is_selected else 'none',
-                            'border': 'none',
-                            'borderLeft': f'3px solid {GOLD if is_selected else result_color}',
-                            'padding': '3px 5px', 'cursor': 'pointer',
-                            'width': '100%', 'textAlign': 'left',
-                            'borderRadius': '0 4px 4px 0', 'marginBottom': '2px',
-                        },
-                    )
-                )
-
-            has_match  = len(day_matches) > 0
-            cell_style = {
-                'flex': '1', 'minHeight': '80px', 'padding': '4px',
-                'borderRight': f'1px solid {COLORS["dark_border"]}',
-                'borderBottom': f'1px solid {COLORS["dark_border"]}',
-            }
-            if has_match:
-                cell_style['backgroundColor'] = '#2A2F4A'
-                cell_style['borderBottom']     = f'2px solid {GOLD}'
-            today = datetime.now()
-            if year == today.year and month == today.month and day_num == today.day:
-                cell_style['boxShadow'] = f'inset 0 0 0 1px {GOLD}'
-
-            day_cells.append(html.Div(cell_children, style=cell_style))
-
-        week_rows.append(html.Div(day_cells, style={'display': 'flex'}))
-
-    return html.Div([header] + week_rows, style={
-        'border': f'1px solid {COLORS["dark_border"]}',
-        'borderRadius': '8px', 'overflow': 'hidden',
-        'backgroundColor': COLORS['dark_secondary'],
-    })
 
 
 # ── Layout ─────────────────────────────────────────────────────────────────────
@@ -411,11 +319,21 @@ def create_opposition_analysis_layout() -> dbc.Container:
 
 def register_opposition_analysis_callbacks(app) -> None:
     # Register tab callbacks (skeleton + callback pattern)
+    register_overview_callbacks(app)
     register_buildup_callbacks(app)
     register_chance_creation_callbacks(app)
     register_transitions_callbacks(app)
     register_defence_callbacks(app)
     register_set_pieces_callbacks(app)
+
+    # Month navigation, multi-select toggle and selection indicator (shared).
+    # Both Stores are also written by page-specific callbacks (load_match_data,
+    # reset_selection_on_team_change), so the shared writers allow duplicates.
+    register_calendar_callbacks(
+        app, 'oa',
+        month_allow_duplicate=True,
+        selection_allow_duplicate=True,
+    )
 
     # ── Country → Team options ────────────────────────────────────────────────
     @app.callback(
@@ -449,16 +367,23 @@ def register_opposition_analysis_callbacks(app) -> None:
             options.append({'label': c.replace('_', ' '), 'value': c})
         return options, 'all', False
 
-    # ── Team/Comp → load match data + init calendar month ────────────────────
+    # ── Team/Comp/Filters → load match data + init calendar month ────────────
+    # The calendar reflects the active venue + date filters, so the matches you
+    # can see and select are exactly those that feed the tabs.  Changing only a
+    # filter keeps the current month in view; changing team/comp jumps to the
+    # latest matching match.
     @app.callback(
         Output('oa-match-data',     'data'),
         Output('oa-calendar-month', 'data'),
         Output('oa-month-label',    'children'),
-        Input('oa-team-select', 'value'),
-        Input('oa-comp-select', 'value'),
+        Input('oa-team-select',  'value'),
+        Input('oa-comp-select',  'value'),
+        Input('oa-venue-filter', 'value'),
+        Input('oa-date-filter',  'date'),
+        State('oa-calendar-month', 'data'),
         prevent_initial_call=True,
     )
-    def load_match_data(team, comp):
+    def load_match_data(team, comp, venue, date_cutoff, cur_month):
         now = datetime.now()
         default_month = {'year': now.year, 'month': now.month}
         default_label = f"{calendar.month_name[now.month]} {now.year}"
@@ -476,20 +401,22 @@ def register_opposition_analysis_callbacks(app) -> None:
         else:
             results = get_opp_team_matches(team, country, comp, CURRENT_SEASON)
 
+        results = _filter_results(results, date_cutoff, venue)
         results.sort(key=lambda r: r.get('date', ''))
 
-        if results:
+        # Keep the current month when only a filter changed; otherwise jump to
+        # the latest matching match (or fall back to the current month).
+        filter_only = ctx.triggered_id in ('oa-venue-filter', 'oa-date-filter')
+        if filter_only and cur_month:
+            month_data = cur_month
+        elif results:
             latest     = results[-1]['date']
-            init_year  = int(latest[:4])
-            init_month = int(latest[5:7])
+            month_data = {'year': int(latest[:4]), 'month': int(latest[5:7])}
         else:
-            init_year, init_month = now.year, now.month
+            month_data = default_month
 
-        return (
-            results,
-            {'year': init_year, 'month': init_month},
-            f"{calendar.month_name[init_month]} {init_year}",
-        )
+        label = f"{calendar.month_name[month_data['month']]} {month_data['year']}"
+        return results, month_data, label
 
     # ── Reset match selection when team changes ───────────────────────────────
     @app.callback(
@@ -499,28 +426,6 @@ def register_opposition_analysis_callbacks(app) -> None:
     )
     def reset_selection_on_team_change(_):
         return []
-
-    # ── Month navigation ──────────────────────────────────────────────────────
-    @app.callback(
-        Output('oa-calendar-month', 'data', allow_duplicate=True),
-        Output('oa-month-label',    'children', allow_duplicate=True),
-        Input('oa-prev-month', 'n_clicks'),
-        Input('oa-next-month', 'n_clicks'),
-        State('oa-calendar-month', 'data'),
-        prevent_initial_call=True,
-    )
-    def navigate_month(prev_clicks, next_clicks, current):
-        triggered = ctx.triggered_id
-        year, month = current['year'], current['month']
-        if triggered == 'oa-prev-month':
-            month -= 1
-            if month < 1:
-                month, year = 12, year - 1
-        elif triggered == 'oa-next-month':
-            month += 1
-            if month > 12:
-                month, year = 1, year + 1
-        return {'year': year, 'month': month}, f"{calendar.month_name[month]} {year}"
 
     # ── Render calendar grid ──────────────────────────────────────────────────
     @app.callback(
@@ -537,56 +442,6 @@ def register_opposition_analysis_callbacks(app) -> None:
             )
         year, month = cal_month['year'], cal_month['month']
         return _build_oa_calendar_grid(year, month, match_data, selected_match_ids or [])
-
-    # ── Toggle match selection ────────────────────────────────────────────────
-    @app.callback(
-        Output('oa-selected-matches', 'data', allow_duplicate=True),
-        Input({'type': 'oa-cal-match-btn', 'match_id': ALL}, 'n_clicks'),
-        Input('oa-clear-selection-btn', 'n_clicks'),
-        State('oa-selected-matches', 'data'),
-        prevent_initial_call=True,
-    )
-    def update_selected_matches(n_clicks_list, clear_n_clicks, current_matches):
-        if not ctx.triggered_id:
-            return current_matches or []
-        if ctx.triggered_id == 'oa-clear-selection-btn':
-            return []
-        trigger = ctx.triggered[0]
-        if trigger['value'] is None or trigger['value'] == 0:
-            return current_matches or []
-        match_id = ctx.triggered_id['match_id']
-        current  = list(current_matches or [])
-        if match_id in current:
-            current.remove(match_id)
-        else:
-            current.append(match_id)
-        return current
-
-    # ── Selection indicator ───────────────────────────────────────────────────
-    @app.callback(
-        Output('oa-selected-indicator-text', 'children'),
-        Output('oa-clear-selection-btn', 'style'),
-        Input('oa-selected-matches', 'data'),
-    )
-    def update_selected_indicator(match_ids):
-        if not match_ids:
-            return (
-                html.Div("All Matches (Default)",
-                         style={'color': COLORS['text_secondary'], 'fontSize': '0.9rem'}),
-                {'display': 'none'},
-            )
-        count = len(match_ids)
-        text = html.Span(
-            f"{count} Match{'es' if count > 1 else ''} Selected",
-            style={'color': GOLD, 'fontWeight': 'bold', 'marginRight': '12px', 'fontSize': '0.95rem'},
-        )
-        btn_style = {
-            'display': 'inline-block', 'background': 'none',
-            'border': f'1px solid {COLORS["dark_border"]}',
-            'color': COLORS['text_primary'], 'borderRadius': '4px',
-            'padding': '4px 10px', 'cursor': 'pointer', 'fontSize': '0.8rem',
-        }
-        return text, btn_style
 
     # ── Main tab renderer ─────────────────────────────────────────────────────
     @app.callback(
@@ -620,28 +475,14 @@ def register_opposition_analysis_callbacks(app) -> None:
 
         # ── Overview: load data synchronously (no callbacks) ──────────────────
         if active_tab == 'oa-tab-overview':
-            if comp_key == 'all':
-                frames    = [get_opp_all_events(team, country, c, CURRENT_SEASON) for c in all_comps]
-                non_empty = [f for f in frames if not f.empty]
-                all_ev    = pd.concat(non_empty, ignore_index=True) if non_empty else pd.DataFrame()
-            else:
-                all_ev = get_opp_all_events(team, country, comp_key, CURRENT_SEASON)
+            # Events: unified loader applies venue + date + match-id filters and
+            # splits opp_ev / opponent-ev robustly by team_code.
+            opp_ev, bar_ev = load_opp_events(
+                team, comp_key, venue_filter or 'all',
+                selected_match_ids, date_cutoff, CURRENT_SEASON,
+            )
 
-            if date_cutoff and not all_ev.empty and 'match_date' in all_ev.columns:
-                all_ev = all_ev[all_ev['match_date'].astype(str).str[:10] <= date_cutoff[:10]]
-            all_ev = _apply_venue_filter(all_ev, team, venue_filter or 'all')
-            if selected_match_ids and not all_ev.empty and 'match_id' in all_ev.columns:
-                all_ev = all_ev[all_ev['match_id'].isin(selected_match_ids)]
-
-            if not all_ev.empty and 'team_name' in all_ev.columns:
-                needle = _normalize(team)
-                is_opp = all_ev['team_name'].fillna('').apply(lambda s: needle in _normalize(s))
-                opp_ev = all_ev[is_opp].copy()
-                bar_ev = all_ev[~is_opp].copy()
-            else:
-                opp_ev = all_ev.copy()
-                bar_ev = pd.DataFrame()
-
+            # Results: same filters via the shared helper.
             if comp_key == 'all':
                 all_results: list[dict] = []
                 for c in all_comps:
@@ -649,12 +490,7 @@ def register_opposition_analysis_callbacks(app) -> None:
             else:
                 all_results = get_opp_team_matches(team, country, comp_key, CURRENT_SEASON)
 
-            if date_cutoff:
-                all_results = [r for r in all_results if r.get('date', '') <= date_cutoff[:10]]
-            if venue_filter == 'home':
-                all_results = [r for r in all_results if r.get('is_home')]
-            elif venue_filter == 'away':
-                all_results = [r for r in all_results if not r.get('is_home')]
+            all_results = _filter_results(all_results, date_cutoff, venue_filter)
             if selected_match_ids:
                 all_results = [r for r in all_results if r.get('match_id') in selected_match_ids]
 

@@ -5,6 +5,7 @@
 dash==4.0.0
 dash-bootstrap-components==2.0.4
 plotly==6.6.0
+flask-compress==1.24          # gzip callback/asset payloads (Dash compress=True)
 
 # Data Processing
 pandas==3.0.1
@@ -12,6 +13,8 @@ numpy==2.4.2
 pyarrow==23.0.1
 
 # Football Analytics Libraries
+matplotlib==3.10.0
+Pillow==11.1.0
 mplsoccer==1.6.1
 statsbombpy==1.16.0
 

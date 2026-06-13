@@ -160,7 +160,7 @@ Key `compute_event_stats` output keys: `apps`, `total_minutes`, `mins_per_app`, 
 | `attacking_output.py` | `build_attacking_output_tab` | — | |
 | `build_up_passing.py` | `build_build_up_passing_tab` | `register_build_up_passing_callbacks` | |
 | `defensive_structure.py` | `build_defensive_structure_tab` | `register_defensive_structure_callbacks` | Defensive action map includes fouls + offsides overlays |
-| `transitions_counterpressing.py` | `build_transitions_counterpressing_tab` | `register_transitions_counterpressing_callbacks` | Two sub-tabs: Defensive Transition + Attacking Transition; 30s windows after possession changes; both teams side-by-side |
+| `transitions_counterpressing.py` | `build_transitions_counterpressing_tab` | `register_transitions_counterpressing_callbacks` | Two sub-tabs: Defensive Transition + Attacking Transition; 15s windows after possession changes; both teams side-by-side |
 | `goalkeeping.py` | `build_goalkeeping_tab` | `register_goalkeeping_callbacks` | |
 | `player_stats.py` | `build_player_stats_tab` | `register_player_stats_callbacks` | Player table now includes `xT` column per player |
 

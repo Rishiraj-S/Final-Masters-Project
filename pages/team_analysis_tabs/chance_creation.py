@@ -13,8 +13,11 @@ from __future__ import annotations
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from dash import html, dcc, Input, Output, State
+from dash import html, dcc, Input, Output, State, no_update, clientside_callback, ClientsideFunction
 import dash_bootstrap_components as dbc
+from page_utils.goal_sequence import (
+    get_shot_sequence, render_goal_sequence_frames, ORIGIN_BADGE_COLOR,
+)
 
 from utils.config import COLORS
 from utils.data_utils import get_all_events, exclude_own_goals, CURRENT_SEASON
@@ -855,6 +858,10 @@ def _shot_map_fig(shots: pd.DataFrame,
                             if 'player_name' in grp.columns else ['Unknown'] * len(grp))
             times = (grp['time_min'].fillna(0).astype(int).tolist()
                      if 'time_min' in grp.columns else [0] * len(grp))
+            match_ids_cd = (grp['match_id'].fillna('').tolist()
+                            if 'match_id' in grp.columns else [''] * len(grp))
+            period_ids_cd = (grp['period_id'].fillna(1).astype(int).tolist()
+                             if 'period_id' in grp.columns else [1] * len(grp))
 
             fig.add_trace(go.Scatter(
                 x=fig_x, y=fig_y,
@@ -865,7 +872,9 @@ def _shot_map_fig(shots: pd.DataFrame,
                     size=sizes, opacity=0.88,
                     line=dict(color='white', width=1),
                 ),
-                customdata=list(zip(player_names, times, xg_vals)),
+                customdata=list(zip(player_names, times, xg_vals,
+                                    match_ids_cd, period_ids_cd,
+                                    [etype] * len(grp))),
                 hovertemplate=(
                     '<b>%{customdata[0]}</b><br>'
                     "%{customdata[1]}' | xG: %{customdata[2]:.2f}"
@@ -1171,12 +1180,50 @@ def build_chance_creation_tab(season, competitions, match_ids=None) -> html.Div:
         ], align='start', className='g-0'),
     ], style=_PANEL_STYLE)
 
-    return html.Div(
+    seq_modal = dbc.Modal(
+        [
+            dcc.Store(id='cc-seq-frames', data=[]),
+            dcc.Store(id='cc-seq-state',  data={'idx': 0, 'playing': False}),
+            dcc.Interval(id='cc-seq-interval', interval=80, disabled=True),
+            dbc.ModalHeader([
+                dbc.ModalTitle(id='cc-seq-title', children='Shot Sequence'),
+                dbc.Badge('', id='cc-seq-origin', color='success',
+                          className='ms-2', style={'fontSize': '0.7rem', 'verticalAlign': 'middle'}),
+            ]),
+            dbc.ModalBody([
+                html.Img(id='cc-seq-img', src='',
+                         style={'width': '100%', 'borderRadius': '6px', 'display': 'block'}),
+                dbc.Row([
+                    dbc.Col(dbc.Button('↺', id='cc-seq-restart-btn', color='secondary',
+                                       size='sm', n_clicks=0,
+                                       style={'width': '42px', 'padding': '2px 0'}), width='auto'),
+                    dbc.Col(dbc.Button('←', id='cc-seq-prev-btn', color='secondary',
+                                       size='sm', n_clicks=0,
+                                       style={'width': '42px', 'padding': '2px 0'}), width='auto'),
+                    dbc.Col(dbc.Button('▶', id='cc-seq-play-btn', color='primary',
+                                       size='sm', n_clicks=0,
+                                       style={'width': '42px', 'padding': '2px 0'}), width='auto'),
+                    dbc.Col(dbc.Button('→', id='cc-seq-next-btn', color='secondary',
+                                       size='sm', n_clicks=0,
+                                       style={'width': '42px', 'padding': '2px 0'}), width='auto'),
+                    dbc.Col(html.Span('', id='cc-seq-counter',
+                                      style={'color': COLORS['text_secondary'],
+                                             'fontSize': '0.8rem', 'lineHeight': '28px'}),
+                            width='auto'),
+                ], justify='center', align='center',
+                   className='mt-2', style={'gap': '6px'}),
+            ]),
+        ],
+        id='cc-seq-modal', size='lg', centered=True, is_open=False,
+    )
+
+    return html.Div([
         dbc.Row([
             dbc.Col(_filter_panel(player_opts), md=2),
             dbc.Col(main_content,               md=10),
         ], align='start', className='g-3'),
-    )
+        seq_modal,
+    ])
 
 
 # =============================================================================
@@ -1288,3 +1335,113 @@ def register_chance_creation_callbacks(app) -> None:
         assts = _assisters_table_children(kp_stats)
 
         return kpi, fig, zone_src, scors, assts
+
+    @app.callback(
+        Output('cc-seq-modal',    'is_open'),
+        Output('cc-seq-title',    'children'),
+        Output('cc-seq-origin',   'children'),
+        Output('cc-seq-origin',   'color'),
+        Output('cc-seq-frames',   'data'),
+        Output('cc-seq-state',    'data'),
+        Output('cc-seq-interval', 'disabled'),
+        Output('cc-seq-play-btn', 'children'),
+        Output('cc-seq-counter',  'children'),
+        Output('cc-seq-img',      'src'),
+        Output('cc-shot-map',     'clickData'),   # reset so same shot can re-fire
+        Input('cc-shot-map', 'clickData'),
+        State('cc-seq-restart-btn', 'n_clicks'),
+        State('cc-seq-play-btn',    'n_clicks'),
+        State('cc-seq-prev-btn',    'n_clicks'),
+        State('cc-seq-next-btn',    'n_clicks'),
+        prevent_initial_call=True,
+    )
+    def _on_shot_click(click_data, r_nc, play_nc, prev_nc, next_nc):
+        _nu = (no_update,) * 11
+        if not click_data or not click_data.get('points'):
+            return _nu
+        pt = click_data['points'][0]
+        cd = pt.get('customdata') or []
+        if len(cd) < 5:
+            return _nu
+        player_name = cd[0]
+        time_min    = int(float(cd[1])) if cd[1] else 0
+        match_id    = cd[3] or ''
+        period_id   = int(cd[4]) if cd[4] else 1
+        event_type  = cd[5] if len(cd) > 5 else None
+
+        events = get_all_events(CURRENT_SEASON)
+        if events.empty:
+            return _nu
+
+        if match_id and 'match_id' in events.columns:
+            match_ev = events[events['match_id'] == match_id]
+        else:
+            match_ev = events
+
+        seq = get_shot_sequence(
+            match_ev,
+            team_code='BAR',
+            time_min=time_min,
+            period_id=period_id,
+            player_name=player_name,
+            event_type=event_type,
+        )
+        if seq is None:
+            return _nu
+
+        shot_type = seq.get('shot_type', 'Shot')
+        scorer    = seq.get('scorer', '')
+        minute    = seq.get('minute', '')
+        label = (
+            f'Goal Sequence  ·  {scorer}  {minute}'
+            if shot_type == 'Goal'
+            else f'{shot_type}  ·  {scorer}  {minute}'
+        )
+
+        result    = render_goal_sequence_frames(seq, figsize=(8, 5.5))
+        frames    = result['frames']
+        n_events  = result.get('n_events', result['n_frames'])
+        origin    = result.get('origin', 'Open Play')
+        badge_col = ORIGIN_BADGE_COLOR.get(origin, 'secondary')
+        state = {
+            'idx': 0, 'playing': False, 'n_events': n_events,
+            '_r':    r_nc    or 0,
+            '_play': play_nc or 0,
+            '_prev': prev_nc or 0,
+            '_next': next_nc or 0,
+        }
+        src     = f'data:image/png;base64,{frames[0]}' if frames else ''
+        counter = f'1 / {n_events}'
+
+        return True, label, origin, badge_col, frames, state, True, '▶', counter, src, None
+
+    @app.callback(
+        Output('cc-seq-interval', 'disabled', allow_duplicate=True),
+        Output('cc-seq-state',    'data',     allow_duplicate=True),
+        Input('cc-seq-modal', 'is_open'),
+        State('cc-seq-state', 'data'),
+        prevent_initial_call=True,
+    )
+    def _on_modal_close(is_open, state):
+        # Stop playback when modal is dismissed
+        if is_open:
+            return no_update, no_update
+        return True, {**(state or {}), 'playing': False}
+
+    # Client-side player — zero server round-trips during playback, no background glitch
+    clientside_callback(
+        ClientsideFunction(namespace='seq_player', function_name='play'),
+        Output('cc-seq-img',      'src',      allow_duplicate=True),
+        Output('cc-seq-state',    'data',     allow_duplicate=True),
+        Output('cc-seq-interval', 'disabled', allow_duplicate=True),
+        Output('cc-seq-play-btn', 'children', allow_duplicate=True),
+        Output('cc-seq-counter',  'children', allow_duplicate=True),
+        Input('cc-seq-interval',    'n_intervals'),
+        Input('cc-seq-restart-btn', 'n_clicks'),
+        Input('cc-seq-play-btn',    'n_clicks'),
+        Input('cc-seq-prev-btn',    'n_clicks'),
+        Input('cc-seq-next-btn',    'n_clicks'),
+        State('cc-seq-frames', 'data'),
+        State('cc-seq-state',  'data'),
+        prevent_initial_call=True,
+    )

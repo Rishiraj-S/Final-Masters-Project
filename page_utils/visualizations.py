@@ -33,11 +33,18 @@ from utils.config import COLORS
 # Reference Style Colors (from image)
 PITCH_BG = '#151932'
 PITCH_LINE_COLOR = '#8899CC'
-BARCA_BLUE = COLORS['primary_blue']
+
+# FC Barcelona brand palette — import these throughout the app
+BARCA_BLUE   = COLORS['primary_blue']   # #004D98
+BARCA_GARNET = COLORS['garnet']         # #A50044
+BARCA_RED    = COLORS['red']            # #DB0030
+BARCA_GOLD   = COLORS['gold']           # #EDBB00
+BARCA_YELLOW = COLORS['yellow']         # #FFED02
+BARCA_WHITE  = COLORS['white']          # #FFFFFF
 
 HOME_COLOR = BARCA_BLUE
-AWAY_COLOR = COLORS['garnet']
-GOLD = COLORS['gold']
+AWAY_COLOR = BARCA_GARNET
+GOLD = BARCA_GOLD
 
 
 # =============================================================================

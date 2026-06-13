@@ -49,11 +49,26 @@ USERS = {
 }
 
 # Initialize the Dash app with Bootstrap theme
+# Load plotly.js EAGERLY at page init rather than letting each dcc.Graph
+# lazy-inject it on mount. Match Report renders ~22 graphs simultaneously;
+# the lazy per-graph loader makes them all race for the one 4.85 MB bundle
+# while the main thread is busy, and any that miss the 30 s window throw
+# "plotly.js did not load after 30 seconds". Loading it up-front (same local
+# suite URL the renderer itself uses when serve_locally=True) means
+# window.Plotly already exists when graphs mount, so the loader resolves
+# instantly and the race disappears.
+_PLOTLY_JS_URL = '/_dash-component-suites/plotly/package_data/plotly.min.js'
+
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
+    external_scripts=[_PLOTLY_JS_URL],
     suppress_callback_exceptions=True,
-    title=APP_CONFIG['title']
+    title=APP_CONFIG['title'],
+    # gzip every callback response + served asset. Pitch PNGs and Plotly figures
+    # are large JSON/base64 payloads; compression cuts transfer ~70-90% and
+    # noticeably reduces UI lag. Requires flask-compress (installed).
+    compress=True,
 )
 
 # ---------------------------------------------------------------------------
@@ -311,7 +326,7 @@ def create_login_layout():
 
 
 def create_navbar(user_info):
-    """Create navigation bar with user info and logout."""
+    """Create navigation bar with user info and logout button."""
     username = user_info.get('username', 'User')
     role = user_info.get('role', 'guest')
 
@@ -327,7 +342,9 @@ def create_navbar(user_info):
             dbc.Row([
                 dbc.Col([
                     dbc.Nav([
-                        dbc.NavItem(dbc.NavLink(link['label'], href=link['href'], active="exact"))
+                        dbc.NavItem(dbc.NavLink(
+                            link['label'], href=link['href'], active="exact"
+                        ))
                         for link in NAV_LINKS
                     ], navbar=True, className="ms-auto")
                 ])
@@ -340,7 +357,7 @@ def create_navbar(user_info):
                                  style={'color': COLORS['gold'], 'marginRight': '10px', 'fontWeight': 'bold'}),
                         html.Span(f"({role.title()})",
                                  style={'color': COLORS['text_secondary'], 'marginRight': '15px', 'fontSize': '0.85rem'}),
-                        dbc.Button("Logout", id='logout-button', color="outline-light", size="sm")
+                        dbc.Button('Logout', id='logout-button', color="outline-light", size="sm")
                     ], style={'display': 'flex', 'alignItems': 'center'})
                 ], width="auto")
             ], align="center")
@@ -555,7 +572,7 @@ def create_opp_update_overlay():
     return html.Div([
         html.Div([
             html.Div(className="spinner-border text-info mb-4", role="status"),
-            html.H2("Scouting Opposition Databases",
+            html.H2("Updating Databases with latest matches",
                    style={'color': '#17a2b8', 'marginBottom': '20px'}),
             html.P("Please wait while the system downloads opposition match data...",
                   style={'color': COLORS['text_secondary'], 'fontSize': '1.1rem'}),
@@ -654,7 +671,6 @@ def update_main_container(session_data, pathname, update_status):
     user_info = session_data
     is_admin = user_info.get('role') == 'admin'
 
-    # Create navbar
     navbar = create_navbar(user_info)
 
     # Determine which page to show based on URL

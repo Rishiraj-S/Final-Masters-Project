@@ -20,7 +20,7 @@ Each module provides:
     )
 """
 
-from .overview        import build_overview
+from .overview        import build_overview,        register_overview_callbacks
 from .buildup         import build_buildup,         register_buildup_callbacks
 from .chance_creation import build_chance_creation, register_chance_creation_callbacks
 from .transitions     import build_transitions,     register_transitions_callbacks
@@ -29,6 +29,7 @@ from .set_pieces      import build_set_pieces,      register_set_pieces_callback
 
 __all__ = [
     'build_overview',
+    'register_overview_callbacks',
     'build_buildup',
     'build_chance_creation',
     'build_transitions',

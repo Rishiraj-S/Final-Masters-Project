@@ -14,7 +14,10 @@ short name consistently.
 
 from __future__ import annotations
 
+import threading
 import unicodedata
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
 
@@ -94,39 +97,151 @@ def _load_opp_config() -> dict:
         return yaml.safe_load(f) or {}
 
 
+# ── Team registry — auto-discovered from the data on disk ───────────────────
+#
+# Rather than enumerate every team in config.yaml, the registry is built by
+# scanning the one-row ``match`` parquets across all competitions.  Every team
+# that appears in any downloaded match (home or away) becomes available in
+# Opposition Analysis automatically.  config.yaml entries are still consulted
+# as overrides (code spelling, alt codes, country/search_name).
+
+# Minimum matches a team needs to appear in Opposition Analysis.
+# The data is opponent-centric: the ~29 "focus" teams have a full domestic
+# season (37+ matches each), while incidental opponents appear in only 1–13
+# matches (a single cup tie, or just their European games vs a tracked side).
+# 1 = expose every team we have any data for (even a single match).
+MIN_TEAM_MATCHES = 1
+
+# Data folders use ASCII underscore names; map to flag-friendly display names.
+_FOLDER_COUNTRY_DISPLAY = {
+    'Czech_Republic': 'Czech Republic',
+}
+
+
+def _display_country(folder: str) -> str:
+    return _FOLDER_COUNTRY_DISPLAY.get(folder, folder.replace('_', ' '))
+
+
+def _read_match_teams(match_file: Path):
+    """Return [(name, code), …] for the two teams in a one-row match parquet."""
+    cols = ['home_team_name', 'home_team_code', 'away_team_name', 'away_team_code']
+    try:
+        row = pd.read_parquet(match_file, columns=cols).iloc[0]
+    except Exception:
+        try:
+            row = pd.read_parquet(match_file).iloc[0]
+        except Exception:
+            return []
+    out = []
+    for name_c, code_c in (('home_team_name', 'home_team_code'),
+                           ('away_team_name', 'away_team_code')):
+        name = str(row.get(name_c, '')).strip()
+        code = str(row.get(code_c, '')).strip()
+        if name and name.upper() not in ('N/A', 'NONE'):
+            out.append((name, code))
+    return out
+
+
+@lru_cache(maxsize=1)
+def _discover_team_registry() -> tuple:
+    """Scan every ``match`` parquet and build the full team registry.
+
+    Returns a tuple of dicts (one per team), each with:
+        team_name, team_code, team_codes (list), country, competitions (list)
+
+    ``country`` is the team's domestic country (the non-Europe data folder it
+    plays in); teams seen only in European competitions fall back to 'Europe'.
+    A team may carry several Opta codes across competitions (e.g. PSG / PAR) —
+    all are kept so filename filtering matches every match.
+    """
+    from collections import Counter, defaultdict
+
+    code_counts:    dict[str, Counter] = defaultdict(Counter)
+    comp_sets:      dict[str, set]     = defaultdict(set)
+    country_counts: dict[str, Counter] = defaultdict(Counter)
+    match_counts:   Counter            = Counter()
+
+    if DATA_ROOT.exists():
+        for match_file in DATA_ROOT.glob('*/*/match/*.parquet'):
+            comp_key       = match_file.parents[1].name
+            country_folder = match_file.parents[2].name
+            for name, code in _read_match_teams(match_file):
+                if code and code.upper() not in ('N/A', 'NONE'):
+                    code_counts[name][code] += 1
+                comp_sets[name].add(comp_key)
+                country_counts[name][country_folder] += 1
+                match_counts[name] += 1
+
+    config_by_name = {t['team_name']: t for t in _load_opp_config().get('teams', [])}
+
+    registry = []
+    for name in sorted(comp_sets):
+        if match_counts[name] < MIN_TEAM_MATCHES:
+            continue
+        codes_ranked = [c for c, _ in code_counts[name].most_common()]
+
+        non_europe = [f for f, _ in country_counts[name].most_common() if f != 'Europe']
+        if non_europe:
+            country_folder = non_europe[0]
+        elif country_counts[name]:
+            country_folder = country_counts[name].most_common(1)[0][0]
+        else:
+            country_folder = ''
+        country = _display_country(country_folder)
+
+        # config.yaml overrides
+        cfg = config_by_name.get(name, {})
+        if cfg.get('team_code'):
+            ranked = [cfg['team_code']]
+            if cfg.get('team_code_alt'):
+                ranked.append(cfg['team_code_alt'])
+            for c in codes_ranked:
+                if c not in ranked:
+                    ranked.append(c)
+            codes_ranked = ranked
+        if cfg.get('country'):
+            country = cfg['country']
+
+        if not codes_ranked:
+            continue
+
+        registry.append({
+            'team_name':    name,
+            'team_code':    codes_ranked[0],
+            'team_codes':   codes_ranked,
+            'country':      country,
+            'competitions': sorted(comp_sets[name]),
+            'search_name':  cfg.get('search_name'),
+        })
+    return tuple(registry)
+
+
+@lru_cache(maxsize=1)
+def _registry_by_name() -> dict:
+    return {t['team_name']: t for t in _discover_team_registry()}
+
+
 def list_available_opponents() -> list[dict]:
-    """Return all non-Barcelona teams from opta_pipeline/config.yaml."""
-    return [
-        t for t in _load_opp_config().get('teams', [])
-        if t.get('team_code') != 'BAR'
-    ]
+    """Return every non-Barcelona team discovered in the data on disk."""
+    return [t for t in _discover_team_registry() if t.get('team_code') != 'BAR']
 
 
 def get_team_competitions(team_name: str) -> list[str]:
-    """Return competition keys configured for a given team."""
-    for opp in list_available_opponents():
-        if opp['team_name'] == team_name:
-            return opp.get('competitions', [])
-    return []
+    """Return competition keys the team appears in."""
+    t = _registry_by_name().get(team_name)
+    return list(t['competitions']) if t else []
 
 
 def get_team_country(team_name: str) -> str:
-    """Return the country string for a given team."""
-    for opp in list_available_opponents():
-        if opp['team_name'] == team_name:
-            return opp.get('country', '')
-    return ''
+    """Return the (display) country string for a given team."""
+    t = _registry_by_name().get(team_name)
+    return t['country'] if t else ''
 
 
 def get_team_codes(team_name: str) -> list[str]:
-    """Return all Opta codes for a team (primary + optional alt)."""
-    for opp in list_available_opponents():
-        if opp['team_name'] == team_name:
-            codes = [opp['team_code']] if opp.get('team_code') else []
-            if opp.get('team_code_alt'):
-                codes.append(opp['team_code_alt'])
-            return codes
-    return []
+    """Return all Opta codes for a team (handles codes differing per comp)."""
+    t = _registry_by_name().get(team_name)
+    return list(t['team_codes']) if t else []
 
 
 def get_team_code(team_name: str) -> str:
@@ -192,14 +307,45 @@ def _team_parquets(team_codes: list[str], comp_key: str,
 
 # ── Data loaders ────────────────────────────────────────────────────────────
 
-# In-process cache for opposition event DataFrames.  Keyed by (team, country,
-# comp_key, season).  Avoids re-reading all parquet files on every tab switch.
-_opp_events_cache: dict[tuple, pd.DataFrame] = {}
+# Bounded LRU caches (OrderedDict). Keyed by (team/codes, comp_key, season).
+# With 212 teams an unbounded cache could pin hundreds of 60k-row DataFrames in
+# RAM and thrash; we keep only the most-recently-used selections.
+_OPP_EVENTS_CACHE_MAX  = 24
+_OPP_MATCHES_CACHE_MAX = 64
+_opp_events_cache:  "OrderedDict[tuple, pd.DataFrame]" = OrderedDict()
+_opp_matches_cache: "OrderedDict[tuple, list]"         = OrderedDict()
+# Flask's dev server is threaded, so callbacks (and their cache access) can run
+# concurrently — guard the check-then-act cache ops with a lock.
+_cache_lock = threading.Lock()
+
+
+def _cache_get(cache: OrderedDict, key):
+    """LRU read: return the value and mark it most-recently-used, else None."""
+    with _cache_lock:
+        if key in cache:
+            cache.move_to_end(key)
+            return cache[key]
+    return None
+
+
+def _cache_put(cache: OrderedDict, key, value, maxsize: int) -> None:
+    """LRU write: insert/refresh and evict the oldest entries past ``maxsize``."""
+    with _cache_lock:
+        cache[key] = value
+        cache.move_to_end(key)
+        while len(cache) > maxsize:
+            cache.popitem(last=False)
 
 
 def clear_opp_events_cache() -> None:
     """Clear the opposition events cache (call after running the pipeline)."""
-    _opp_events_cache.clear()
+    with _cache_lock:
+        _opp_events_cache.clear()
+        _opp_matches_cache.clear()
+    # New matches may introduce new teams — rebuild the discovered registry too.
+    _discover_team_registry.cache_clear()
+    _registry_by_name.cache_clear()
+    _load_opp_config.cache_clear()
 
 
 def get_opp_all_events(team: str, country: str, comp_key: str,
@@ -216,20 +362,40 @@ def get_opp_all_events(team: str, country: str, comp_key: str,
     from comp_key alone.
     """
     cache_key = (team, comp_key, season)
-    if cache_key in _opp_events_cache:
-        return _opp_events_cache[cache_key]
+    cached = _cache_get(_opp_events_cache, cache_key)
+    if cached is not None:
+        return cached
 
     files = _team_parquets(get_team_codes(team), comp_key, 'match_event')
     if not files:
         return pd.DataFrame()
 
-    frames = [pd.read_parquet(f) for f in files]
+    # Parquet reads are I/O-bound and pyarrow releases the GIL, so reading the
+    # match files concurrently cuts cold-load latency for big seasons.
+    if len(files) > 4:
+        with ThreadPoolExecutor(max_workers=min(8, len(files))) as ex:
+            frames = list(ex.map(pd.read_parquet, files))
+    else:
+        frames = [pd.read_parquet(f) for f in files]
+
     df = pd.concat(frames, ignore_index=True)
     if 'event_type_id' in df.columns and 'type_id' not in df.columns:
         df = df.rename(columns={'event_type_id': 'type_id'})
     if not df.empty:
-        _opp_events_cache[cache_key] = df
+        _cache_put(_opp_events_cache, cache_key, df, _OPP_EVENTS_CACHE_MAX)
     return df
+
+
+def competition_match_event_paths(comp_key: str) -> list[Path]:
+    """Return every ``match_event`` parquet path for a competition (all teams).
+
+    Used to compute competition-wide (league-average) aggregates without going
+    through the per-team filename filter.
+    """
+    folder = _opp_dir(comp_key, 'match_event')
+    if not folder.exists():
+        return []
+    return sorted(f for f in folder.iterdir() if f.suffix == '.parquet')
 
 
 def get_opp_team_events(team: str, country: str, comp_key: str,
@@ -264,17 +430,37 @@ def get_opp_team_matches(team: str, country: str, comp_key: str,
 
     Each dict: date, competition, is_home, opponent, gf, ga, result.
     """
-    match_files = _team_parquets(get_team_codes(team), comp_key, 'match')
+    codes = get_team_codes(team)
+    cache_key = (tuple(codes), comp_key, season)
+    cached = _cache_get(_opp_matches_cache, cache_key)
+    if cached is not None:
+        # Shallow copy so callers can sort/filter the list without touching cache.
+        return list(cached)
+
+    match_files = _team_parquets(codes, comp_key, 'match')
     if not match_files:
         return []
 
     ev_dir = _opp_dir(comp_key, 'match_event')
 
-    results = []
-    for f in match_files:
+    # Match parquets are one tiny row each; read them concurrently.
+    def _read_first_row(f: Path):
         try:
-            row = pd.read_parquet(f).iloc[0]
+            return f, pd.read_parquet(f).iloc[0]
+        except Exception:
+            return f, None
 
+    if len(match_files) > 4:
+        with ThreadPoolExecutor(max_workers=min(8, len(match_files))) as ex:
+            rows = list(ex.map(_read_first_row, match_files))
+    else:
+        rows = [_read_first_row(f) for f in match_files]
+
+    results = []
+    for f, row in rows:
+        if row is None:
+            continue
+        try:
             # Team names — transformer stores home_team_name / away_team_name
             home = str(row.get('home_team_name', row.get('home_team', ''))).strip()
             away = str(row.get('away_team_name', row.get('away_team', ''))).strip()
@@ -293,7 +479,6 @@ def get_opp_team_matches(team: str, country: str, comp_key: str,
                 except (ValueError, TypeError):
                     h_score = a_score = 0
 
-            codes = get_team_codes(team)
             is_home = any(f'_{c}_vs_' in f.name for c in codes)
             if is_home:
                 gf, ga, opponent = h_score, a_score, away
@@ -303,10 +488,11 @@ def get_opp_team_matches(team: str, country: str, comp_key: str,
             result = 'W' if gf > ga else ('D' if gf == ga else 'L')
 
             results.append({
-                'match_id':    str(row.get('match_id', f.stem)),
-                'date':        str(row.get('date', row.get('match_date', '')))[:10],
-                'competition': comp_key.replace('_', ' '),
-                'is_home':     is_home,
+                'match_id':       str(row.get('match_id', f.stem)),
+                'date':           str(row.get('date', row.get('match_date', '')))[:10],
+                'competition':    comp_key.replace('_', ' '),
+                'competition_key': comp_key,
+                'is_home':        is_home,
                 'opponent':    opponent,
                 'gf':          gf,
                 'ga':          ga,
@@ -316,7 +502,8 @@ def get_opp_team_matches(team: str, country: str, comp_key: str,
             continue
 
     results.sort(key=lambda r: r['date'])
-    return results
+    _cache_put(_opp_matches_cache, cache_key, results, _OPP_MATCHES_CACHE_MAX)
+    return list(results)
 
 
 def load_opp_events(team: str, comp_key: str,

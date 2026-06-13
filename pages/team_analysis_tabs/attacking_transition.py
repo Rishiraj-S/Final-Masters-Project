@@ -3,7 +3,7 @@ Team Analysis — Attacking Transition sub-tab
 
 Every time Barcelona wins possession during the opposition's in-possession
 phase, the team transitions into attack.
-The 30-second window after each possession-gain event is defined as the
+The 15-second window after each possession-gain event is defined as the
 attacking transition period for this app.
 
 Possession-gain types:
@@ -11,10 +11,10 @@ Possession-gain types:
   • Interception   — event_type 'Interception'
   • Tackle Won     — event_type 'Tackle' with outcome == 1
 
-30-second window outcomes (what BAR did after winning the ball):
-  Goal Scored    — BAR scored within 30s
-  Shot Taken     — BAR shot (no goal) within 30s
-  Quick Turnover — BAR lost possession again within 30s without shooting
+15-second window outcomes (what BAR did after winning the ball):
+  Goal Scored    — BAR scored within 15s
+  Shot Taken     — BAR shot (no goal) within 15s
+  Quick Turnover — BAR lost possession again within 15s without shooting
   Possession Held — none of the above
 
 Layout:
@@ -41,7 +41,7 @@ from page_utils.visualizations import (
     PITCH_BG,
 )
 
-_TRANSITION_WINDOW_SEC = 30  # seconds after possession gain
+_TRANSITION_WINDOW_SEC = 15  # seconds after possession gain
 
 # Gain event types
 _GAIN_TYPES_RAW = ['Ball Recovery', 'Interception']  # always a gain
@@ -181,7 +181,7 @@ def _tag_gain_outcomes(
 ) -> pd.DataFrame:
     """
     Tag each possession-gain row with a 'window_outcome' string describing
-    what BAR did in the 30-second window that followed.
+    what BAR did in the 15-second window that followed.
 
     Priority: Goal Scored > Shot Taken > Quick Turnover > Possession Held.
     Also stores 'window_detail': relevant player/event info.
@@ -399,7 +399,7 @@ def _pitch_map_fig(gains: pd.DataFrame) -> go.Figure:
                     '<b>%{customdata[0]}</b><br>'
                     'Time: %{customdata[1]}<br>'
                     'How: %{customdata[2]}<br>'
-                    '<b>Next 30s:</b> %{customdata[3]}'
+                    '<b>Next 15s:</b> %{customdata[3]}'
                     '%{customdata[4]}'
                     '<extra></extra>'
                 ),
@@ -418,14 +418,14 @@ def _pitch_map_fig(gains: pd.DataFrame) -> go.Figure:
                         line=dict(color='white', width=0.8)),
         ))
 
-    # Legend 2 (top-right) — Next 30s Outcome (shapes, neutral grey)
+    # Legend 2 (top-right) — Next 15s Outcome (shapes, neutral grey)
     for i, (outcome, (symbol, size)) in enumerate(_OUTCOME_SYMBOLS.items()):
         fig.add_trace(go.Scatter(
             x=[None], y=[None], mode='markers',
             name=outcome,
             legend='legend2',
             legendgroup=f'outcome_{outcome}',
-            legendgrouptitle_text='Next 30s' if i == 0 else '',
+            legendgrouptitle_text='Next 15s' if i == 0 else '',
             showlegend=True,
             marker=dict(color='#e2e8f0', symbol=symbol, size=size,
                         line=dict(color='white', width=0.8)),
@@ -761,7 +761,7 @@ def _filter_panel(player_options=None) -> html.Div:
         ),
 
         html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 4px'}),
-        html.Div("Next 30s Outcome", style=_LABEL_STYLE),
+        html.Div("Next 15s Outcome", style=_LABEL_STYLE),
         dcc.Checklist(
             id='at-outcome-filter',
             options=[{'label': f'  {t}', 'value': t} for t in _ALL_OUTCOME_TYPES],
@@ -809,7 +809,7 @@ def build_attacking_transition_skeleton() -> html.Div:
                 html.Div("Possession Gain Map", style=_SECTION_TITLE),
                 html.Div(
                     "Location of every possession gain · hover for who, when, how · "
-                    "shape shows what Barcelona did in the next 30 seconds",
+                    "shape shows what Barcelona did in the next 15 seconds",
                     style={
                         'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
                         'fontStyle': 'italic', 'marginBottom': '8px',
@@ -854,7 +854,7 @@ def build_attacking_transition_skeleton() -> html.Div:
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
                 html.Div("Transition Outcome", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
                 html.Div(
-                    "How each 30s window resolved",
+                    "How each 15s window resolved",
                     style={'color': COLORS['text_secondary'], 'fontSize': '0.60rem',
                            'fontStyle': 'italic', 'marginBottom': '6px'},
                 ),
@@ -972,7 +972,7 @@ def register_attacking_transition_callbacks(app) -> None:
         if players and 'player_name' in gains.columns:
             gains = gains[gains['player_name'].isin(players)]
 
-        # Tag each gain with what happened in the next 30 seconds
+        # Tag each gain with what happened in the next 15 seconds
         bar_in_windows = _bar_events_in_windows(gains, bar)
         gains          = _tag_gain_outcomes(gains, bar)
 

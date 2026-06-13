@@ -5,6 +5,7 @@ Profile card, season stats, attribute radar, and heatmap.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -16,7 +17,10 @@ from dash import html, dcc, Input, Output, no_update
 import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
-from utils.data_utils import get_all_events, get_match_results, exclude_own_goals, COMPETITION_NAMES, CURRENT_SEASON
+from utils.data_utils import (
+    get_all_events, get_match_results, exclude_own_goals,
+    COMPETITION_NAMES, CURRENT_SEASON, DATA_ROOT,
+)
 from utils.event_utils import (
     compute_event_stats,
     get_long_balls, get_crosses,
@@ -24,7 +28,8 @@ from utils.event_utils import (
     get_successful_tackles, get_interceptions, get_ball_recoveries, get_clearances,
 )
 from utils.xg_utils import add_xg_column
-from utils.player_analysis.metrics import compute_player_stats
+from utils.player_analysis.metrics import compute_player_stats, compute_5d_scores
+from utils.player_analysis.wyscout_weights import DIMENSION_INFO
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
 from page_utils.visualizations import (
     render_lsc_heatmap_img,
@@ -35,7 +40,7 @@ from page_utils.visualizations import (
     HOME_COLOR,
 )
 from utils.xt_utils import add_xt_column
-from pages.match_analysis_tabs.shared import page_header
+from pages.match_report import page_header
 
 logger = logging.getLogger(__name__)
 
@@ -50,20 +55,63 @@ _COMP_OPTIONS = [
     {"label": "All Competitions", "value": "all"},
 ] + [{"label": v, "value": v} for v in COMPETITION_NAMES.values()]
 
-_RADAR_DIMS  = ["ATT", "TEC", "TAC", "DEF", "CRE"]
-_DIM_METRICS = {
-    "ATT": ["goals_app", "shots_app", "shot_acc", "assists_app"],
-    "TEC": ["pass_acc", "takeon_pct"],
-    "TAC": ["intercepts_app", "recoveries_app", "clearances_app"],
-    "DEF": ["tackles_app", "intercepts_app", "recoveries_app", "clearances_app", "aerial_win_pct"],
-    "CRE": ["key_passes_app", "assists_app", "xT_app", "takeon_pct"],
+# Wyscout 5-dimension radar. Each radar axis (short label) maps to a
+# compute_5d_scores key; attack/defense axes are weighted by the player's
+# position via the Wyscout role weights, technical/physical use equal weights.
+_RADAR_DIMS  = ["ATT", "DEF", "TEC", "PHY", "OVR"]
+_DIM_TO_5D   = {
+    "ATT": "attack",
+    "DEF": "defense",
+    "TEC": "technical",
+    "PHY": "physical",
+    "OVR": "overall",
 }
+
+# Opta position code → Wyscout role (the 8 roles with weight files).
+_POSITION_TO_ROLE = {
+    "GK":  "GK",
+    "CB":  "CB",
+    "LB":  "FB", "RB": "FB", "LWB": "FB", "RWB": "FB",
+    "CDM": "DM",
+    "CM":  "CM", "MC": "CM",
+    "CAM": "AM",
+    "LM":  "Winger", "RM": "Winger", "LW": "Winger", "RW": "Winger",
+    "CF":  "ST",
+}
+_DEFAULT_ROLE = "CM"
+
+
+def _role_for_position(position: str | None) -> str:
+    return _POSITION_TO_ROLE.get(str(position or "").strip().upper(), _DEFAULT_ROLE)
+
+
+# A position counts as "played" if it is the player's modal position OR accounts
+# for at least this share of their positioned events (filters single-event noise).
+_POS_MIN_FRAC = 0.15
+
+
+def _roles_for_positions(positions: pd.Series) -> list[str]:
+    """All Wyscout roles a player has meaningfully played, by position event share."""
+    valid = positions.dropna()
+    valid = valid[valid != "N/A"]
+    if valid.empty:
+        return [_DEFAULT_ROLE]
+    counts = valid.value_counts()
+    total  = int(counts.sum())
+    modal  = counts.index[0]
+    roles  = {
+        _role_for_position(pos)
+        for pos, n in counts.items()
+        if pos == modal or n / total >= _POS_MIN_FRAC
+    }
+    return sorted(roles)
 
 _GOLD             = COLORS.get("gold", "#EDBB00")
 _BARCA_BLUE       = "#004D98"   # Barça royal blue
 _BARCA_BLUE_LIGHT = "#1974D2"   # electric blue
 _BARCA_GARNET     = "#A50044"   # Barça garnet
 _BARCA_GARNET_MID = "#D4145A"   # lighter garnet
+_LEAGUE_COLOR     = "#9AA3B8"   # muted slate — LaLiga average overlay
 
 _SHOT_OUTCOME_COLOR = {
     "Goal":         _GOLD,            # gold — glorious
@@ -147,17 +195,96 @@ def _get_match_label(match_id, res_by_id: dict) -> str:
     return f"{date} · {comp} vs {opp} ({bg}–{og})"
 
 
-def _compute_radar_scores(player_stats: dict, peers: list[dict]) -> dict[str, int]:
-    pool = peers + [player_stats]
-    def _avg(s: dict, metrics: list[str]) -> float:
-        return sum(s.get(m, 0) or 0 for m in metrics) / len(metrics)
-    return {
-        dim: round(percentileofscore([_avg(s, metrics) for s in pool], _avg(player_stats, metrics), kind="rank"))
-        for dim, metrics in _DIM_METRICS.items()
-    }
+# ---------------------------------------------------------------------------
+# LaLiga positional pool (season-wide per-player stats grouped by Wyscout role)
+# ---------------------------------------------------------------------------
+
+_LALIGA_DIR = DATA_ROOT / "Spain" / "Spain_Primera_Division" / "match_event"
+_CACHE_DIR  = Path(__file__).parent.parent / "logs"
+_LEAGUE_METRIC_KEYS = [
+    "goals_app", "shots_app", "shot_acc", "assists_app", "pass_acc",
+    "takeon_pct", "intercepts_app", "recoveries_app", "clearances_app",
+    "tackles_app", "aerial_win_pct", "key_passes_app", "xT_app",
+]
+_league_pool_cache: list[dict] | None = None   # [{"role": str, "stats": {...}}, ...]
 
 
-def _radar_figure(scores: dict[str, int]) -> go.Figure:
+def _mean_stats(pool: list[dict]) -> dict:
+    """Average each metric key across a list of player stat dicts."""
+    n = len(pool)
+    if n == 0:
+        return {k: 0.0 for k in _LEAGUE_METRIC_KEYS}
+    return {k: sum(float(s.get(k, 0) or 0) for s in pool) / n for k in _LEAGUE_METRIC_KEYS}
+
+
+def _laliga_player_pool() -> list[dict]:
+    """Season-wide LaLiga players as ``[{"role", "stats"}]``.
+
+    Built once (read all LaLiga match_event parquets → per-player stats + modal
+    position → Wyscout role), memoised in-process AND persisted to ``logs/`` keyed
+    by the LaLiga file count.  Runs at most once per dataset; a pipeline run that
+    adds LaLiga matches changes the count and triggers a rebuild.  Returns [] when
+    no LaLiga data is present.
+    """
+    global _league_pool_cache
+    if _league_pool_cache is not None:
+        return _league_pool_cache
+    try:
+        files = sorted(_LALIGA_DIR.glob("*.parquet"))
+        if not files:
+            return []
+        sig = f"{CURRENT_SEASON}:v2:{len(files)}"
+        cache_file = _CACHE_DIR / "laliga_player_pool.json"
+        if cache_file.exists():
+            blob = json.loads(cache_file.read_text())
+            if blob.get("sig") == sig and blob.get("players"):
+                _league_pool_cache = blob["players"]
+                return _league_pool_cache
+
+        ev = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+        players: list[dict] = []
+        for _name, grp in ev.groupby("player_name"):
+            s = compute_player_stats(grp)
+            if not s:
+                continue
+            players.append({
+                "roles": _roles_for_positions(grp["position"]),
+                "stats": {k: s.get(k, 0) for k in _LEAGUE_METRIC_KEYS},
+            })
+        if not players:
+            return []
+
+        try:
+            _CACHE_DIR.mkdir(exist_ok=True)
+            cache_file.write_text(json.dumps({"sig": sig, "players": players}))
+        except Exception:
+            logger.warning("Could not persist LaLiga pool cache", exc_info=True)
+
+        _league_pool_cache = players
+        return players
+    except Exception:
+        logger.exception("_laliga_player_pool failed")
+        return []
+
+
+def _laliga_roles_pool(roles) -> list[dict]:
+    """Stat dicts for all LaLiga players who played ANY of ``roles``.
+
+    A pool player qualifies if any role they played overlaps the selected
+    player's played roles — so a CB/CM hybrid is compared against everyone who
+    has lined up in either spot, not just their single modal position.
+    """
+    wanted = set(roles)
+    return [
+        p["stats"] for p in _laliga_player_pool()
+        if wanted.intersection(p.get("roles", []))
+    ]
+
+
+def _radar_figure(scores: dict[str, int],
+                  league_scores: dict[str, int] | None = None,
+                  player_label: str = "Player",
+                  league_label: str = "LaLiga avg") -> go.Figure:
     vals   = [scores.get(d, 0) for d in _RADAR_DIMS]
     vals_c = vals + [vals[0]]
     dims_c = _RADAR_DIMS + [_RADAR_DIMS[0]]
@@ -170,8 +297,22 @@ def _radar_figure(scores: dict[str, int]) -> go.Figure:
         fillcolor="rgba(237, 187, 0, 0.18)",
         line=dict(color=_GOLD, width=2.5),
         marker=dict(size=7, color=_GOLD),
-        hovertemplate="%{theta}: %{r:.0f}<extra></extra>",
+        name=player_label,
+        hovertemplate="%{theta}: %{r:.0f}<extra>" + player_label + "</extra>",
     ))
+    # LaLiga average overlay (dashed, no fill)
+    if league_scores:
+        lvals   = [league_scores.get(d, 0) for d in _RADAR_DIMS]
+        lvals_c = lvals + [lvals[0]]
+        fig.add_trace(go.Scatterpolar(
+            r=lvals_c,
+            theta=dims_c,
+            fill="none",
+            line=dict(color=_LEAGUE_COLOR, width=2, dash="dot"),
+            marker=dict(size=5, color=_LEAGUE_COLOR),
+            name=league_label,
+            hovertemplate="%{theta}: %{r:.0f}<extra>" + league_label + "</extra>",
+        ))
     # Center dot
     fig.add_trace(go.Scatterpolar(
         r=[0],
@@ -200,8 +341,13 @@ def _radar_figure(scores: dict[str, int]) -> go.Figure:
         ),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=70, r=70, t=50, b=50),
-        showlegend=False,
+        margin=dict(l=70, r=70, t=64, b=50),
+        showlegend=bool(league_scores),
+        legend=dict(
+            orientation="h", x=0.5, xanchor="center", y=1.12, yanchor="bottom",
+            font=dict(color=COLORS["text_primary"], size=11),
+            bgcolor="rgba(0,0,0,0)",
+        ),
     )
     return fig
 
@@ -658,11 +804,11 @@ def create_player_analysis_layout():
                             # Info box
                             dbc.Col(
                                 html.Div([
-                                    _radar_info_row("ATT", "Attacking",  "Goals, shots, shot accuracy, assists."),
-                                    _radar_info_row("TEC", "Technical",  "Pass accuracy and take-on success rate."),
-                                    _radar_info_row("TAC", "Tactical",   "Interceptions, recoveries, clearances."),
-                                    _radar_info_row("DEF", "Defensive",  "Tackles, interceptions, recoveries, clearances, aerial win %."),
-                                    _radar_info_row("CRE", "Creativity", "Key passes, assists, take-on success."),
+                                    _radar_info_row("ATT", *DIMENSION_INFO["Attack"]),
+                                    _radar_info_row("DEF", *DIMENSION_INFO["Defense"]),
+                                    _radar_info_row("TEC", *DIMENSION_INFO["Technical"]),
+                                    _radar_info_row("PHY", *DIMENSION_INFO["Physical"]),
+                                    _radar_info_row("OVR", *DIMENSION_INFO["Overall"]),
                                 ], style={"paddingLeft": "8px"}),
                                 md=3, xs=12,
                                 className="d-flex align-items-center",
@@ -910,7 +1056,7 @@ def register_player_analysis_callbacks(app):
                 if "position" in p_ev.columns and not p_ev["position"].dropna().empty
                 else "—"
             )
-            img_url = _get_player_image_url(jersey) or "assets/logos/team/FC-Barcelona-v2002.svg"
+            img_url = _get_player_image_url(jersey) or "assets/logos/team/barcelona.svg"
 
             bio = html.Div([
                 html.Div(player_name, style={
@@ -973,16 +1119,33 @@ def register_player_analysis_callbacks(app):
             if not player_stats:
                 return _empty_radar()
 
-            peers = []
-            for pname in bar_ev["player_name"].dropna().unique():
-                if pname == player_name:
-                    continue
-                s = compute_player_stats(bar_ev[bar_ev["player_name"] == pname])
-                if s:
-                    peers.append(s)
+            # Every Wyscout role the player has played, plus their modal role
+            # (used for the position-weighted Wyscout dims and the label).
+            roles = _roles_for_positions(p_ev["position"])
+            valid_pos = p_ev["position"].dropna()
+            valid_pos = valid_pos[valid_pos != "N/A"]
+            primary_role = _role_for_position(valid_pos.mode().iloc[0] if not valid_pos.empty else None)
 
-            scores = _compute_radar_scores(player_stats, peers)
-            return _radar_figure(scores)
+            # Pool = LaLiga players who played ANY position the selected player
+            # played (season-wide). The player is scored against them with
+            # position-weighted Wyscout dims; the pool average is overlaid as the
+            # league reference (sits near the mid-line by design).
+            pool = _laliga_roles_pool(roles)
+            if not pool:
+                pool = [player_stats]
+
+            p5     = compute_5d_scores(player_stats, pool, primary_role)
+            scores = {dim: p5[_DIM_TO_5D[dim]] for dim in _RADAR_DIMS}
+
+            league_scores = None
+            if len(pool) > 1:
+                l5 = compute_5d_scores(_mean_stats(pool), pool, primary_role)
+                league_scores = {dim: l5[_DIM_TO_5D[dim]] for dim in _RADAR_DIMS}
+
+            return _radar_figure(
+                scores, league_scores=league_scores,
+                player_label=player_name, league_label=f"LaLiga {'/'.join(roles)} avg",
+            )
 
         except Exception:
             logger.exception("update_radar failed")

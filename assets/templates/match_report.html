@@ -37,7 +37,7 @@
         /*  Print / Page                                                        */
         /* ------------------------------------------------------------------ */
         @page {
-            size: A4;
+            size: A3;
             margin: 0;
         }
 
@@ -57,8 +57,8 @@
         /* ------------------------------------------------------------------ */
         .page {
             position: relative;
-            width: 210mm;
-            min-height: 297mm;
+            width: 297mm;
+            min-height: 420mm;
             padding: 0;
             page-break-after: always;
             break-after: page;
@@ -66,9 +66,9 @@
         }
         .page:last-child { page-break-after: auto; break-after: auto; }
 
-        /* Cover and overview are exactly one A4 page */
+        /* Cover and overview are exactly one A3 page */
         .page-fixed {
-            height: 297mm;
+            height: 420mm;
             overflow: hidden;
         }
 
@@ -382,6 +382,40 @@
             padding: 5mm 10mm 4mm;
         }
 
+        /* Compact score banner (replaces full cover page) */
+        .report-banner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14mm;
+            padding: 3mm 0 4mm;
+            margin-bottom: 4mm;
+            border-bottom: 2px solid var(--gold);
+        }
+        .banner-team {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .banner-logo {
+            width: 34px;
+            height: 34px;
+            object-fit: contain;
+        }
+        .banner-team-name {
+            font-size: 13pt;
+            font-weight: 800;
+            letter-spacing: .3px;
+        }
+        .banner-score {
+            font-size: 30pt;
+            font-weight: 900;
+            color: var(--gold);
+            letter-spacing: 2px;
+            min-width: 70px;
+            text-align: center;
+        }
+
         /* Section heading */
         .section-heading {
             display: flex;
@@ -669,89 +703,31 @@
 <body>
 
 <!-- ======================================================================
-     COVER PAGE
-     ====================================================================== -->
-<div class="page page-cover page-fixed">
-    <div class="cover-accent-bar"></div>
-
-    <div class="cover-inner">
-
-        <!-- Top-centre brand -->
-        <div class="cover-top-brand">
-            <div class="cover-brand-title">CuléVision</div>
-            <div class="cover-brand-sub">Match Intelligence</div>
-            <div class="cover-competition-badge">{{ competition or 'Match Analysis' }}</div>
-        </div>
-
-        <!-- Match hero -->
-        <div class="cover-hero">
-            <div class="hero-team-block">
-                {% if home_logo_base64 %}
-                <img src="data:image/svg+xml;base64,{{ home_logo_base64 }}" class="hero-logo" alt="{{ home_team }}">
-                {% endif %}
-                <div class="hero-team-name">{{ home_team }}</div>
-                <div class="hero-team-role">Home</div>
-            </div>
-
-            <div class="hero-divider"></div>
-
-            <div class="hero-score-block">
-                <div class="hero-score">{{ score }}</div>
-                <div class="hero-score-label">Full Time</div>
-            </div>
-
-            <div class="hero-divider"></div>
-
-            <div class="hero-team-block">
-                {% if away_logo_base64 %}
-                <img src="data:image/svg+xml;base64,{{ away_logo_base64 }}" class="hero-logo" alt="{{ away_team }}">
-                {% endif %}
-                <div class="hero-team-name">{{ away_team }}</div>
-                <div class="hero-team-role">Away</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Meta strip -->
-    <div class="cover-meta-strip">
-        <div class="meta-item">
-            <div class="meta-label">Date</div>
-            <div class="meta-value">{{ date }}</div>
-        </div>
-        <div class="meta-sep"></div>
-        <div class="meta-item">
-            <div class="meta-label">Venue</div>
-            <div class="meta-value">{{ venue or '—' }}</div>
-        </div>
-        <div class="meta-sep"></div>
-        <div class="meta-item">
-            <div class="meta-label">Competition</div>
-            <div class="meta-value">{{ competition or '—' }}</div>
-        </div>
-    </div>
-
-    <!-- Cover footer -->
-    <div class="cover-footer">
-        <div class="cover-footer-left">CuléVision Analysis · {{ generated_at }}</div>
-        <div class="cover-confidential">Confidential</div>
-    </div>
-</div>
-
-
-<!-- ======================================================================
-     OVERVIEW PAGE (Starting XI + Substitutions)
+     OVERVIEW PAGE (compact score banner + stats + Starting XI + Subs)
      ====================================================================== -->
 <div class="page page-content">
     <div class="page-accent-bar"></div>
     <div class="page-header">
-        <div class="page-brand">CuléVision</div>
-        <div class="page-match-meta">{{ home_team }} vs {{ away_team }} · {{ date }}</div>
+        <div class="page-brand">CuléVision · Match Report</div>
+        <div class="page-match-meta">{{ competition or '—' }} · {{ date }}{% if venue %} · {{ venue }}{% endif %}</div>
     </div>
 
     <div class="page-body">
-        <div class="section-heading">
-            <div class="section-title">1. Overview</div>
-            <div class="section-heading-line"></div>
+        <!-- Compact score banner (replaces the old full cover page) -->
+        <div class="report-banner">
+            <div class="banner-team">
+                {% if home_logo_base64 %}
+                <img src="data:image/svg+xml;base64,{{ home_logo_base64 }}" class="banner-logo" alt="{{ home_team }}">
+                {% endif %}
+                <span class="banner-team-name kpi-team-label-home">{{ home_team }}</span>
+            </div>
+            <div class="banner-score">{{ score }}</div>
+            <div class="banner-team">
+                <span class="banner-team-name kpi-team-label-away">{{ away_team }}</span>
+                {% if away_logo_base64 %}
+                <img src="data:image/svg+xml;base64,{{ away_logo_base64 }}" class="banner-logo" alt="{{ away_team }}">
+                {% endif %}
+            </div>
         </div>
 
         <!-- Match Statistics (single vertical list) -->
@@ -840,7 +816,7 @@
     <div class="page-footer">
         <div class="footer-section-name">Match Overview</div>
         <div class="footer-brand">CuléVision</div>
-        <div class="footer-page-num">Page 2</div>
+        <div class="footer-page-num">Page 1</div>
     </div>
 </div>
 
@@ -848,7 +824,7 @@
 <!-- ======================================================================
      ANALYSIS SECTIONS
      ====================================================================== -->
-{% set ns = namespace(page_num=2) %}
+{% set ns = namespace(page_num=1) %}
 {% for section in custom_sections %}
 {% set ns.page_num = ns.page_num + 1 %}
 <div class="page page-content">

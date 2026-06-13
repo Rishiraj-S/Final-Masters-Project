@@ -31,7 +31,7 @@ from utils.event_utils import (
     get_tackles, get_interceptions, get_ball_recoveries, get_clearances,
     get_through_balls, get_long_balls, get_crosses, get_switch_passes,
     get_goal_assists, get_big_chances, get_headed_shots,
-    get_fouls, get_cards, get_corners,
+    get_fouls, get_cards, get_corners, get_box_shots,
 )
 
 
@@ -233,12 +233,25 @@ def compute_team_kpis(events: pd.DataFrame, team_position: str) -> Dict[str, Any
         except Exception:
             xg = 0.0
 
+    box_shots = len(get_box_shots(team)) if not team.empty else 0
+
+    # Passes completed into Zone 3 (final third): accurate passes whose
+    # destination (Pass End X) is beyond x = 66.67.
+    final_third_passes = 0
+    if not team.empty:
+        acc = get_accurate_passes(team)
+        if not acc.empty and 'Pass End X' in acc.columns:
+            _pex = pd.to_numeric(acc['Pass End X'], errors='coerce')
+            final_third_passes = int((_pex > 66.67).sum())
+
     return {
         'goals': goals,
         'assists': assists,
         'shots': shots,
         'shots_on_target': shots_on_target,
+        'box_shots': box_shots,
         'xg': xg,
+        'final_third_passes': final_third_passes,
         'blocked_shots': blocked_shots,
         'passes': total_passes,
         'pass_accuracy': pass_acc,
