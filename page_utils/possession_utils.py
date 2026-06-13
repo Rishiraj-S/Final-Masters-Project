@@ -32,7 +32,7 @@ import pandas as pd
 
 # Events that always hand possession to the performing team.
 POSSESSION_TAKING_EVENT_TYPES: Set[str] = {
-    "Ball Recovery",
+    "Ball recovery",
     "Interception",
     "Goal kick",
     "Keeper pick-up",

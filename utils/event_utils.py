@@ -109,6 +109,22 @@ def get_ball_recoveries(events: pd.DataFrame) -> pd.DataFrame:
     return events[events["event_type"] == "Ball recovery"]
 
 
+def get_ball_gains(events: pd.DataFrame) -> pd.DataFrame:
+    """Possession-winning actions: ball recoveries + interceptions + won tackles.
+
+    Single source of truth for "ball gains" used by transition/possession radar
+    metrics. Uses the canonical Opta spellings (``'Ball recovery'`` lowercase r,
+    ``'Tackle'`` with ``outcome == 1``) so callers never hardcode event_type
+    strings. The three subsets are disjoint by event_type, so a plain concat
+    introduces no duplicate rows.
+    """
+    return pd.concat([
+        get_ball_recoveries(events),
+        get_interceptions(events),
+        get_successful_tackles(events),
+    ])
+
+
 def get_clearances(events: pd.DataFrame) -> pd.DataFrame:
     """Clearance events."""
     return events[events["event_type"] == "Clearance"]

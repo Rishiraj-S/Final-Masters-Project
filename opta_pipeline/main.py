@@ -248,6 +248,81 @@ def cleanup_target_jsons(comp_config: dict, comp_name: str,
     return deleted
 
 
+# ── Core: process a full competition (every match, no team filter) ───────────
+
+def process_full_competition(
+    comp_name: str,
+    comp_df: pd.DataFrame,
+    base_config: dict,
+    logger,
+    args,
+    comp_idx: int,
+    total_comps: int,
+    manifest: set,
+) -> dict:
+    """Download + transform EVERY match in a competition (no per-team filter)."""
+    season      = base_config["season"]
+    comp_config = build_comp_config(base_config, comp_name)
+
+    if comp_df.empty:
+        logger.info(f"   ⚠️  No matches scraped for {comp_name}")
+        return {"downloaded": 0, "skipped": 0, "transformed": 0, "status": "empty"}
+
+    total_matches = len(comp_df)
+    logger.info(f"   📊 {total_matches} match(es) in {comp_name}")
+    stats = {"downloaded": 0, "skipped": 0, "transformed": 0, "status": "success"}
+
+    # ── Download ───────────────────────────────────────────────────────────────
+    if not args.transform_only and not args.skip_download:
+        downloader = MatchDownloader(comp_config, logger)
+        pbar = _tqdm(list(comp_df.iterrows()), total=total_matches,
+                     desc=f"⬇  {comp_name[:18]}", unit="match", ncols=90, leave=True)
+        for i, (_, row) in enumerate(pbar, 1):
+            match_id  = str(row["match_id"])
+            match_url = str(row["url_match"])
+            home, away = row.get("home", ""), row.get("away", "")
+            label = f"{home} vs {away}" if home and away else match_id
+
+            pbar.set_postfix_str(label[:35], refresh=True)
+            write_progress(
+                team=comp_name, competition=comp_name,
+                stage="Downloading", detail=label,
+                current_team=comp_idx, total_teams=total_comps,
+                current_match=i, total_matches=total_matches,
+            )
+
+            # Manifest skip — match already downloaded by a prior team/competition pass
+            if match_id in manifest and base_config.get("downloader", {}).get("skip_existing", True):
+                stats["skipped"] += 1
+                continue
+
+            logger.info(f"   [{i}/{total_matches}] {label}")
+            success, _ = downloader.download_match(match_id, match_url)
+            if success:
+                stats["downloaded"] += 1
+                manifest.add(match_id)
+                save_manifest(manifest)
+            else:
+                stats["skipped"] += 1
+
+    # ── Transform ──────────────────────────────────────────────────────────────
+    write_progress(
+        team=comp_name, competition=comp_name, stage="Transforming",
+        current_team=comp_idx, total_teams=total_comps,
+    )
+    n  = MatchTransformer(comp_config, logger).transform_all()
+    n += MatchEventTransformer(comp_config, logger).transform_all()
+    LineupTransformer(comp_config, logger).transform_all()
+    stats["transformed"] = n
+
+    # ── Cleanup ────────────────────────────────────────────────────────────────
+    deleted = cleanup_target_jsons(comp_config, comp_name, season, logger)
+    if deleted:
+        print(f"      🗑️  Cleaned up {deleted} JSON(s)")
+
+    return stats
+
+
 # ── Core: process one team × competition ─────────────────────────────────────
 
 def process_team_competition(
@@ -340,6 +415,10 @@ def main():
                         help="Scrape + transform but skip browser downloads")
     parser.add_argument("--force-rescrape", action="store_true",
                         help="Ignore scrape cache; re-scrape every competition page")
+    parser.add_argument("--full-competitions", action="store_true",
+                        help="Download EVERY match in each competition (no per-team "
+                             "filter). Use to pull whole-tournament datasets, not just "
+                             "Barcelona-opponent games.")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -407,6 +486,48 @@ def main():
     print(f"\n{'='*60}\nPHASE 2 — DOWNLOAD & TRANSFORM\n{'='*60}")
 
     all_stats = []
+
+    # ── Full-competition mode: download every match, once per competition ────────
+    if args.full_competitions:
+        comp_list   = sorted(needed_comps)
+        total_comps = len(comp_list)
+        print(f"🌍 FULL-COMPETITION MODE — every match in {total_comps} competition(s)\n")
+        for comp_idx, comp_name in enumerate(comp_list, 1):
+            print(f"\n{'='*60}\n🏆 [{comp_idx}/{total_comps}] {comp_name}\n{'='*60}")
+            stats = process_full_competition(
+                comp_name=comp_name,
+                comp_df=comp_cache[comp_name],
+                base_config=config,
+                logger=logger,
+                args=args,
+                comp_idx=comp_idx,
+                total_comps=total_comps,
+                manifest=manifest,
+            )
+            all_stats.append({"team": "ALL", "competition": comp_name, **stats})
+            if stats["status"] == "empty":
+                print(f"     ⚠️  No matches scraped for {comp_name}")
+            else:
+                print(f"     ✅ Downloaded: {stats['downloaded']} | "
+                      f"Skipped: {stats['skipped']} | "
+                      f"Parquets: {stats['transformed']}")
+
+        total_dl = sum(s["downloaded"]  for s in all_stats)
+        total_sk = sum(s["skipped"]     for s in all_stats)
+        total_tr = sum(s["transformed"] for s in all_stats)
+        print(f"\n{'='*80}\n📈 FINAL SUMMARY (full-competition mode)\n{'='*80}")
+        print(f"✅ Downloaded : {total_dl}")
+        print(f"⏭️  Skipped    : {total_sk}")
+        print(f"🔄 Parquets   : {total_tr}")
+        print(f"\n📁 Output: data/2025-26/{{country}}/{{competition}}/")
+        print(f"{'='*80}\n")
+        logger.info(f"✅ Downloaded: {total_dl} | Skipped: {total_sk} | Parquets: {total_tr}")
+        try:
+            PROGRESS_FILE.unlink(missing_ok=True)
+        except Exception:
+            pass
+        return
+
     team_pbar = _tqdm(all_teams, total=total_teams,
                       desc="👤 Teams", unit="team", ncols=90)
 

@@ -76,15 +76,14 @@ teams:
       - Spain_Super_Cup
 
   - team_name: "Paris Saint-Germain"
-    team_code: "PSG"
-    team_code_alt: "PAR"          # Opta uses PSG in UEFA, PAR in Ligue 1
+    team_code: "PSG"              # PSG only — do NOT add PAR (that is Paris FC, a different club)
     search_name: "Paris"
     country: "France"
     competitions:
       - France_Ligue_1
       - UEFA_Champions_League
 
-  # ... 31 teams total
+  # ... 31 teams total (Barcelona + 30 opponents)
 
 paths:
   result_dir: "../data/2025-26"
@@ -99,7 +98,7 @@ paths:
 |-------|----------|-------|
 | `team_name` | Yes | Canonical display name |
 | `team_code` | Yes | Opta 3-letter code used in parquet filenames |
-| `team_code_alt` | No | Secondary code when Opta uses different codes across feeds |
+| `team_code_alt` | No | Secondary code for teams that use different Opta codes across feeds. Supported by the data layer but **no team in the current config uses it** (PSG is `PSG`-only — see note below) |
 | `search_name` | No | Override for Scoresway match; use when display name differs (e.g. "Betis" for "Real Betis") |
 | `country` | Yes | Used for flag assets and log display (not for path construction) |
 | `competitions` | Yes | List of competition keys from the competitions block |
@@ -130,6 +129,9 @@ python opta_pipeline/main.py --skip-download
 
 # Force re-scrape Scoresway pages (ignore cached CSVs)
 python opta_pipeline/main.py --force-rescrape
+
+# Process every match in a competition (no team filter)
+python opta_pipeline/main.py --competition Spain_Primera_Division --full-competitions
 ```
 
 ---
@@ -266,7 +268,7 @@ The pipeline writes `logs/progress.json` after each step — the app polls this 
 
 **Data not refreshing after pipeline run**: The app maintains in-process caches (`_events_cache` for Barcelona, `_opp_events_cache` for opponents). Both are cleared automatically when the pipeline finishes. If stale data persists, restart the app process — `dcc.Location` page refreshes do not clear in-process caches.
 
-**PSG team code**: PSG uses `PSG` in UEFA feeds and `PAR` in Ligue 1 feeds. Both codes are configured via `team_code` + `team_code_alt` in `config.yaml`; the data layer handles both transparently.
+**PSG team code**: Paris Saint-Germain is configured with `team_code: PSG` only. Do **not** add `PAR` as a `team_code_alt` — `PAR` is Paris FC, a different club, and would pull the wrong matches. The `team_code_alt` mechanism still exists in the data layer for genuinely dual-coded teams, but no team in the current config needs it.
 
 ---
 

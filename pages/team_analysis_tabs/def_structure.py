@@ -57,7 +57,7 @@ _SKEL_SRC         = 'data:image/png;base64,'
 _DEF_COLORS = {
     'Tackle':        '#4dabf7',
     'Interception':  '#51cf66',
-    'Ball Recovery': '#ffd43b',
+    'Ball recovery': '#ffd43b',
     'Clearance':     '#ff922b',
     'Blocked Shot':  '#cc5de8',
     'Foul':          '#ff6b6b',

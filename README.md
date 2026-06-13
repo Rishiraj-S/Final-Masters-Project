@@ -13,7 +13,7 @@ CuléVision is a professional football analytics dashboard built for FC Barcelon
 
 ## Key Features
 
-- **Match Report**: Post-match breakdown across seven tabs — Overview (H1/H2 stat splits, lineup pitch), Attacking Output, Build-Up & Passing, Defensive Structure (fouls/offsides overlay), Transitions (Defensive + Attacking sub-tabs, 30 s windows), Goalkeeping, and Player Stats (including xT)
+- **Match Report**: Post-match breakdown across seven sections — Overview (H1/H2 stat splits, lineup pitch), Attacking Output, Build-Up & Passing, Defensive Structure (fouls/offsides overlay), Transitions & Counterpressing (15 s windows, both teams side-by-side), Goalkeeping, and Player Stats (including Positional xT). Match selection is a monthly calendar; a one-click PDF export is available
 - **Team Analysis (Barça IQ)**: KPIs defining Barcelona's playing style and game model across all competitions, six sub-tabs
 - **Player Analysis (Barça DNA)**: Season/match-level stats, attribute radar, Positional xT Heatmap (16×12 grid), shooting map, passing, possession, defending, and discipline panels
 - **Opposition Analysis**: Scouting dashboard for every team Barcelona faced, covering defence, transitions, set pieces, in-possession patterns, and player profiling
@@ -103,15 +103,10 @@ CuléVision/
 │   ├── barca_dna.py                # /barca-dna  (Player Analysis)
 │   ├── barca_iq.py                 # /barca-iq   (Team Analysis)
 │   ├── opposition_analysis.py      # /opposition-analysis
-│   ├── match_analysis_tabs/        # 7 sub-tabs for Match Report
-│   │   ├── shared.py
-│   │   ├── overview.py
-│   │   ├── attacking_output.py
-│   │   ├── build_up_passing.py
-│   │   ├── defensive_structure.py
-│   │   ├── transitions_counterpressing.py
-│   │   ├── goalkeeping.py
-│   │   └── player_stats.py
+│   │                               # NOTE: the 7 Match Report sections (Overview, Attacking
+│   │                               # Output, Build-Up & Passing, Defensive Structure,
+│   │                               # Transitions, Goalkeeping, Player Stats) are inlined
+│   │                               # inside match_report.py — there is no match_analysis_tabs/
 │   ├── team_analysis_tabs/         # 6 sub-tabs for Team Analysis
 │   │   ├── overview.py
 │   │   ├── buildup.py
@@ -287,8 +282,9 @@ Grid-based Expected Threat model following the Soccermatics/Bellman-equation app
 
 - **16 × 12 grid** over the pitch; each cell stores the expected threat from controlling the ball there
 - Solved via Bellman iteration: `xT[i,j] = P(shoot|i,j) × P(goal|shoot,i,j) + P(move|i,j) × Σ T[i,j→k,l] × xT[k,l]`
-- Trained on all Opta match event data (Barcelona + opponents) via `python xT_model/train.py`
+- Trained on all Opta match event data (Barcelona + opponents) via `python xT_model/train.py`. ⚠️ The training glob still points at the legacy `data/barcelona/result/**` and `data/opposition/**` paths — repoint it at `data/2025-26/**/match_event/` before retraining on current data. The shipped `xt_grid.npy` (16×12) is valid for inference as-is.
 - Public bridge: `utils/xt_utils.py → add_xt_column(passes_df)`
+- `predict_xt(x1,y1,x2,y2)` returns destination-minus-origin threat, clamped at 0 (threat-decreasing moves score 0)
 
 ---
 
@@ -341,7 +337,7 @@ Full schema reference: see `CLAUDE.md`.
 - All five dashboard pages implemented: Home, Match Report (7 tabs), Barça DNA, Barça IQ, Opposition Analysis
 - Three-model xG suite (open play, direct free kick, penalty) with `XGRouter`
 - Grid-based xT model (Bellman equation, 16×12) trained on all Opta data
-- Transitions tab: Defensive + Attacking sub-tabs with 30 s windows and side-by-side team view
+- Transitions: Defensive + Attacking analysis with 15 s windows and side-by-side team view
 - Barça DNA: full tactical profile with xT heatmap, shooting, passing, possession, defending, and discipline panels
 - Admin UI: single "Update Databases" button with team/competition filter dropdowns
 - E2E data fixes: team_code-based event filtering in opposition module (replaces fragile team_name substring matching); both caches (`_events_cache` + `_opp_events_cache`) cleared on pipeline completion; `DEF_ACTION_TYPES` / `SHOT_TYPES` corrected (removed non-existent `'Blocked Shot'`, fixed `'Ball recovery'` casing); xG pkl artifacts re-serialized for current pandas version
@@ -354,7 +350,7 @@ Full schema reference: see `CLAUDE.md`.
 - [x] xG model (XGBoost, SHAP feature selection, monotone constraints)
 - [x] xT model (grid-based Bellman equation, 16×12)
 - [x] Barça DNA — full player analysis page (xT heatmap, shooting, passing, possession, defending)
-- [x] Transitions tab — Defensive + Attacking sub-tabs with 30 s windows
+- [x] Transitions — Defensive + Attacking analysis with 15 s windows
 - [x] Unified pipeline — single `opta_pipeline` handles Barcelona + all opponents
 - [ ] Bayesian model for opponent tendency analysis
 

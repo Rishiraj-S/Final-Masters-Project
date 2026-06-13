@@ -42,10 +42,12 @@ app.py
     ├── barca_dna.py                  ← Player analysis                        /barca-dna
     ├── barca_iq.py                   ← Team analysis                          /barca-iq
     ├── opposition_analysis.py                                                  /opposition-analysis
-    ├── match_analysis_tabs/          ← 7 sub-tabs, shared constants in shared.py
+    ├── match_report.py               ← 7 sections inlined in this one module (see note below)
     ├── team_analysis_tabs/           ← 6 sub-tabs (overview + 5 analytical)
     └── opposition_analysis_tabs/     ← 6 sub-tabs
 ```
+
+> **`match_analysis_tabs/` no longer exists as source** — the former 7-file package was merged into the single module `pages/match_report.py` (~5,970 lines). The seven tabs are now labelled sections inside that file with per-section private prefixes (`_ao_*` Attacking Output, `_gk_*` Goalkeeping, etc.). Only stale `__pycache__/*.pyc` remain on disk. `team_analysis_tabs/` and `opposition_analysis_tabs/` are still split into separate files.
 
 **URL → page file mapping** (configured in `app.py:update_main_container`):
 
@@ -66,7 +68,7 @@ app.py
 `utils/config.py` → `NAV_LINKS` defines the navbar order:
 
 ```
-Home  |  Barça DNA  |  Barça IQ  |  Match Report  |  Opposition Analysis
+Home  |  Barça DNA  |  Barça IQ  |  Opposition Analysis  |  Match Report
 ```
 
 ### Data Layer
@@ -83,8 +85,8 @@ Both modules read from `data/2025-26/{Country}/{Competition}/{subdir}/` — ther
 |--------|---------|
 | `utils/event_utils.py` | Canonical event-extraction functions — **always use these, never filter inline** |
 | `utils/match_data_adapter.py` | Phase-tagged match analysis: possession, transitions, set pieces, counterpress, pass networks |
-| `utils/player_analysis/metrics.py` | `compute_player_stats(events_df)` → stat dict; `get_player_percentiles()`, `get_player_ratings()` → A–D grades; `POSITION_PIZZA_ATT` / `POSITION_PIZZA_DEF` dicts define which metrics appear on the radar per position role |
-| `utils/player_analysis/wyscout_weights.py` | Wyscout position weights loaded from `assets/wyscout_weights/*.xlsx` |
+| `utils/player_analysis/metrics.py` | `compute_player_stats(events_df)` → 14-key stat dict (incl. `xT_app`); `compute_5d_scores(stats, peers, role)` → the **live** radar scores on dims `attack/defense/technical/physical/overall` (percentile-ranked vs LaLiga role peers, Attack/Defense Wyscout-weighted). NOTE: `get_player_percentiles()`, `get_player_ratings()` (A–D bands: A>75, B>50, C>25, D≤25) and `POSITION_PIZZA_ATT/DEF` exist but are **dormant** — `barca_dna.py` does not render them. |
+| `utils/player_analysis/wyscout_weights.py` | Wyscout position weights from `assets/wyscout_weights/*.xlsx`; `get_attack_weights(role)` / `get_defense_weights(role)` feed the radar; roles GK/CB/FB/DM/CM/AM/Winger/ST |
 | `utils/logos.py` | `get_team_logo_path()`, `get_tournament_logo_path()`, `get_country_flag_path()` — maps data names to asset paths |
 | `utils/xg_utils.py` | `add_xg_column(shots_df)` bridge to the xG model |
 | `utils/xt_utils.py` | `add_xt_column(passes_df)` bridge to the xT model — adds `xT` column to pass DataFrames |
@@ -152,19 +154,19 @@ Key `compute_event_stats` output keys: `apps`, `total_minutes`, `mins_per_app`, 
 
 ### Tab Inventory
 
-**match_analysis_tabs/** (7 tabs, used by `match_report.py`):
+**Match Report sections** (7, all inlined in `pages/match_report.py` — `match_analysis_tabs/` is gone):
 
-| File | Builder | Callbacks | Notes |
-|------|---------|-----------|-------|
-| `overview.py` | `build_overview_tab` | `register_overview_callbacks` | TV stat bars show H1/H2 half splits in brackets |
-| `attacking_output.py` | `build_attacking_output_tab` | — | |
-| `build_up_passing.py` | `build_build_up_passing_tab` | `register_build_up_passing_callbacks` | |
-| `defensive_structure.py` | `build_defensive_structure_tab` | `register_defensive_structure_callbacks` | Defensive action map includes fouls + offsides overlays |
-| `transitions_counterpressing.py` | `build_transitions_counterpressing_tab` | `register_transitions_counterpressing_callbacks` | Two sub-tabs: Defensive Transition + Attacking Transition; 15s windows after possession changes; both teams side-by-side |
-| `goalkeeping.py` | `build_goalkeeping_tab` | `register_goalkeeping_callbacks` | |
-| `player_stats.py` | `build_player_stats_tab` | `register_player_stats_callbacks` | Player table now includes `xT` column per player |
+| Section | Builder | Notes |
+|---------|---------|-------|
+| Overview | `build_overview_tab` | mplsoccer lineup pitch; TV stat bars show H1/H2 half splits in brackets |
+| Attacking Output | `build_attacking_output_tab` | shot map (xG-sized) + key-pass/carry lines; Attack radar; `_ao_*` prefix |
+| Build-Up & Passing | `build_build_up_passing_tab` | match flow, touch heatmap, pass network (edges ≥2), Zone 14 entries, Positional xT |
+| Defensive Structure | `build_defensive_structure_tab` | defensive action map includes fouls (✕) + offsides (▲) overlays; PPDA = opp passes ÷ (tackles+int+fouls) |
+| Transitions & Counterpressing | `build_transitions_counterpressing_tab` | both teams side-by-side; **15 s** windows (`_TRANSITION_WINDOW_SEC = 15`); loss/gain outcome donuts (no sub-tab toggle) |
+| Goalkeeping | `build_goalkeeping_tab` | **only section with a live callback** (GK selector); xGA = pre-shot xG summed; `_gk_*` prefix |
+| Player Stats | `build_player_stats_tab` | per-player table includes `Positional xT`; progressive pass here = `(Pass End X − x) > 10` |
 
-Score headline callback lives in `match_report.py` (not in `overview.py`).
+Sections render lazily via per-section callbacks keyed on `pma-selected-match`. The match selector is a **monthly calendar** (`pma-tournament-selector` + calendar grid), not a dropdown. The score headline callback and a Performance Radars strip (Attack/Defence/Possession) live in `match_report.py`. Each `register_*_callbacks` is a no-op except Goalkeeping.
 
 **team_analysis_tabs/** (6 tabs, used by `barca_iq.py`):
 
@@ -202,7 +204,7 @@ Grid-based Expected Threat model following the Soccermatics/Bellman-equation app
 | `xT_model/xt_grid.npy` | Trained artifact — (16, 12) array of xT values |
 | `utils/xt_utils.py` | Public bridge — `add_xt_column(passes_df)` adding an `xT` column to any Opta pass DataFrame |
 
-**Retrain**: `python xT_model/train.py` — reads from `data/2025-26/**/match_event/`.
+**Retrain**: `python xT_model/train.py`. ⚠️ The training glob currently points at the **legacy** paths `data/barcelona/result/**/match_event/*.parquet` and `data/opposition/**/match_event/*.parquet`, NOT the current `data/2025-26/**/match_event/` layout. Repoint the glob in `train.py` before retraining on current data, or it loads zero files. The shipped `xt_grid.npy` (shape `(16, 12)`) is valid for inference regardless.
 
 **Known limitation**: Ball carries are not Opta events. Wingers/progressive midfielders are under-credited vs. pure passers in any per-player xT ranking.
 

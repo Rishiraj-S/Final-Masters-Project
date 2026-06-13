@@ -45,6 +45,7 @@ from page_utils.visualizations import (
     AWAY_COLOR,
 )
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
+from utils.event_utils import get_ball_gains
 
 
 # ─── Constants ────────────────────────────────────────────────────────────────
@@ -222,7 +223,7 @@ def _phase_metrics(opp_ev: pd.DataFrame, bar_ev: pd.DataFrame,
     sot_pct    = n_sot / max(n_shots, 1) * 100
 
     # ── Transitions ───────────────────────────────────────────────────────────
-    gains = (opp_ev[opp_ev['event_type'].isin(['Ball Recovery', 'Interception'])]
+    gains = (opp_ev[opp_ev['event_type'].isin(['Ball recovery', 'Interception'])]
              if not opp_ev.empty else pd.DataFrame())
     opp_half_gains = (gains[gains['x'].notna() & (gains['x'] >= 50)]
                       if not gains.empty else pd.DataFrame())
@@ -410,11 +411,9 @@ def _competition_card(comp_name: str, results: list[dict]) -> dbc.Col:
 # Phase axes, in the order they appear on the radar.
 RADAR_PHASES = ['Build-up', 'Chance Creation', 'Transitions', 'Def. Structure', 'Set Pieces']
 
-# NOTE: kept verbatim from the original radar logic so the displayed team score
-# is unchanged. (These strings don't all match the raw Opta event_type spelling,
-# but team and league-average traces use the *same* counting, so the comparison
-# stays internally consistent.)
-_GAIN_TYPES = {'Ball Recovery', 'Interception', 'Tackle Won'}
+# Ball gains (recoveries + interceptions + won tackles) come from the canonical
+# event_utils.get_ball_gains so the team trace and league-average trace use one
+# definition with the correct Opta event_type spellings.
 
 
 def _empty_counts() -> dict:
@@ -477,7 +476,7 @@ def _counts_for_side(team_df: pd.DataFrame, opp_df: pd.DataFrame) -> dict:
     c['goals_for'] = int((shots['event_type'] == 'Goal').sum()) if not shots.empty else 0
     c['sot_for']   = int(shots['event_type'].isin({'Goal', 'Saved Shot'}).sum()) if not shots.empty else 0
 
-    gains = team_df[et.isin(_GAIN_TYPES)] if not team_df.empty else team_df
+    gains = get_ball_gains(team_df) if not team_df.empty else team_df
     c['gains_for'] = len(gains)
     if not gains.empty and 'x' in gains.columns:
         gx = pd.to_numeric(gains['x'], errors='coerce')

@@ -499,7 +499,7 @@ def _heatmap_src(losses: pd.DataFrame) -> str:
 # =============================================================================
 
 _SHOT_TYPES = ['Goal', 'Saved Shot', 'Miss']
-_BAR_RECOVERY_TYPES = ['Tackle', 'Interception', 'Ball Recovery']
+_BAR_RECOVERY_TYPES = ['Tackle', 'Interception', 'Ball recovery']
 
 
 def _tag_loss_outcomes(

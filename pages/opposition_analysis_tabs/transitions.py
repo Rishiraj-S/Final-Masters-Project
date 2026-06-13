@@ -157,7 +157,7 @@ def _extract_gains(opp_ev: pd.DataFrame) -> pd.DataFrame:
     for _, row in opp_ev.iterrows():
         etype   = row.get('event_type', '')
         outcome = row.get('outcome', 0)
-        if etype == 'Ball Recovery':
+        if etype == 'Ball recovery':
             gain_type = 'Ball Recovery'
         elif etype == 'Interception':
             gain_type = 'Interception'
@@ -389,7 +389,7 @@ def _tag_loss_outcomes(losses: pd.DataFrame, bar_ev: pd.DataFrame) -> pd.DataFra
             outcomes.append('Goal Conceded')
         elif window['event_type'].isin(['Saved Shot', 'Miss', 'Post']).any():
             outcomes.append('Shot Conceded')
-        elif window['event_type'].isin(['Ball Recovery', 'Interception']).any():
+        elif window['event_type'].isin(['Ball recovery', 'Interception']).any():
             outcomes.append('Opp Recovered')
         else:
             outcomes.append('No Clear Threat')
@@ -706,7 +706,7 @@ def build_transitions(team: str | None = None,
                 return sorted([{'label': n, 'value': n} for n in names], key=lambda d: d['label'])
 
             gain_mask = (
-                opp_ev['event_type'].isin(['Ball Recovery', 'Interception']) |
+                opp_ev['event_type'].isin(['Ball recovery', 'Interception']) |
                 ((opp_ev['event_type'] == 'Tackle') & (opp_ev.get('outcome', pd.Series()) == 1))
             )
             atk_player_opts = _opts(opp_ev[gain_mask])

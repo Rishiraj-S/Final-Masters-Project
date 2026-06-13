@@ -7,7 +7,7 @@ The 15-second window after each possession-gain event is defined as the
 attacking transition period for this app.
 
 Possession-gain types:
-  • Ball Recovery  — event_type 'Ball Recovery'
+  • Ball Recovery  — event_type 'Ball recovery'
   • Interception   — event_type 'Interception'
   • Tackle Won     — event_type 'Tackle' with outcome == 1
 
@@ -43,8 +43,10 @@ from page_utils.visualizations import (
 
 _TRANSITION_WINDOW_SEC = 15  # seconds after possession gain
 
-# Gain event types
-_GAIN_TYPES_RAW = ['Ball Recovery', 'Interception']  # always a gain
+# Gain event types — raw Opta event_type strings ('Ball recovery' is lowercase r).
+_GAIN_TYPES_RAW = ['Ball recovery', 'Interception']  # always a gain
+# Map raw event_type -> capitalized display label (matches _GAIN_COLORS keys / dropdown values).
+_GAIN_DISPLAY = {'Ball recovery': 'Ball Recovery', 'Interception': 'Interception'}
 # Tackle outcome=1 handled separately
 
 # Color per gain type
@@ -143,7 +145,7 @@ def _extract_gains(bar: pd.DataFrame) -> pd.DataFrame:
         outcome = row.get('outcome', 0)
 
         if etype in _GAIN_TYPES_RAW:
-            gain_type = etype
+            gain_type = _GAIN_DISPLAY.get(etype, etype)
         elif etype == 'Tackle' and outcome == 1:
             gain_type = 'Tackle Won'
         else:
