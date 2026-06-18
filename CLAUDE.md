@@ -147,7 +147,7 @@ Key `compute_event_stats` output keys: `apps`, `total_minutes`, `mins_per_app`, 
 `page_utils/` contains canonical definitions that must be imported, never redefined locally:
 - `competitions.py` — `ALL_COMPETITIONS`, `COMP_SHORT`, `normalize_competitions()`, `build_match_selector_options()`
 - `event_filters.py` — `SHOT_TYPES`, `DEF_ACTION_TYPES`, `DEF_COLORS`, `SHOT_OUTCOME_COLOR`, `SHOT_OUTCOME_SYMBOL`, `filter_by_period()`, `split_by_halves()`
-- `visualizations.py` — `HOME_COLOR`, `AWAY_COLOR`, `GOLD`, `CHART_CONFIG`, `CHART_LAYOUT_DEFAULTS`, and all pitch-drawing utilities. Key renderers: `render_lsc_heatmap_img` (positional KDE heatmap), `render_xt_heatmap_img(x, y, xt)` (16×12 grid xT heatmap, gold colormap)
+- `visualizations.py` — `HOME_COLOR`, `AWAY_COLOR`, `GOLD`, `CHART_CONFIG`, `CHART_LAYOUT_DEFAULTS`, and all pitch-drawing utilities. Key renderers: `render_lsc_heatmap_img` (positional KDE heatmap), `render_xt_heatmap_img(x, y, xt)` (16×12 grid xT heatmap, gold colormap). Also exports `PassMap` / `PassMapConfig` — filterable mplsoccer pass map with integrated Dash filter controls. `PassMap.dash_controls(show=[...], id_prefix='...')` generates the filter row; `PassMap.filter(df, ...)` applies zone/band/outcome/time filters; `PassMap._thirds_mask(x_series, thirds)` returns a boolean OR-mask over the selected thirds (replaced the old `_thirds_range` which collapsed to a single min/max). Available control keys: `outcome`, `start_third`, `end_third`, `bands`, `h1_time`, `h2_time`.
 - `pitch_zones.py` — `PitchZone`, `ZoneBoundaries`, `get_zone()`, `is_in_penalty_box()`
 - `possession_utils.py` — `annotate_possession()`, `compute_vertical_speed()`, `is_stable_possession()`
 - `time_utils.py` — `to_seconds()`, `format_seconds()`, `events_within_window()`
@@ -177,6 +177,13 @@ Sections render lazily via per-section callbacks keyed on `pma-selected-match`. 
 `overview`, `buildup`, `chance_creation`, `transitions`, `defence`, `set_pieces`
 
 `helpers.py` — `no_data(msg)` uniform placeholder used by all six tab builders when a data query returns empty.
+
+**Removed filter controls (do not re-add):**
+- `cc-shot-method` / `occ-shot-method` — shot-method checklist was removed from both `chance_creation.py` files; `method=None` is passed to `_apply_shot_filters`. Do not re-introduce.
+- `ds-def-start-third` / `ods-def-start-third` — start-third checklist removed from `def_structure.py` and `defence.py`; `start_thirds=None` passed to `PassMap.filter`.
+- `ds-def-bands` / `ods-def-bands` — bands checklist removed from both; `bands=None` passed to `PassMap.filter`. These controls were orphaned (not wired to any callback Output) and caused the DBC v2.0.4 `Cannot read properties of undefined (reading 'key')` runtime error.
+
+**Shot map info box:** Both `chance_creation.py` files render a gold `ⓘ` info box immediately before the `dcc.Loading` wrapper of the shot map, informing users that clicking a shot marker opens the animated build-up sequence. All `ⓘ` icons app-wide use `GOLD` (`#EDBB00`).
 
 ### Pitch Plots
 

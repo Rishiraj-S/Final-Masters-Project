@@ -330,7 +330,7 @@ Full schema reference: see `CLAUDE.md`.
 
 ## Current Status
 
-**Version**: 0.6.1
+**Version**: 0.6.2
 
 - Unified data pipeline: FC Barcelona + 30 opponents across 21 competitions in a single `opta_pipeline`
 - Flat data structure: `data/2025-26/{Country}/{Competition}/` — each match file stored once, shared across teams
@@ -341,6 +341,7 @@ Full schema reference: see `CLAUDE.md`.
 - Barça DNA: full tactical profile with xT heatmap, shooting, passing, possession, defending, and discipline panels
 - Admin UI: single "Update Databases" button with team/competition filter dropdowns
 - E2E data fixes: team_code-based event filtering in opposition module (replaces fragile team_name substring matching); both caches (`_events_cache` + `_opp_events_cache`) cleared on pipeline completion; `DEF_ACTION_TYPES` / `SHOT_TYPES` corrected (removed non-existent `'Blocked Shot'`, fixed `'Ball recovery'` casing); xG pkl artifacts re-serialized for current pandas version
+- UI fixes (0.6.2): removed orphaned shot-method / def-start-third / bands filter controls that triggered DBC v2.0.4 `Cannot read properties of undefined (reading 'key')` error; `PassMap._thirds_mask()` replaces collapsed-range `_thirds_range` with correct OR-logic over non-contiguous thirds; shot-map info box added to Chance Creation tabs (Barça IQ + Opposition Analysis); all ⓘ icons use gold (`#EDBB00`)
 
 ---
 
