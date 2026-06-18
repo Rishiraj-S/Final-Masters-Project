@@ -1028,21 +1028,6 @@ def _filter_panel(player_options=None) -> html.Div:
                         'marginRight': '10px'},
         ),
 
-        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 4px'}),
-        html.Div("Shot Origin", style=_LABEL_STYLE),
-        dcc.Checklist(
-            id='occ-shot-method',
-            options=[
-                {'label': ' Open Play', 'value': 'open_play'},
-                {'label': ' Set Piece', 'value': 'set_piece'},
-            ],
-            value=['open_play', 'set_piece'],
-            inline=True,
-            inputStyle={'cursor': 'pointer', 'accentColor': GOLD, 'marginRight': '4px'},
-            labelStyle={'color': COLORS['text_secondary'], 'fontSize': '0.75rem',
-                        'marginRight': '10px'},
-        ),
-
         *PassMap.dash_controls(show=['h1_time', 'h2_time'], id_prefix='occ'),
     ], style=_PANEL_STYLE)
 
@@ -1086,6 +1071,27 @@ def build_chance_creation(team: str | None = None,
                     'display': 'flex', 'alignItems': 'center', 'gap': '8px',
                     'borderBottom': f'1px solid {COLORS["dark_border"]}',
                     'paddingBottom': '8px', 'marginBottom': '8px',
+                }),
+                html.Div([
+                    html.Span('ⓘ', style={
+                        'color': GOLD, 'fontWeight': '700',
+                        'fontSize': '0.72rem', 'marginRight': '6px',
+                    }),
+                    html.Span(
+                        'Click any shot marker to view an animated sequence '
+                        'of the build-up play leading to that attempt.',
+                        style={
+                            'color': COLORS['text_secondary'],
+                            'fontSize': '0.68rem', 'fontStyle': 'italic',
+                        },
+                    ),
+                ], style={
+                    'backgroundColor': COLORS['dark_secondary'],
+                    'border': f'1px solid {COLORS["dark_border"]}',
+                    'borderRadius': '4px',
+                    'padding': '5px 10px',
+                    'marginBottom': '10px',
+                    'display': 'flex', 'alignItems': 'center',
                 }),
                 dcc.Loading(
                     type='circle', color=GOLD,
@@ -1207,7 +1213,6 @@ def register_chance_creation_callbacks(app) -> None:
         Output('occ-assisters-table',   'children'),
         Input('occ-player-filter',   'value'),
         Input('occ-shot-outcome',    'value'),
-        Input('occ-shot-method',     'value'),
         Input('occ-bands',           'value'),
         Input('occ-h1-time',         'value'),
         Input('occ-h2-time',         'value'),
@@ -1219,7 +1224,7 @@ def register_chance_creation_callbacks(app) -> None:
         Input('oa-selected-matches', 'data'),
         Input('oa-date-filter',      'date'),
     )
-    def _update(players, outcomes, method, bands, h1_range, h2_range, show_kp,
+    def _update(players, outcomes, bands, h1_range, h2_range, show_kp,
                 zone_options, team, comp, venue, match_ids, date_cutoff):
 
         def _empty():
@@ -1244,7 +1249,7 @@ def register_chance_creation_callbacks(app) -> None:
         kpi_shots = _apply_shot_filters(
             all_shots.copy(),
             outcomes=_SHOT_TYPES,
-            method=['open_play', 'set_piece'],
+            method=None,
             bands=bands or ['left', 'centre', 'right'],
             players=players or None,
             h1_range=_h1, h2_range=_h2,
@@ -1254,7 +1259,7 @@ def register_chance_creation_callbacks(app) -> None:
         map_shots = _apply_shot_filters(
             all_shots.copy(),
             outcomes=outcomes  or _SHOT_TYPES,
-            method=method      or ['open_play', 'set_piece'],
+            method=None,
             bands=bands        or ['left', 'centre', 'right'],
             players=players    or None,
             h1_range=_h1, h2_range=_h2,

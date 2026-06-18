@@ -1,0 +1,413 @@
+# CuléVision Opta Pipeline — Combined Configuration
+# Handles data extraction for Barcelona and all configured opponents.
+# Output: data/2025-26/{country}/{competition}/{subdir}/*.parquet
+#
+# Two-phase pipeline:
+#   Phase 1: Scrape each competition page ONCE, cache result as CSV.
+#   Phase 2: For each team × competition, download missing matches + transform.
+
+season: "2025-2026"
+
+# ── Competition result-page URLs ──────────────────────────────────────────────
+# Keys are referenced by team 'competitions' lists below.
+competitions:
+
+  # ── Spanish ──────────────────────────────────────────────────────────────────
+  Spain_Primera_Division:
+    results_url: "https://www.scoresway.com/en_GB/soccer/primera-divisi%C3%B3n-2025-2026/80zg2v1cuqcfhphn56u4qpyqc/results"
+
+  Spain_Copa_del_Rey:
+    results_url: "https://www.scoresway.com/en_GB/soccer/copa-del-rey-2025-2026/3lmujqli8r9m12i28wgjxnnys/results"
+
+  Spain_Super_Cup:
+    results_url: "https://www.scoresway.com/en_GB/soccer/supercopa-de-espana-2025-2026/calfow53qyurf0wi9rr96m6tw/results"
+
+  # ── European ─────────────────────────────────────────────────────────────────
+  UEFA_Champions_League:
+    results_url: "https://www.scoresway.com/en_GB/soccer/uefa-champions-league-2025-2026/2mr0u0l78k2gdsm79q56tb2fo/results"
+
+  UEFA_Europa_League:
+    results_url: "https://www.scoresway.com/en_GB/soccer/uefa-europa-league-2025-2026/7ttpe5jzya3vjhjadiemjy7mc/results"
+
+  UEFA_Conference_League:
+    results_url: "https://www.scoresway.com/en_GB/soccer/uefa-conference-league-2025-2026/7x2zp2hm4p6wuijwdw3h7a8t0/results"
+
+  # ── England ───────────────────────────────────────────────────────────────────
+  England_Premier_League:
+    results_url: "https://www.scoresway.com/en_GB/soccer/premier-league-2025-2026/51r6ph2woavlbbpk8f29nynf8/results"
+
+  England_FA_Cup:
+    results_url: "https://www.scoresway.com/en_GB/soccer/fa-cup-2025-2026/461lceqlslg7w32yc4w0ogems/results"
+
+  England_EFL_Cup:
+    results_url: "https://www.scoresway.com/en_GB/soccer/league-cup-2025-2026/6lhltebj0dx79xptn0hyph5as/results"
+
+  # ── Germany ───────────────────────────────────────────────────────────────────
+  Germany_Bundesliga:
+    results_url: "https://www.scoresway.com/en_GB/soccer/bundesliga-2025-2026/2bchmrj23l9u42d68ntcekob8/results"
+
+  Germany_DFB_Pokal:
+    results_url: "https://www.scoresway.com/en_GB/soccer/dfb-pokal-2025-2026/d3y7p0y4366q5chknrlo1t34k/results"
+
+  # ── Belgium ───────────────────────────────────────────────────────────────────
+  Belgium_First_Division_A:
+    results_url: "https://www.scoresway.com/en_GB/soccer/first-division-a-2025-2026/16lkdpoccbh056r0v0bordo2c/results"
+
+  Belgium_Cup:
+    results_url: "https://www.scoresway.com/en_GB/soccer/cup-2025-2026/81abh4umtz640xpnasjc1tvkk/results"
+
+  # ── France ────────────────────────────────────────────────────────────────────
+  France_Ligue_1:
+    results_url: "https://www.scoresway.com/en_GB/soccer/ligue-1-2025-2026/dbxs75cag7zyip5re0ppsanmc/results"
+
+  France_Coupe_de_France:
+    results_url: "https://www.scoresway.com/en_GB/soccer/coupe-de-france-2025-2026/av9aqjwk6jljkwcs7nqmnrv9w/results"
+
+  # ── Greece ────────────────────────────────────────────────────────────────────
+  Greece_Super_League:
+    results_url: "https://www.scoresway.com/en_GB/soccer/super-league-1-2025-2026/bfxnqtcsy92klp10rbwikb47o/results"
+
+  Greece_Cup:
+    results_url: "https://www.scoresway.com/en_GB/soccer/cup-2025-2026/bd7mwbg9dlz7lu9q8afv1jg9g/results"
+
+  # ── Denmark ───────────────────────────────────────────────────────────────────
+  Denmark_Superliga:
+    results_url: "https://www.scoresway.com/en_GB/soccer/superliga-2025-2026/3o8l1yf2irp018eaa2far455g/results"
+
+  Denmark_DBU_Pokalen:
+    results_url: "https://www.scoresway.com/en_GB/soccer/dbu-pokalen-2025-2026/d07yo1vpa9ane5svnjo30vqxg/results"
+
+  # ── Czech Republic ────────────────────────────────────────────────────────────
+  Czech_First_League:
+    results_url: "https://www.scoresway.com/en_GB/soccer/czech-liga-2025-2026/editpgeuef9yi9a8akjrl4bv8/results"
+
+  Czech_Cup:
+    results_url: "https://www.scoresway.com/en_GB/soccer/cup-2025-2026/6ggcb7ofcnupyzg3qgw6xbhg4/results"
+
+
+# ── Teams ─────────────────────────────────────────────────────────────────────
+# team_name   : canonical display name
+# team_code   : Opta 3-letter code used in parquet filenames
+# team_code_alt: (optional) secondary code when Opta uses different codes across feeds
+# search_name : (optional) override string for matching on Scoresway results page
+# country     : used for display / flag assets only (not for path construction)
+# competitions: list of competition keys from the block above
+teams:
+
+  # ── FC Barcelona ─────────────────────────────────────────────────────────────
+  - team_name: "Barcelona"
+    team_code: "BAR"
+    search_name: "Barcelona"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - UEFA_Champions_League
+      - Spain_Copa_del_Rey
+      - Spain_Super_Cup
+
+  # ── Spain — La Liga + European ───────────────────────────────────────────────
+  - team_name: "Real Madrid"
+    team_code: "RMA"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+      - Spain_Super_Cup
+      - UEFA_Champions_League
+
+  - team_name: "Athletic Club"
+    team_code: "ATH"
+    search_name: "Athletic"      # Scoresway shows "Athletic" not "Athletic Club"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+      - Spain_Super_Cup
+      - UEFA_Europa_League
+
+  - team_name: "Atletico de Madrid"
+    team_code: "ATM"
+    search_name: "Atletico"      # "Atl" matched Athletic Club too; "Atletico" is safe
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+      - UEFA_Champions_League
+
+  - team_name: "Villarreal"
+    team_code: "VIL"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+      - UEFA_Europa_League
+
+  - team_name: "Real Sociedad"
+    team_code: "RSO"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+      - UEFA_Europa_League
+
+  - team_name: "Real Betis"
+    team_code: "BET"
+    search_name: "Betis"         # Scoresway shows "Betis" not "Real Betis"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+      - UEFA_Conference_League
+
+  - team_name: "Sevilla"
+    team_code: "SEV"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+      - UEFA_Europa_League
+
+  - team_name: "Girona"
+    team_code: "GIR"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+      - UEFA_Champions_League
+
+  # ── Spain — La Liga only ─────────────────────────────────────────────────────
+  - team_name: "Osasuna"
+    team_code: "OSA"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+
+  - team_name: "Getafe"
+    team_code: "GET"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+
+  - team_name: "Celta de Vigo"
+    team_code: "CEL"
+    search_name: "Celta"         # Scoresway shows "Celta" not "Celta de Vigo"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+
+  - team_name: "Rayo Vallecano"
+    team_code: "RAY"
+    search_name: "Rayo"          # Scoresway shows "Rayo" not "Rayo Vallecano"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+
+  - team_name: "Mallorca"
+    team_code: "MLL"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+
+  - team_name: "Valencia"
+    team_code: "VAL"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+
+  - team_name: "Alaves"
+    team_code: "ALA"
+    search_name: "Alavés"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+
+  - team_name: "Espanyol"
+    team_code: "ESP"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+
+  - team_name: "Levante"
+    team_code: "LEV"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+
+  - team_name: "Real Oviedo"
+    team_code: "OVI"
+    search_name: "Oviedo"        # Scoresway shows "Oviedo" not "Real Oviedo"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+
+  - team_name: "Elche"
+    team_code: "ELC"
+    country: "Spain"
+    competitions:
+      - Spain_Primera_Division
+      - Spain_Copa_del_Rey
+
+  # ── Spain — Copa del Rey only (lower-division clubs) ─────────────────────────
+  - team_name: "Albacete"
+    team_code: "ALB"
+    country: "Spain"
+    competitions:
+      - Spain_Copa_del_Rey
+
+  - team_name: "Guadalajara"
+    team_code: "GUA"
+    country: "Spain"
+    competitions:
+      - Spain_Copa_del_Rey
+
+  - team_name: "Racing de Santander"
+    team_code: "RAC"
+    search_name: "Santander"     # "Racing" too broad — matches any club with "Racing" in name
+    country: "Spain"
+    competitions:
+      - Spain_Copa_del_Rey
+
+  # ── England ───────────────────────────────────────────────────────────────────
+  - team_name: "Chelsea"
+    team_code: "CHE"
+    country: "England"
+    competitions:
+      - England_Premier_League
+      - England_FA_Cup
+      - England_EFL_Cup
+      - UEFA_Champions_League
+
+  - team_name: "Newcastle United"
+    team_code: "NEW"
+    search_name: "Newcastle"     # Scoresway uses "Newcastle"; FA Cup false-positives have no event data
+    country: "England"
+    competitions:
+      - England_Premier_League
+      - England_FA_Cup
+      - England_EFL_Cup
+      - UEFA_Champions_League
+
+  # ── Germany ───────────────────────────────────────────────────────────────────
+  - team_name: "Eintracht Frankfurt"
+    team_code: "SGE"
+    search_name: "Frankfurt"
+    country: "Germany"
+    competitions:
+      - Germany_Bundesliga
+      - Germany_DFB_Pokal
+      - UEFA_Champions_League
+
+  # ── Belgium ───────────────────────────────────────────────────────────────────
+  - team_name: "Club Brugge"
+    team_code: "CLU"
+    search_name: "Club Brugge"   # "Brugge" matched Cercle Brugge (separate club in same league)
+    country: "Belgium"
+    competitions:
+      - Belgium_First_Division_A
+      - Belgium_Cup
+      - UEFA_Champions_League
+
+  # ── France ────────────────────────────────────────────────────────────────────
+  - team_name: "Paris Saint-Germain"
+    team_code: "PSG"
+    # NOTE: PSG uses code "PSG" across Ligue 1, UCL and Coupe de France. "PAR" is
+    # Paris FC (promoted 2025-26), a separate club — do NOT add it as an alt code
+    # or PSG's match list absorbs Paris FC's games.
+    search_name: "Paris"
+    country: "France"
+    competitions:
+      - France_Ligue_1
+      - France_Coupe_de_France
+      - UEFA_Champions_League
+
+  # ── Greece ────────────────────────────────────────────────────────────────────
+  - team_name: "Olympiakos Piraeus"
+    team_code: "OLY"
+    search_name: "Olympiakos"
+    country: "Greece"
+    competitions:
+      - Greece_Super_League
+      - Greece_Cup
+      - UEFA_Champions_League
+
+  # ── Denmark ───────────────────────────────────────────────────────────────────
+  - team_name: "FC Kobenhavn"
+    team_code: "FCK"
+    search_name: "København"
+    country: "Denmark"
+    competitions:
+      - Denmark_Superliga
+      - Denmark_DBU_Pokalen
+      - UEFA_Champions_League
+
+  # ── Czech Republic ────────────────────────────────────────────────────────────
+  - team_name: "Slavia Praha"
+    team_code: "SLA"
+    search_name: "Slavia"
+    country: "Czech Republic"
+    competitions:
+      - Czech_First_League
+      - Czech_Cup
+      - UEFA_Champions_League
+
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+paths:
+  result_dir:   "../data/2025-26"
+  target_dir:   "../data/target"
+  mappings_dir: "../mappings"
+  logs_dir:     "logs"
+
+# ── Scraper settings ──────────────────────────────────────────────────────────
+scraper:
+  timeout_seconds: 60
+  cookie_wait_seconds: 3
+  scroll_delay: 0.9
+  max_pagination_clicks: 50
+  # Re-scrape a competition page only when the cached CSV is older than this many days.
+  cache_ttl_days: 1
+
+# ── Downloader settings ───────────────────────────────────────────────────────
+downloader:
+  method: "selenium_wire"
+  timeout_per_match: 45
+  sleep_between_matches: 1.5
+  skip_existing: true
+  capture:
+    matchevent: true
+    match: true
+
+# ── Output settings ───────────────────────────────────────────────────────────
+output:
+  format: "parquet"
+  parquet:
+    compression: "snappy"
+    engine: "pyarrow"
+  optimization:
+    convert_dtypes: true
+    deduplicate_events: true
+  extract:
+    match_info: true
+    match_events: true
+  naming:
+    pattern: "{date}_{home_code}_vs_{away_code}"
+    clean_names: true
+    lowercase: false
+    replace_spaces: "_"
+    max_length: 100
+    include_match_id: "suffix"
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

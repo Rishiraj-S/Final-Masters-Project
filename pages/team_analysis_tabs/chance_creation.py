@@ -1047,21 +1047,6 @@ def _filter_panel(player_options=None) -> html.Div:
                         'marginRight': '10px'},
         ),
 
-        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 4px'}),
-        html.Div("Shot Origin", style=_LABEL_STYLE),
-        dcc.Checklist(
-            id='cc-shot-method',
-            options=[
-                {'label': ' Open Play', 'value': 'open_play'},
-                {'label': ' Set Piece', 'value': 'set_piece'},
-            ],
-            value=['open_play', 'set_piece'],
-            inline=True,
-            inputStyle={'cursor': 'pointer', 'accentColor': GOLD, 'marginRight': '4px'},
-            labelStyle={'color': COLORS['text_secondary'], 'fontSize': '0.75rem',
-                        'marginRight': '10px'},
-        ),
-
         *PassMap.dash_controls(show=['h1_time', 'h2_time'], id_prefix='cc'),
     ], style=_PANEL_STYLE)
 
@@ -1120,6 +1105,27 @@ def build_chance_creation_tab(season, competitions, match_ids=None) -> html.Div:
                     'display': 'flex', 'alignItems': 'center', 'gap': '8px',
                     'borderBottom': f'1px solid {COLORS["dark_border"]}',
                     'paddingBottom': '8px', 'marginBottom': '8px',
+                }),
+                html.Div([
+                    html.Span('ⓘ', style={
+                        'color': GOLD, 'fontWeight': '700',
+                        'fontSize': '0.72rem', 'marginRight': '6px',
+                    }),
+                    html.Span(
+                        'Click any shot marker to view an animated sequence '
+                        'of the build-up play leading to that attempt.',
+                        style={
+                            'color': COLORS['text_secondary'],
+                            'fontSize': '0.68rem', 'fontStyle': 'italic',
+                        },
+                    ),
+                ], style={
+                    'backgroundColor': COLORS['dark_secondary'],
+                    'border': f'1px solid {COLORS["dark_border"]}',
+                    'borderRadius': '4px',
+                    'padding': '5px 10px',
+                    'marginBottom': '10px',
+                    'display': 'flex', 'alignItems': 'center',
                 }),
                 dcc.Loading(
                     type='circle', color=GOLD,
@@ -1241,7 +1247,6 @@ def register_chance_creation_callbacks(app) -> None:
         Output('cc-assisters-table',    'children'),
         Input('cc-player-filter',    'value'),
         Input('cc-shot-outcome',     'value'),
-        Input('cc-shot-method',      'value'),
         Input('cc-bands',            'value'),
         Input('cc-h1-time',          'value'),
         Input('cc-h2-time',          'value'),
@@ -1252,7 +1257,7 @@ def register_chance_creation_callbacks(app) -> None:
         State('ta-selected-matches',     'data'),
         State('ta-match-data',           'data'),
     )
-    def _update(players, outcomes, method, bands, h1_range, h2_range, show_kp,
+    def _update(players, outcomes, bands, h1_range, h2_range, show_kp,
                 zone_options, competition, venue, match_ids, match_data):
 
         def _empty():
@@ -1293,17 +1298,17 @@ def register_chance_creation_callbacks(app) -> None:
         kpi_shots = _apply_shot_filters(
             all_shots.copy(),
             outcomes=_SHOT_TYPES,
-            method=['open_play', 'set_piece'],
+            method=None,
             bands=bands or ['left', 'centre', 'right'],
             players=players or None,
             h1_range=_h1, h2_range=_h2,
         )
 
-        # Shot map respects all filters including outcome, method, and bands
+        # Shot map respects all filters including outcome and bands
         map_shots = _apply_shot_filters(
             all_shots.copy(),
             outcomes=outcomes  or _SHOT_TYPES,
-            method=method      or ['open_play', 'set_piece'],
+            method=None,
             bands=bands        or ['left', 'centre', 'right'],
             players=players    or None,
             h1_range=_h1, h2_range=_h2,

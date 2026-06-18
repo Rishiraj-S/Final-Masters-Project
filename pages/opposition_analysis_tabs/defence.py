@@ -1207,25 +1207,10 @@ def _build_defence_skeleton() -> html.Div:
             placeholder="All players…", style={'fontSize': '0.75rem'},
         ),
         *PassMap.dash_controls(
-            show=['outcome', 'bands', 'h1_time', 'h2_time'],
+            show=['outcome', 'h1_time', 'h2_time'],
             id_prefix='ods-def',
         ),
 
-        html.Div("Zone of Action", style=_LABEL_STYLE),
-        dcc.Checklist(
-            id='ods-def-start-third',
-            options=[
-                {'label': ' Zone 1', 'value': 'defensive'},
-                {'label': ' Zone 2', 'value': 'middle'},
-                {'label': ' Zone 3', 'value': 'final'},
-            ],
-            value=['defensive', 'middle', 'final'],
-            inputStyle={'marginRight': '4px'},
-            labelStyle={'display': 'flex', 'alignItems': 'center',
-                        'fontSize': '0.72rem', 'color': COLORS['text_primary'],
-                        'marginBottom': '3px'},
-            style={'marginBottom': '8px'},
-        ),
         html.Div("Action Type", style=_LABEL_STYLE),
         dcc.Checklist(
             id='ods-def-action-type',
@@ -1407,8 +1392,6 @@ def register_defence_callbacks(app) -> None:
         Output('ods-gk-stats',         'children'),
         Input('ods-def-player',        'value'),
         Input('ods-def-outcome',       'value'),
-        Input('ods-def-start-third',   'value'),
-        Input('ods-def-bands',         'value'),
         Input('ods-def-h1-time',       'value'),
         Input('ods-def-h2-time',       'value'),
         Input('ods-def-action-type',   'value'),
@@ -1418,7 +1401,7 @@ def register_defence_callbacks(app) -> None:
         Input('oa-selected-matches',   'data'),
         Input('oa-date-filter',        'date'),
     )
-    def _update_defence(players, outcomes, start_thirds, bands,
+    def _update_defence(players, outcomes,
                         h1_range, h2_range, action_types,
                         team, comp, venue, match_ids, date_cutoff):
 
@@ -1443,8 +1426,8 @@ def register_defence_callbacks(app) -> None:
         opp_def_time     = _apply_time_filter(opp_def, _h1, _h2)
         opp_def_filtered = PassMap.filter(
             opp_def_time,
-            outcomes=outcomes, start_thirds=start_thirds,
-            bands=bands, h1_range=_h1, h2_range=_h2,
+            outcomes=outcomes, start_thirds=None,
+            bands=None, h1_range=_h1, h2_range=_h2,
         )
         if players and 'player_name' in opp_def_filtered.columns:
             opp_def_filtered = opp_def_filtered[opp_def_filtered['player_name'].isin(players)]

@@ -1051,12 +1051,15 @@ class PassMap:
     # ------------------------------------------------------------------
 
     @classmethod
-    def _thirds_range(cls, thirds: list) -> tuple:
-        """Collapse a list of third names into a single (x_min, x_max) span."""
-        ranges = [cls.THIRDS[t] for t in thirds if t in cls.THIRDS]
-        if not ranges:
-            return 0.0, 100.0
-        return min(r[0] for r in ranges), max(r[1] for r in ranges)
+    def _thirds_mask(cls, x_series, thirds: list):
+        """Return a boolean mask matching any of the selected thirds (OR logic)."""
+        conditions = [
+            (x_series >= cls.THIRDS[t][0]) & (x_series <= cls.THIRDS[t][1])
+            for t in thirds if t in cls.THIRDS
+        ]
+        if not conditions:
+            return pd.Series(True, index=x_series.index)
+        return functools.reduce(operator.or_, conditions)
 
     @classmethod
     def _bands_mask(cls, y_series, bands: list):
@@ -1095,15 +1098,14 @@ class PassMap:
         out = df
 
         if start_thirds and len(start_thirds) < 3:
-            lo, hi = cls._thirds_range(start_thirds)
-            out = out[(out['x'] >= lo) & (out['x'] <= hi)]
+            out = out[cls._thirds_mask(pd.to_numeric(out['x'], errors='coerce'), start_thirds)]
 
         if end_thirds and len(end_thirds) < 3 and end_x_col in out.columns:
-            lo, hi = cls._thirds_range(end_thirds)
-            out = out[(out[end_x_col] >= lo) & (out[end_x_col] <= hi)]
+            end_x = pd.to_numeric(out[end_x_col], errors='coerce')
+            out = out[cls._thirds_mask(end_x, end_thirds)]
 
         if bands and len(bands) < 3:
-            out = out[cls._bands_mask(out['y'], bands)]
+            out = out[cls._bands_mask(pd.to_numeric(out['y'], errors='coerce'), bands)]
 
         if outcomes is not None and 'outcome' in out.columns:
             out = out[out['outcome'].isin(outcomes)]

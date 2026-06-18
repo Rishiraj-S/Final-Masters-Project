@@ -852,25 +852,10 @@ def _def_filter_panel(player_opts=None) -> html.Div:
         ),
 
         *PassMap.dash_controls(
-            show=['outcome', 'bands', 'h1_time', 'h2_time'],
+            show=['outcome', 'h1_time', 'h2_time'],
             id_prefix='ds-def',
         ),
 
-        html.Div("Zone of Action", style=_LABEL_STYLE),
-        dcc.Checklist(
-            id='ds-def-start-third',
-            options=[
-                {'label': ' Zone 1', 'value': 'defensive'},
-                {'label': ' Zone 2', 'value': 'middle'},
-                {'label': ' Zone 3', 'value': 'final'},
-            ],
-            value=['defensive', 'middle', 'final'],
-            inputStyle={'marginRight': '4px'},
-            labelStyle={'display': 'flex', 'alignItems': 'center',
-                        'fontSize': '0.72rem', 'color': COLORS['text_primary'],
-                        'marginBottom': '3px'},
-            style={'marginBottom': '8px'},
-        ),
         html.Div("Action Type", style=_LABEL_STYLE),
         dcc.Checklist(
             id='ds-def-action-type',
@@ -1664,8 +1649,6 @@ def register_def_structure_callbacks(app) -> None:
         Output('ds-gk-stats',          'children'),
         Input('ds-def-player',         'value'),
         Input('ds-def-outcome',        'value'),
-        Input('ds-def-start-third',    'value'),
-        Input('ds-def-bands',          'value'),
         Input('ds-def-h1-time',        'value'),
         Input('ds-def-h2-time',        'value'),
         Input('ds-def-action-type',    'value'),
@@ -1674,7 +1657,7 @@ def register_def_structure_callbacks(app) -> None:
         State('ta-selected-matches',     'data'),
         State('ta-match-data',           'data'),
     )
-    def _update_our_defense(players, outcomes, start_thirds, bands,
+    def _update_our_defense(players, outcomes,
                              h1_range, h2_range, action_types,
                              competition, venue, match_ids, match_data):
 
@@ -1703,8 +1686,8 @@ def register_def_structure_callbacks(app) -> None:
         bar_def_filtered = PassMap.filter(
             bar_def_time,
             outcomes=outcomes,
-            start_thirds=start_thirds,
-            bands=bands,
+            start_thirds=None,
+            bands=None,
             h1_range=_h1,
             h2_range=_h2,
         )
