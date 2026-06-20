@@ -39,12 +39,14 @@ from pages.opposition_analysis_tabs import (
     build_transitions,
     build_defence,
     build_set_pieces,
+    build_player,
     register_overview_callbacks,
     register_buildup_callbacks,
     register_chance_creation_callbacks,
     register_transitions_callbacks,
     register_defence_callbacks,
     register_set_pieces_callbacks,
+    register_player_callbacks,
 )
 from pages.match_report import page_header
 from utils.logos import get_team_logo_path, get_tournament_logo_path, get_country_flag_path
@@ -301,6 +303,7 @@ def create_opposition_analysis_layout() -> dbc.Container:
                 dbc.Tab(label='Transitions',      tab_id='oa-tab-transitions'),
                 dbc.Tab(label='Defense',          tab_id='oa-tab-defense'),
                 dbc.Tab(label='Set Pieces',       tab_id='oa-tab-setpieces'),
+                dbc.Tab(label='Player Analysis',  tab_id='oa-tab-player'),
             ],
             className='mb-3',
         ),
@@ -325,6 +328,7 @@ def register_opposition_analysis_callbacks(app) -> None:
     register_transitions_callbacks(app)
     register_defence_callbacks(app)
     register_set_pieces_callbacks(app)
+    register_player_callbacks(app)
 
     # Month navigation, multi-select toggle and selection indicator (shared).
     # Both Stores are also written by page-specific callbacks (load_match_data,
@@ -515,5 +519,8 @@ def register_opposition_analysis_callbacks(app) -> None:
 
         if active_tab == 'oa-tab-setpieces':
             return build_set_pieces(team, comp_key)
+
+        if active_tab == 'oa-tab-player':
+            return build_player(team, comp_key)
 
         return html.P('Unknown tab.', style={'color': COLORS['text_secondary']})

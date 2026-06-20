@@ -26,6 +26,7 @@ from .chance_creation import build_chance_creation, register_chance_creation_cal
 from .transitions     import build_transitions,     register_transitions_callbacks
 from .defence         import build_defence,         register_defence_callbacks
 from .set_pieces      import build_set_pieces,      register_set_pieces_callbacks
+from .player          import build_player,          register_player_callbacks
 
 __all__ = [
     'build_overview',
@@ -35,9 +36,11 @@ __all__ = [
     'build_transitions',
     'build_defence',
     'build_set_pieces',
+    'build_player',
     'register_buildup_callbacks',
     'register_chance_creation_callbacks',
     'register_transitions_callbacks',
     'register_defence_callbacks',
     'register_set_pieces_callbacks',
+    'register_player_callbacks',
 ]

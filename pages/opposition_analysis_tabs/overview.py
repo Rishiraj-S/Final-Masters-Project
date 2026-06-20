@@ -1069,19 +1069,35 @@ def _match_formations(comp_keys: list[str], results: list[dict]) -> dict[str, st
     return out
 
 
-def _formation_counts(match_formations: dict[str, str]) -> list[tuple[str, int]]:
-    """(formation, n_matches) sorted ascending so the most-used lands on top of
-    a horizontal bar chart."""
-    counts: dict[str, int] = {}
-    for form in match_formations.values():
-        counts[form] = counts.get(form, 0) + 1
-    return sorted(counts.items(), key=lambda kv: (kv[1], kv[0]))
+def _formation_records(match_formations: dict[str, str],
+                       results: list[dict]) -> list[dict]:
+    """Per-formation usage with a win/draw/loss split.
+
+    Returns ``[{'formation', 'w', 'd', 'l', 'total'}, …]`` sorted by total
+    matches ascending so the most-used formation lands at the top of a
+    horizontal bar chart.
+    """
+    res_by_mid = {str(r.get('match_id')): r.get('result')
+                  for r in results if r.get('match_id') is not None}
+    agg: dict[str, dict] = {}
+    for mid, form in match_formations.items():
+        a = agg.setdefault(form, {'formation': form, 'w': 0, 'd': 0, 'l': 0, 'total': 0})
+        a['total'] += 1
+        res = res_by_mid.get(str(mid))
+        if res == 'W':
+            a['w'] += 1
+        elif res == 'D':
+            a['d'] += 1
+        elif res == 'L':
+            a['l'] += 1
+    return sorted(agg.values(), key=lambda r: (r['total'], r['formation']))
 
 
-def _formation_bar_fig(usage: list[tuple[str, int]]) -> go.Figure:
-    """Horizontal bar chart of starting formation (y) vs matches used in (x)."""
+def _formation_bar_fig(records: list[dict]) -> go.Figure:
+    """Horizontal stacked bar: formation (y) vs matches used (x), each bar split
+    by match outcome (Won/Drawn/Lost) with the win/draw/loss % on each segment."""
     fig = go.Figure()
-    if not usage:
+    if not records:
         fig.update_layout(
             **_CHART_LAYOUT, height=220,
             xaxis=dict(visible=False), yaxis=dict(visible=False),
@@ -1091,26 +1107,48 @@ def _formation_bar_fig(usage: list[tuple[str, int]]) -> go.Figure:
         )
         return fig
 
-    labels = [_fmt_formation(f) for f, _ in usage]
-    counts = [c for _, c in usage]
-    max_c  = max(counts)
+    # Bar length still encodes matches used (the count goes in the y-label);
+    # the stack and its % labels add the outcome breakdown.
+    labels = [f'{_fmt_formation(r["formation"])}  ({r["total"]})' for r in records]
+    max_total = max(r['total'] for r in records)
 
-    fig.add_trace(go.Bar(
-        x=counts, y=labels, orientation='h',
-        marker=dict(color=HOME_COLOR, line=dict(color=GOLD, width=1)),
-        text=counts, textposition='outside', cliponaxis=False,
-        textfont=dict(color=COLORS['text_primary'], size=11),
-        hovertemplate='Formation %{y}<br>Matches: %{x}<extra></extra>',
-    ))
+    def _pct(n: int, t: int) -> int:
+        return round(n / t * 100) if t else 0
+
+    # (legend name, count key, segment colour, text colour)
+    segments = [
+        ('Won',   'w', _WIN_C,  'white'),
+        ('Drawn', 'd', _DRAW_C, '#0A0E27'),
+        ('Lost',  'l', _LOSS_C, 'white'),
+    ]
+    for name, key, color, text_c in segments:
+        counts = [r[key] for r in records]
+        pcts   = [_pct(r[key], r['total']) for r in records]
+        totals = [r['total'] for r in records]
+        fig.add_trace(go.Bar(
+            x=counts, y=labels, orientation='h', name=name,
+            marker=dict(color=color),
+            customdata=list(zip(pcts, totals)),
+            text=[f'{p}%' if c > 0 else '' for c, p in zip(counts, pcts)],
+            textposition='inside', insidetextanchor='middle',
+            textfont=dict(color=text_c, size=10),
+            hovertemplate=(name + ': %{x} (%{customdata[0]}%)'
+                           '<br>Formation %{y} · %{customdata[1]} matches<extra></extra>'),
+        ))
+
     fig.update_layout(
         **_CHART_LAYOUT,
-        height=max(220, 46 * len(usage) + 80),
+        barmode='stack',
+        height=max(220, 46 * len(records) + 80),
         bargap=0.35,
         xaxis=dict(title='Matches', gridcolor='rgba(255,255,255,0.05)', showgrid=True,
-                   dtick=1, range=[0, max_c + max(1, round(max_c * 0.15))], zeroline=False),
+                   dtick=1, range=[0, max_total + max(1, round(max_total * 0.15))],
+                   zeroline=False),
         yaxis=dict(title='', gridcolor='rgba(255,255,255,0.05)', showgrid=False,
                    automargin=True),
-        showlegend=False,
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='left', x=0,
+                    font=dict(color=COLORS['text_primary'], size=11)),
+        showlegend=True,
     )
     return fig
 
@@ -1431,7 +1469,7 @@ def build_overview(team: str, country: str, comp_key: str,
     radar_panel      = _radar_panel(team, comp_keys,
                                     _radar_fig(scores, team, league_avgs), _PANEL_HDR, _panel)
     match_formations = _match_formations(comp_keys, all_results)
-    formation_fig    = _formation_bar_fig(_formation_counts(match_formations))
+    formation_fig    = _formation_bar_fig(_formation_records(match_formations, all_results))
     formation_table  = _formation_table(all_results, match_formations, selected_match_ids)
     children.append(_season_summary_section(
         timeline, _build_contributors(opp_ev, n=5), radar_panel,
