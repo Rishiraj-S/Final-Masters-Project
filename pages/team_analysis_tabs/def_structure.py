@@ -468,7 +468,9 @@ def _foul_player_table(team_events: pd.DataFrame, top_n: int = 15) -> list:
     for player, grp in team_events.groupby('player_name'):
         if not player:
             continue
-        fouls    = int((grp['event_type'] == 'Foul').sum())
+        _gf = grp[grp['event_type'] == 'Foul']
+        # Committed fouls only — double-logged; won row is outcome==1.
+        fouls    = int((pd.to_numeric(_gf['outcome'], errors='coerce') != 1).sum()) if 'outcome' in _gf.columns else len(_gf)
         offsides = int((grp['event_type'] == 'Offside provoked').sum())
         cards    = grp[grp['event_type'] == 'Card']
         yellows  = int((cards['Yellow Card'].eq('Si')).sum()) if not cards.empty and 'Yellow Card' in cards.columns else 0

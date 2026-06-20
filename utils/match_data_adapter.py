@@ -173,11 +173,13 @@ def compute_team_kpis(events: pd.DataFrame, team_position: str) -> Dict[str, Any
         blocked_shots = 0
     shots_on_target = gk_saves + goals
 
-    # Fouls: each foul produces two paired rows (committer outcome=1, receiver outcome=0).
-    # Count only outcome=1 to get fouls committed by this team.
+    # Fouls: each foul produces two paired rows. The fouled (foul-winning) team
+    # carries outcome==1 — it takes the ensuing free kick (verified empirically);
+    # the committing team carries outcome==0. Count outcome != 1 for fouls
+    # *committed* by this team.
     _fouls = get_fouls(team) if not team.empty else team
     if not team.empty and _has_col(team, 'outcome'):
-        fouls = len(_fouls[_fouls['outcome'] == 1])
+        fouls = len(_fouls[pd.to_numeric(_fouls['outcome'], errors='coerce') != 1])
     else:
         fouls = len(_fouls)
 
@@ -608,7 +610,8 @@ def detect_possession_changes(events: pd.DataFrame) -> pd.DataFrame:
     if events.empty or not _has_col(events, 'team_position'):
         return events.iloc[0:0].copy()
 
-    df = events.sort_values(['period_id', 'time_min', 'time_sec']).copy()
+    _sort_cols = [c for c in ['period_id', 'time_min', 'time_sec'] if _has_col(events, c)]
+    df = events.sort_values(_sort_cols).copy() if _sort_cols else events.copy()
     df['prev_team_position'] = df['team_position'].shift(1)
     df['is_transition'] = df['team_position'] != df['prev_team_position']
 
@@ -772,8 +775,15 @@ def get_set_piece_events(events: pd.DataFrame, team_code: str = 'BAR') -> Dict[s
 
     result = {}
 
-    # Corners
-    corner_mask = (team['event_type'] == 'Corner Awarded') if not team.empty else pd.Series(dtype=bool)
+    # Corners — 'Corner Awarded' is double-logged; only the won row (outcome==1)
+    # represents a corner this team takes. Conceded rows (outcome==0) belong to
+    # the opponent's set piece and must not be mixed into this team's corners.
+    if not team.empty:
+        corner_mask = team['event_type'] == 'Corner Awarded'
+        if 'outcome' in team.columns:
+            corner_mask &= pd.to_numeric(team['outcome'], errors='coerce') == 1
+    else:
+        corner_mask = pd.Series(dtype=bool)
     corner_taken = _flag_is_set(team, 'Corner taken') | _flag_is_set(team, 'From corner')
     result['corners'] = team[corner_mask | corner_taken].copy() if not team.empty else team.iloc[0:0]
 
@@ -975,17 +985,18 @@ def get_pass_network_data(events: pd.DataFrame, team_code: str = 'BAR') -> Tuple
     ).reset_index()
 
     # Edges: pass connections
-    # Receiver is identified by looking at the next event's player
-    passes_sorted = passes.sort_values(['period_id', 'time_min', 'time_sec'])
+    # Receiver is heuristically the next pass's player within the same team.
+    # `passes` is already filtered to a single team_code, so every consecutive
+    # pass is by a teammate — no cross-team alignment is needed. (The previous
+    # `next_team` shift sliced the full-team frame positionally against the
+    # pass subset, which mis-aligned rows; it has been removed.)
+    sort_cols = [c for c in ['period_id', 'time_min', 'time_sec'] if _has_col(passes, c)]
+    passes_sorted = passes.sort_values(sort_cols) if sort_cols else passes.copy()
     passes_sorted['receiver'] = passes_sorted['player_name'].shift(-1)
-
-    # Only keep passes where the next event is also by the same team
-    passes_sorted['next_team'] = team.sort_values(['period_id', 'time_min', 'time_sec'])['team_code'].shift(-1).values[:len(passes_sorted)] if len(passes_sorted) <= len(team) else None
-
-    if passes_sorted is not None and _has_col(passes_sorted, 'next_team'):
-        valid = passes_sorted[passes_sorted['next_team'] == team_code]
-    else:
-        valid = passes_sorted
+    # Drop the final pass of each period boundary's dangling receiver (NaN) and
+    # self-passes, then aggregate.
+    valid = passes_sorted[passes_sorted['receiver'].notna()]
+    valid = valid[valid['player_name'] != valid['receiver']]
 
     if not valid.empty:
         edges = valid.groupby(['player_name', 'receiver']).size().reset_index(name='count')

@@ -310,6 +310,7 @@ def _selenium_html_to_pdf(html: str) -> bytes:
     opts.add_argument("--disable-gpu")
     opts.add_argument("--no-sandbox")
     driver = webdriver.Chrome(options=opts)
+    tmp = None
     try:
         with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as f:
             f.write(html.encode("utf-8"))
@@ -328,9 +329,15 @@ def _selenium_html_to_pdf(html: str) -> bytes:
             # inconsistently — the cause of overlap / horizontal shrink in the PDF.
             'scale': 0.8,
         })
-        os.unlink(tmp)
         return base64.b64decode(pdf['data'])
     finally:
+        # Remove the temp HTML even if Chrome raised mid-render (it would
+        # otherwise accumulate hundreds of KB per failed report).
+        if tmp:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
         driver.quit()
 
 
@@ -763,7 +770,10 @@ def generate_match_report_pdf(match_id) -> bytes:
         try:
             p = get_team_logo_path(team)             # 'assets/logos/team/xxx.svg'
             if p:
-                with open(p.lstrip('/'), "rb") as f:
+                # Anchor to the project root rather than the CWD — the PDF route
+                # may run with a different working directory than the app root.
+                abs_p = Path(__file__).resolve().parent.parent / p.lstrip('/')
+                with open(abs_p, "rb") as f:
                     return base64.b64encode(f.read()).decode()
         except Exception:
             pass

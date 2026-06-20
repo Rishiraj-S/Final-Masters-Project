@@ -336,58 +336,58 @@ def _generate_team_lineup_image(starters, formation: str, color: str):
     if starters is None or starters.empty:
         return None
     fig, ax_p = plt.subplots(figsize=(5, 8), facecolor='#0A0E27')
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.92, bottom=0.02)
-    ax_p.set_facecolor('#0A0E27')
-    pitch = VerticalPitch(
-        pitch_type='opta', pitch_color='#3a7d44', line_color='white',
-        stripe=True, stripe_color='#2e6b39', goal_type='box', goal_alpha=0.85,
-        pad_top=10, pad_bottom=5, pad_left=3, pad_right=3,
-    )
-    pitch.draw(ax=ax_p)
-    fmt_label = _format_formation(formation)
-    if fmt_label:
-        ax_p.text(50, 108, fmt_label,
-                  ha='center', va='bottom', fontsize=12, color=color, fontweight='bold',
-                  path_effects=[mpe.withStroke(linewidth=2.5, foreground='#0A0E27')])
-    sc_xs, sc_ys, tx_xs, tx_ys, jerseys, names, caps = [], [], [], [], [], [], []
-    for _, row in starters.iterrows():
-        slot = int(row['formation_slot'])
-        name = str(row.get('player_name', '') or '').strip()
-        try:
-            jersey = int(row['jersey_number'])
-        except (ValueError, TypeError):
-            jersey = ''
-        is_cap = bool(row.get('is_captain', False))
-        opta_x, opta_y = _get_slot_coords(formation, slot, True)
-        depth   = float(opta_x) * 2.0
-        lateral = float(opta_y)
-        sc_xs.append(depth); sc_ys.append(lateral)
-        tx_xs.append(lateral); tx_ys.append(depth)
-        jerseys.append(str(jersey)); names.append(name); caps.append(is_cap)
-    if not sc_xs:
+    try:
+        fig.subplots_adjust(left=0.01, right=0.99, top=0.92, bottom=0.02)
+        ax_p.set_facecolor('#0A0E27')
+        pitch = VerticalPitch(
+            pitch_type='opta', pitch_color='#3a7d44', line_color='white',
+            stripe=True, stripe_color='#2e6b39', goal_type='box', goal_alpha=0.85,
+            pad_top=10, pad_bottom=5, pad_left=3, pad_right=3,
+        )
+        pitch.draw(ax=ax_p)
+        fmt_label = _format_formation(formation)
+        if fmt_label:
+            ax_p.text(50, 108, fmt_label,
+                      ha='center', va='bottom', fontsize=12, color=color, fontweight='bold',
+                      path_effects=[mpe.withStroke(linewidth=2.5, foreground='#0A0E27')])
+        sc_xs, sc_ys, tx_xs, tx_ys, jerseys, names, caps = [], [], [], [], [], [], []
+        for _, row in starters.iterrows():
+            slot = int(row['formation_slot'])
+            name = str(row.get('player_name', '') or '').strip()
+            try:
+                jersey = int(row['jersey_number'])
+            except (ValueError, TypeError):
+                jersey = ''
+            is_cap = bool(row.get('is_captain', False))
+            opta_x, opta_y = _get_slot_coords(formation, slot, True)
+            depth   = float(opta_x) * 2.0
+            lateral = float(opta_y)
+            sc_xs.append(depth); sc_ys.append(lateral)
+            tx_xs.append(lateral); tx_ys.append(depth)
+            jerseys.append(str(jersey)); names.append(name); caps.append(is_cap)
+        if not sc_xs:
+            return None
+        pitch.scatter(sc_xs, sc_ys, s=700, c=color, ax=ax_p, zorder=4, alpha=0.22, edgecolors='none')
+        pitch.scatter(sc_xs, sc_ys, s=500, c=color, ax=ax_p, zorder=5, alpha=0.95, edgecolors='white', linewidths=1.4)
+        for i in range(len(sc_xs)):
+            lat = tx_xs[i]; dep = tx_ys[i]
+            ax_p.text(lat, dep, jerseys[i], ha='center', va='center',
+                      fontsize=8, fontweight='bold', color='white', zorder=7)
+            short = _shorten_name(names[i])
+            ax_p.text(lat, dep - 5.5, short, ha='center', va='top',
+                      fontsize=7, color='white', zorder=7,
+                      path_effects=[mpe.withStroke(linewidth=2, foreground='#0A0E27')])
+            if caps[i]:
+                pitch.scatter([dep + 4.0], [lat + 5.0], s=120, c=GOLD, ax=ax_p, zorder=8, edgecolors='none')
+                ax_p.text(lat + 5.0, dep + 4.0, 'C', ha='center', va='center',
+                          fontsize=4.5, fontweight='bold', color='#0A0E27', zorder=9)
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=130, facecolor=fig.get_facecolor(),
+                    edgecolor='none', bbox_inches='tight')
+        buf.seek(0)
+        return base64.b64encode(buf.read()).decode()
+    finally:
         plt.close(fig)
-        return None
-    pitch.scatter(sc_xs, sc_ys, s=700, c=color, ax=ax_p, zorder=4, alpha=0.22, edgecolors='none')
-    pitch.scatter(sc_xs, sc_ys, s=500, c=color, ax=ax_p, zorder=5, alpha=0.95, edgecolors='white', linewidths=1.4)
-    for i in range(len(sc_xs)):
-        lat = tx_xs[i]; dep = tx_ys[i]
-        ax_p.text(lat, dep, jerseys[i], ha='center', va='center',
-                  fontsize=8, fontweight='bold', color='white', zorder=7)
-        short = _shorten_name(names[i])
-        ax_p.text(lat, dep - 5.5, short, ha='center', va='top',
-                  fontsize=7, color='white', zorder=7,
-                  path_effects=[mpe.withStroke(linewidth=2, foreground='#0A0E27')])
-        if caps[i]:
-            pitch.scatter([dep + 4.0], [lat + 5.0], s=120, c=GOLD, ax=ax_p, zorder=8, edgecolors='none')
-            ax_p.text(lat + 5.0, dep + 4.0, 'C', ha='center', va='center',
-                      fontsize=4.5, fontweight='bold', color='#0A0E27', zorder=9)
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=130, facecolor=fig.get_facecolor(),
-                edgecolor='none', bbox_inches='tight')
-    buf.seek(0)
-    img_b64 = base64.b64encode(buf.read()).decode()
-    plt.close(fig)
-    return img_b64
 
 
 def _build_lineup_html_panel(subs_list: list, color: str, align: str = 'left') -> html.Div:
@@ -2658,7 +2658,10 @@ def _def_compute_half_stats(events: pd.DataFrame, pos: str, period: int | None =
     blocked_shots   = te[te['event_type'] == 'Blocked Shot']
     fouls_committed = te[te['event_type'] == 'Foul']
     if 'outcome' in te.columns:
-        fouls_committed = fouls_committed[fouls_committed['outcome'] == 1]
+        # outcome==1 is the foul *won* row (the fouled team takes the free kick,
+        # verified empirically); the committed row is outcome==0. PPDA counts
+        # fouls the pressing team commits, so keep outcome != 1.
+        fouls_committed = fouls_committed[pd.to_numeric(fouls_committed['outcome'], errors='coerce') != 1]
     aerials     = te[te['event_type'] == 'Aerial']
     aerials_won = aerials[aerials['outcome'] == 1]
     opp_passes  = len(opp[opp['event_type'] == 'Pass'])
@@ -2731,7 +2734,10 @@ def _def_compute(events: pd.DataFrame) -> dict:
         def_events_df = te[te['event_type'].isin(DEF_ACTION_TYPES)].copy()
         fouls_df = te[te['event_type'] == 'Foul'].copy()
         if 'outcome' in fouls_df.columns:
-            fouls_df = fouls_df[fouls_df['outcome'] == 1]
+            # Committed fouls (outcome != 1) for the defensive action map — the
+            # won row (outcome==1) sits at the attacking end and is not a
+            # defensive action by this team.
+            fouls_df = fouls_df[pd.to_numeric(fouls_df['outcome'], errors='coerce') != 1]
         offsides_df = opp[opp['event_type'] == 'Offside Pass'].copy()
         out[pos] = {
             'team': team,
@@ -5038,8 +5044,18 @@ def _compute_player_stats(events: pd.DataFrame, player_name: str) -> dict:
     xT_val      = round(add_xt_column(passes)['xT'].sum(), 3) if not passes.empty else 0.0
     shots       = add_xg_column(exclude_own_goals(pe[pe['event_type'].isin(SHOT_TYPES)].copy()))
     goals       = shots[shots['event_type'] == 'Goal']
-    goal_assists  = int((pd.to_numeric(passes['Assist'], errors='coerce') == 16).sum()) if 'Assist' in passes.columns else 0
-    key_passes_n  = int(pd.to_numeric(passes['Assist'], errors='coerce').isin([13, 14, 15]).sum()) if 'Assist' in passes.columns else 0
+    if 'Assist' in passes.columns:
+        _assist_num   = pd.to_numeric(passes['Assist'], errors='coerce')
+        _second_assist = (
+            passes['2nd assist'] if '2nd assist' in passes.columns
+            else pd.Series('N/A', index=passes.index)
+        )
+        goal_assists = int((_assist_num == 16).sum())
+        key_passes_n = int(
+            (_assist_num.isin([13, 14, 15]) | (_second_assist == 'Si')).sum()
+        )
+    else:
+        goal_assists = key_passes_n = 0
     tackles    = pe[pe['event_type'] == 'Tackle']
     tackles_w  = tackles[tackles['outcome'] == 1]
     ints       = pe[pe['event_type'] == 'Interception']
@@ -5048,6 +5064,9 @@ def _compute_player_stats(events: pd.DataFrame, player_name: str) -> dict:
     aerials    = pe[pe['event_type'] == 'Aerial']
     aerials_w  = aerials[aerials['outcome'] == 1]
     fouls_c    = pe[pe['event_type'] == 'Foul']
+    if 'outcome' in fouls_c.columns:
+        # Committed fouls only — fouls are double-logged; the won row is outcome==1.
+        fouls_c = fouls_c[pd.to_numeric(fouls_c['outcome'], errors='coerce') != 1]
     dribbles   = pe[pe['event_type'] == 'Take On']
     dribbles_s = dribbles[dribbles['outcome'] == 1]
     touch_x = pe['x'].dropna().tolist() if 'x' in pe.columns else []
@@ -5664,6 +5683,14 @@ def register_match_analysis_callbacks(app):
     # 10×/s forever, which re-renders the whole report (incl. the score header)
     # every tick and makes it flicker. With the guard it only emits on an actual
     # transition (a new percentage step, or load→done) and then goes quiet.
+    #
+    # Once everything is ready the interval DISABLES ITSELF (returns disabled=true
+    # on the 'done' transition). A perpetually-ticking interval keeps dispatching
+    # this callback ~10×/s, and Dash flips the browser tab title to its
+    # `update_title` ("Updating…") on every dispatch — so the tab title flickers
+    # forever even though the DOM no longer changes. Stopping the interval ends
+    # the flicker (and the wasted work). It is re-armed by the callback below
+    # whenever a new match is selected, so the bar still runs for every match.
     app.clientside_callback(
         """
         function(_n) {
@@ -5678,24 +5705,41 @@ def register_match_analysis_callbacks(app):
             var pct = total ? Math.round((total - loading) / total * 100) : 0;
             var key = done ? 'done' : ('load:' + pct);
             if (window.__pmaProgKey === key) {
-                return [nu, nu, nu, nu];   // unchanged → don't touch the DOM
+                return [nu, nu, nu, nu, nu];   // unchanged → don't touch the DOM
             }
             window.__pmaProgKey = key;
             if (done) {
-                // Everything ready: hide the bar, reveal the report.
+                // Everything ready: hide the bar, reveal the report, and stop
+                // ticking so the tab title stops flickering.
                 return [{width: '100%'}, '100%',
-                        {display: 'none'}, {display: 'block'}];
+                        {display: 'none'}, {display: 'block'}, true];
             }
-            // Still loading: keep the report hidden, show the bar.
+            // Still loading: keep the report hidden, show the bar, keep ticking.
             return [{width: pct + '%'}, pct + '%',
-                    {display: 'block'}, {display: 'none'}];
+                    {display: 'block'}, {display: 'none'}, false];
         }
         """,
         Output('pma-progress-fill', 'style'),
         Output('pma-progress-label', 'children'),
         Output('pma-progress-wrap', 'style'),
         Output('pma-content', 'style'),
+        Output('pma-progress-tick', 'disabled'),
         Input('pma-progress-tick', 'n_intervals'),
+    )
+
+    # Re-arm the loading bar whenever a new match is picked: reset the progress
+    # key and re-enable the (self-disabling) interval so it ticks through the
+    # next load, then quiets down again.
+    app.clientside_callback(
+        """
+        function(_m) {
+            window.__pmaProgKey = null;
+            return false;
+        }
+        """,
+        Output('pma-progress-tick', 'disabled', allow_duplicate=True),
+        Input('pma-selected-match', 'data'),
+        prevent_initial_call=True,
     )
 
     @app.callback(

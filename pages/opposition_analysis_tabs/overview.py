@@ -37,6 +37,7 @@ from utils.opposition_data_utils import (
     load_opp_events,
     get_opp_team_matches,
     get_team_country,
+    _opp_dir,
 )
 from page_utils.visualizations import (
     CHART_CONFIG,
@@ -908,7 +909,6 @@ def _form_trendline_fig(timeline: list[dict], metrics: list[str]) -> go.Figure:
     layout = dict(
         **_CHART_LAYOUT,
         height=350,
-        title=dict(text='Form Trendline', font=dict(color=GOLD, size=14)),
         xaxis=dict(title='', gridcolor='rgba(255,255,255,0.05)', showgrid=True),
         yaxis=dict(title='', gridcolor='rgba(255,255,255,0.05)', showgrid=True),
         legend=dict(orientation='h', yanchor='bottom', y=1.02,
@@ -992,12 +992,204 @@ def _build_contributors(opp_ev: pd.DataFrame, n: int = 5) -> list:
     return [_contributor_card(r['player'], r['goals'], r['assists'], r['apps']) for r in top]
 
 
+# ─── Starting-formation usage ─────────────────────────────────────────────────
+
+# Only the small subset of lineup columns needed to read starting formations.
+_LINEUP_FORM_COLS = ['match_id', 'team_position', 'formation', 'role']
+
+# Shared panel heading style (matches the "Game Model Radar" header in _radar_panel).
+_PANEL_HDR = {
+    'color': COLORS['gold'], 'fontSize': '0.72rem', 'fontWeight': 700,
+    'letterSpacing': '0.8px', 'textTransform': 'uppercase', 'marginBottom': '8px',
+}
+
+
+def _fmt_formation(formation) -> str:
+    """'3421' → '3-4-2-1' for display; falls back to the raw string."""
+    digits = [c for c in str(formation).strip() if c.isdigit()]
+    return '-'.join(digits) if digits else (str(formation).strip() or '—')
+
+
+def _match_formations(comp_keys: list[str], results: list[dict]) -> dict[str, str]:
+    """Map each match the team played → its starting-formation string.
+
+    Reads the lineup parquet for each match (targeted by the match_id suffix in
+    the filename) and selects the team's own side via ``is_home`` from the
+    result row — never by team-name matching.
+    """
+    home_by_mid = {str(r.get('match_id')): bool(r.get('is_home'))
+                   for r in results if r.get('match_id') is not None}
+    if not home_by_mid:
+        return {}
+
+    # Restrict each competition scan to the match_ids actually in view.
+    mids_by_comp: dict[str, set] = {}
+    for r in results:
+        mid = r.get('match_id')
+        ck  = r.get('competition_key')
+        if mid is None or not ck:
+            continue
+        mids_by_comp.setdefault(ck, set()).add(str(mid))
+
+    out: dict[str, str] = {}
+    for ck in comp_keys:
+        wanted = mids_by_comp.get(ck)
+        if not wanted:
+            continue
+        folder = _opp_dir(ck, 'lineup')
+        if not folder.exists():
+            continue
+        # Index lineup files by their trailing match_id segment.
+        mid_to_file = {f.stem.rsplit('_', 1)[-1]: f
+                       for f in folder.iterdir() if f.suffix == '.parquet'}
+        for mid in wanted:
+            path = mid_to_file.get(mid)
+            if path is None:
+                continue
+            try:
+                names = set(pq.ParquetFile(path).schema.names)
+                use   = [c for c in _LINEUP_FORM_COLS if c in names]
+                df    = pd.read_parquet(path, columns=use)
+            except Exception:
+                continue
+            if df.empty or 'formation' not in df.columns:
+                continue
+            side = 'home' if home_by_mid.get(mid) else 'away'
+            tg = df[df['team_position'] == side] if 'team_position' in df.columns else df
+            if 'role' in tg.columns:
+                starters = tg[tg['role'] == 'Start']
+                if not starters.empty:
+                    tg = starters
+            if tg.empty:
+                continue
+            form = str(tg['formation'].iloc[0]).strip()
+            if not form or form.upper() in ('N/A', 'NONE', '0', ''):
+                continue
+            out[mid] = form
+    return out
+
+
+def _formation_counts(match_formations: dict[str, str]) -> list[tuple[str, int]]:
+    """(formation, n_matches) sorted ascending so the most-used lands on top of
+    a horizontal bar chart."""
+    counts: dict[str, int] = {}
+    for form in match_formations.values():
+        counts[form] = counts.get(form, 0) + 1
+    return sorted(counts.items(), key=lambda kv: (kv[1], kv[0]))
+
+
+def _formation_bar_fig(usage: list[tuple[str, int]]) -> go.Figure:
+    """Horizontal bar chart of starting formation (y) vs matches used in (x)."""
+    fig = go.Figure()
+    if not usage:
+        fig.update_layout(
+            **_CHART_LAYOUT, height=220,
+            xaxis=dict(visible=False), yaxis=dict(visible=False),
+            annotations=[dict(text='No lineup data available for this selection.',
+                              x=0.5, y=0.5, xref='paper', yref='paper', showarrow=False,
+                              font=dict(color=COLORS['text_secondary'], size=12))],
+        )
+        return fig
+
+    labels = [_fmt_formation(f) for f, _ in usage]
+    counts = [c for _, c in usage]
+    max_c  = max(counts)
+
+    fig.add_trace(go.Bar(
+        x=counts, y=labels, orientation='h',
+        marker=dict(color=HOME_COLOR, line=dict(color=GOLD, width=1)),
+        text=counts, textposition='outside', cliponaxis=False,
+        textfont=dict(color=COLORS['text_primary'], size=11),
+        hovertemplate='Formation %{y}<br>Matches: %{x}<extra></extra>',
+    ))
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        height=max(220, 46 * len(usage) + 80),
+        bargap=0.35,
+        xaxis=dict(title='Matches', gridcolor='rgba(255,255,255,0.05)', showgrid=True,
+                   dtick=1, range=[0, max_c + max(1, round(max_c * 0.15))], zeroline=False),
+        yaxis=dict(title='', gridcolor='rgba(255,255,255,0.05)', showgrid=False,
+                   automargin=True),
+        showlegend=False,
+    )
+    return fig
+
+
+def _formation_table(results: list[dict], match_formations: dict[str, str],
+                     selected_match_ids: list | None) -> html.Div:
+    """Per-match formation table for the 25% side column.
+
+    Only populated when matches are picked in the calendar; otherwise shows a
+    prompt. ``results`` is already filtered to the selected matches upstream.
+    """
+    if not selected_match_ids:
+        return html.Div(
+            'Select matches in the calendar to list each match’s starting formation.',
+            style={'color': COLORS['text_secondary'], 'fontSize': '0.8rem',
+                   'lineHeight': '1.4', 'padding': '0.5rem 0.25rem'},
+        )
+
+    sel = {str(m) for m in selected_match_ids}
+    rows_in = [r for r in results if str(r.get('match_id')) in sel]
+    rows_in.sort(key=lambda r: str(r.get('date', '')))
+
+    _th = {'color': COLORS['gold'], 'textAlign': 'left', 'padding': '6px 8px',
+           'borderBottom': f'1px solid {COLORS["dark_border"]}', 'fontSize': '0.66rem',
+           'textTransform': 'uppercase', 'letterSpacing': '0.5px', 'position': 'sticky',
+           'top': 0, 'backgroundColor': COLORS['dark_secondary']}
+    _td = {'padding': '6px 8px', 'borderBottom': f'1px solid {COLORS["dark_border"]}',
+           'verticalAlign': 'middle'}
+
+    body_rows = []
+    for r in rows_in:
+        mid   = str(r.get('match_id'))
+        form  = match_formations.get(mid)
+        opp   = r.get('opponent', '')
+        ha    = 'H' if r.get('is_home') else 'A'
+        date  = str(r.get('date', ''))[:10]
+        ha_col = HOME_COLOR if r.get('is_home') else _GA_C
+        body_rows.append(html.Tr([
+            html.Td([
+                html.Div([
+                    html.Span(ha, style={'color': ha_col, 'fontWeight': 700,
+                                         'fontSize': '0.62rem', 'marginRight': '5px'}),
+                    html.Span(opp, style={'color': COLORS['text_primary'],
+                                          'fontWeight': 600, 'fontSize': '0.78rem'}),
+                ]),
+                html.Div(date, style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem'}),
+            ], style=_td),
+            html.Td(_fmt_formation(form) if form else '—', style={
+                **_td, 'color': COLORS['gold'], 'fontWeight': 700,
+                'fontSize': '0.82rem', 'textAlign': 'right', 'whiteSpace': 'nowrap',
+            }),
+        ]))
+
+    if not body_rows:
+        return html.Div('No formation data for the selected matches.',
+                        style={'color': COLORS['text_secondary'], 'fontSize': '0.8rem',
+                               'padding': '0.5rem 0.25rem'})
+
+    table = html.Table([
+        html.Thead(html.Tr([
+            html.Th('Match', style=_th),
+            html.Th('Formation', style={**_th, 'textAlign': 'right'}),
+        ])),
+        html.Tbody(body_rows),
+    ], style={'width': '100%', 'borderCollapse': 'collapse', 'color': COLORS['text_primary']})
+
+    return html.Div(table, style={'maxHeight': '420px', 'overflowY': 'auto'})
+
+
 def _season_summary_section(timeline: list[dict], contributor_cards: list,
-                            radar_panel: html.Div) -> html.Div:
-    """Overall Season Summary — Game Model Radar + Form Trendline + Top Contributors.
+                            radar_panel: html.Div,
+                            formation_fig: go.Figure,
+                            formation_table: html.Div) -> html.Div:
+    """Overall Season Summary — Game Model Radar + Form Trendline + Starting
+    Formations + Top Contributors.
 
     The radar sits on the left, under the same heading; the trendline (with
-    metric toggles) and the Top Contributors fill the right column.
+    metric toggles) fills the right column. Below them, the starting-formation
+    bar chart (75%) sits beside a per-match formation table (25%).
     """
     # Distinct competitions in view → tournament filter options.
     comps_in_view: list[str] = []
@@ -1011,6 +1203,7 @@ def _season_summary_section(timeline: list[dict], contributor_cards: list,
                      [{'label': _comp_display(c), 'value': c} for c in comps_in_view])
 
     trendline_card = dbc.Card([dbc.CardBody([
+        html.Div('Form Trendline', style=_PANEL_HDR),
         # Tournament filter (mirrors the Home page).
         dbc.Row([
             dbc.Col([
@@ -1068,6 +1261,24 @@ def _season_summary_section(timeline: list[dict], contributor_cards: list,
             dbc.Col(trendline_card, lg=7, md=12, className='mb-3'),
         ], className='g-3'),
 
+        # … Starting Formations (75%) + per-match formation table (25%) …
+        dbc.Row([
+            dbc.Col(
+                dbc.Card([dbc.CardBody([
+                    html.Div('Starting Formations', style=_PANEL_HDR),
+                    dcc.Graph(figure=formation_fig, config=CHART_CONFIG),
+                ])]),
+                lg=9, md=12, className='mb-3',
+            ),
+            dbc.Col(
+                dbc.Card([dbc.CardBody([
+                    html.Div('Formation by Match', style=_PANEL_HDR),
+                    formation_table,
+                ])], className='h-100'),
+                lg=3, md=12, className='mb-3',
+            ),
+        ], className='g-3 mb-4', align='stretch'),
+
         # … Top Contributors end-to-end below (mirrors the Home page).
         html.H5('Top Contributors', className='mb-3',
                 style={'color': COLORS['gold'], 'fontFamily': BARCA_FONT,
@@ -1080,7 +1291,8 @@ def _season_summary_section(timeline: list[dict], contributor_cards: list,
 
 def build_overview(team: str, country: str, comp_key: str,
                    all_results: list[dict], opp_ev: pd.DataFrame,
-                   bar_ev: pd.DataFrame, n_matches: int) -> html.Div:
+                   bar_ev: pd.DataFrame, n_matches: int,
+                   selected_match_ids: list | None = None) -> html.Div:
     """Build the Overview tab. Called synchronously from opposition_analysis.py."""
     if not all_results and opp_ev.empty:
         return html.P("No data available for this selection.",
@@ -1208,22 +1420,22 @@ def build_overview(team: str, country: str, comp_key: str,
     color_map   = _comp_color_map(comp_keys)
     league_avgs = _build_league_avgs(comp_keys, color_map)
 
-    _hdr = {
-        'color': COLORS['gold'], 'fontSize': '0.72rem', 'fontWeight': 700,
-        'letterSpacing': '0.8px', 'textTransform': 'uppercase', 'marginBottom': '8px',
-    }
     _panel = {
         'backgroundColor': COLORS['dark_secondary'],
         'border': f'1px solid {COLORS["dark_border"]}',
         'borderRadius': '12px', 'padding': '16px', 'height': '100%',
     }
 
-    # ── Overall Season Summary (radar + trendline + contributors) ─────────────
-    timeline    = _season_timeline(all_results, _match_event_metrics(opp_ev, bar_ev))
-    radar_panel = _radar_panel(team, comp_keys,
-                               _radar_fig(scores, team, league_avgs), _hdr, _panel)
+    # ── Overall Season Summary (radar + trendline + formations + contributors) ─
+    timeline         = _season_timeline(all_results, _match_event_metrics(opp_ev, bar_ev))
+    radar_panel      = _radar_panel(team, comp_keys,
+                                    _radar_fig(scores, team, league_avgs), _PANEL_HDR, _panel)
+    match_formations = _match_formations(comp_keys, all_results)
+    formation_fig    = _formation_bar_fig(_formation_counts(match_formations))
+    formation_table  = _formation_table(all_results, match_formations, selected_match_ids)
     children.append(_season_summary_section(
-        timeline, _build_contributors(opp_ev, n=5), radar_panel))
+        timeline, _build_contributors(opp_ev, n=5), radar_panel,
+        formation_fig, formation_table))
 
     return html.Div(children)
 

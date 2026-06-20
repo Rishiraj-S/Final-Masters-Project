@@ -415,6 +415,9 @@ TOURNAMENT_LOGOS = {
     'Italy_Coppa_Italia': 'italy_coppa-italia.football-logos.cc.svg',
     # Portugal
     'Portugal_Primeira_Liga': 'portugal_primeira-liga.football-logos.cc.svg',
+    # Denmark
+    'Denmark_Superliga': 'denmark_danish-super-liga.football-logos.cc.svg',
+    'Denmark_DBU_Pokalen': 'denmark_danish-cup.football-logos.cc.svg',
 }
 
 # Barca pages pass display names; bridge them to folder keys.

@@ -75,7 +75,14 @@ class BaseTransformer:
         ))
         if not result_dir.exists():
             return False
-        return any(result_dir.glob(f"*{match_id}*"))
+        # Match the trailing id segment, not a loose substring: match_id '123'
+        # must not be considered "already transformed" because a file ending
+        # '..._1234.parquet' exists. Filenames end with '_{match_id}.{ext}'.
+        mid = str(match_id)
+        return any(
+            f.stem == mid or f.stem.endswith(f"_{mid}")
+            for f in result_dir.glob("*")
+        )
 
     def save_dataframe(self, df: pd.DataFrame, output_path: str) -> None:
         """Save DataFrame to parquet or CSV, writing atomically via a temp file."""

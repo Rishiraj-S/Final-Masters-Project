@@ -316,9 +316,12 @@ def process_full_competition(
     stats["transformed"] = n
 
     # ── Cleanup ────────────────────────────────────────────────────────────────
-    deleted = cleanup_target_jsons(comp_config, comp_name, season, logger)
-    if deleted:
-        print(f"      🗑️  Cleaned up {deleted} JSON(s)")
+    # Keep source JSONs under --transform-only so the transform can be re-run
+    # from them; only clean up after a real download pass.
+    if not args.transform_only:
+        deleted = cleanup_target_jsons(comp_config, comp_name, season, logger)
+        if deleted:
+            print(f"      🗑️  Cleaned up {deleted} JSON(s)")
 
     return stats
 
@@ -390,9 +393,12 @@ def process_team_competition(
     stats["transformed"] = n
 
     # ── Cleanup ────────────────────────────────────────────────────────────────
-    deleted = cleanup_target_jsons(comp_config, comp_name, season, logger)
-    if deleted:
-        print(f"      🗑️  Cleaned up {deleted} JSON(s)")
+    # Keep source JSONs under --transform-only so the transform can be re-run
+    # from them; only clean up after a real download pass.
+    if not args.transform_only:
+        deleted = cleanup_target_jsons(comp_config, comp_name, season, logger)
+        if deleted:
+            print(f"      🗑️  Cleaned up {deleted} JSON(s)")
 
     return stats
 
@@ -473,12 +479,25 @@ def main():
     print(f"{'='*60}\nPHASE 1 — SCRAPING COMPETITION PAGES\n{'='*60}")
 
     comp_cache: dict[str, pd.DataFrame] = {}
-    for comp_name in sorted(needed_comps):
-        comp_info = all_comps[comp_name]
-        comp_cache[comp_name] = get_scraped_matches(
-            comp_name, comp_info["results_url"], config, logger,
-            force_rescrape=args.force_rescrape,
-        )
+    if args.transform_only:
+        # --transform-only must not touch the network. Read existing CSV cache
+        # only; do NOT call get_scraped_matches (which launches a browser on a
+        # cold/expired cache).
+        print("⏭️  transform-only: reading cached competition CSVs, no scraping")
+        for comp_name in sorted(needed_comps):
+            cache_file = SCRAPE_CACHE / f"{comp_name}_matches.csv"
+            if cache_file.exists():
+                comp_cache[comp_name] = pd.read_csv(cache_file)
+            else:
+                logger.warning("transform-only: no scrape cache for %s", comp_name)
+                comp_cache[comp_name] = pd.DataFrame()
+    else:
+        for comp_name in sorted(needed_comps):
+            comp_info = all_comps[comp_name]
+            comp_cache[comp_name] = get_scraped_matches(
+                comp_name, comp_info["results_url"], config, logger,
+                force_rescrape=args.force_rescrape,
+            )
 
     # ─────────────────────────────────────────────────────────────────────────
     # PHASE 2 — Download + transform per team × competition

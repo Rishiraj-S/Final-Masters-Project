@@ -58,6 +58,23 @@ def clear_events_cache() -> None:
     _results_cache = None
 
 
+def _dbl_log(events: pd.DataFrame, event_type: str, won: bool) -> pd.DataFrame:
+    """Select one side of a double-logged event for a single team's events.
+
+    Opta logs Fouls and Corner Awarded once per team. The *winning* side (team
+    that takes the free kick / corner) carries ``outcome == 1``; the conceding /
+    committing side carries ``outcome == 0`` (empirically verified). Pass
+    ``won=True`` for corners-won / fouls-won, ``won=False`` for fouls-committed /
+    corners-conceded. ``!= 1`` is used for the committed side so legacy
+    single-logged rows with NaN outcome are retained.
+    """
+    sub = events[events['event_type'] == event_type]
+    if 'outcome' not in sub.columns:
+        return sub
+    oc = pd.to_numeric(sub['outcome'], errors='coerce')
+    return sub[oc == 1] if won else sub[oc != 1]
+
+
 # ── Centralised own-goal helpers ─────────────────────────────────────────────
 # NOTE: The ``own goal`` qualifier column is **always 'N/A'** in the Opta
 # parquet data — it is never populated in practice.  Own goals cannot be
@@ -230,7 +247,7 @@ def get_match_results():
     multiple tab builders don't each re-run the same groupby over 100k+ rows.
     """
     global _results_cache
-    if _results_cache:
+    if _results_cache is not None:
         return _results_cache
 
     events = get_all_events()
@@ -257,7 +274,18 @@ def get_match_results():
         match_info['home_goals'] = home_goals
         match_info['away_goals'] = away_goals
 
-        if 'Barcelona' in match_info['home_team']:
+        # Identify Barça's side via team_code (authoritative) rather than a
+        # name substring — Opta stored names (e.g. 'FC Barcelona') can differ
+        # from the configured display name and would silently swap home/away.
+        barca_is_home = None
+        if {'team_code', 'team_position'}.issubset(match_events.columns):
+            _bar_rows = match_events[match_events['team_code'] == 'BAR']
+            if not _bar_rows.empty:
+                barca_is_home = (_bar_rows['team_position'].iloc[0] == 'home')
+        if barca_is_home is None:
+            barca_is_home = 'Barcelona' in str(match_info['home_team'])
+
+        if barca_is_home:
             match_info['barca_goals']    = home_goals
             match_info['opponent_goals'] = away_goals
             match_info['opponent']       = match_info['away_team']
@@ -382,16 +410,16 @@ def get_match_stats(match_id):
         team_stats['passes'] = len(passes)
         team_stats['pass_accuracy'] = round(len(passes[passes['outcome'] == 1]) / len(passes) * 100, 1) if len(passes) > 0 else 0
 
-        # Fouls
-        team_stats['fouls'] = len(team_events[team_events['event_type'] == 'Foul'])
+        # Fouls committed — double-logged; committed rows carry outcome != 1.
+        team_stats['fouls'] = len(_dbl_log(team_events, 'Foul', won=False))
 
         # Cards
         cards = team_events[team_events['event_type'] == 'Card']
         team_stats['yellow_cards'] = len(cards[cards['Yellow Card'] == 'Si']) if 'Yellow Card' in cards.columns else 0
         team_stats['red_cards'] = len(cards[cards['Red Card'] == 'Si']) if 'Red Card' in cards.columns else 0
 
-        # Corners
-        team_stats['corners'] = len(team_events[team_events['event_type'] == 'Corner Awarded'])
+        # Corners won/taken — double-logged; the team that takes the corner is outcome == 1.
+        team_stats['corners'] = len(_dbl_log(team_events, 'Corner Awarded', won=True))
 
         # Possession (simplified - based on pass count ratio)
         all_passes = len(events[events['event_type'] == 'Pass'])
@@ -771,8 +799,10 @@ def get_team_season_stats(season=CURRENT_SEASON, competition=None):
         'passes': len(passes),
         'pass_accuracy': pass_acc,
         'possession': possession,
-        'corners': len(bar_events[bar_events['event_type'] == 'Corner Awarded']),
-        'fouls': len(bar_events[bar_events['event_type'] == 'Foul']),
+        # Both are double-logged (one row per team). Corners *won/taken* by BAR
+        # carry outcome==1; fouls *committed* by BAR carry outcome!=1.
+        'corners': len(_dbl_log(bar_events, 'Corner Awarded', won=True)),
+        'fouls': len(_dbl_log(bar_events, 'Foul', won=False)),
         'yellow_cards': yellow_cards,
         'red_cards': red_cards,
         'tackles': len(bar_events[bar_events['event_type'] == 'Tackle']),
@@ -794,13 +824,23 @@ def get_match_lineup(match_id):
     if not match_id:
         return pd.DataFrame()
 
+    mid = str(match_id)
     for _key, (country, comp_folder) in _BARCA_COMPS.items():
         lineup_path = DATA_ROOT / country / comp_folder / 'lineup'
         if not lineup_path.exists():
             continue
         for f in lineup_path.glob('*.parquet'):
-            if match_id in f.stem:
-                return pd.read_parquet(f)
+            # Match the trailing id segment, not a loose substring — match_id
+            # '123' must not match a file ending '..._1234.parquet'. Filenames
+            # follow '{date}_{home}_vs_{away}_{match_id}'.
+            if f.stem == mid or f.stem.endswith(f'_{mid}'):
+                try:
+                    return pd.read_parquet(f)
+                except Exception:
+                    # Parquet may be mid-write by the pipeline subprocess, or
+                    # corrupt — fall through and keep scanning rather than
+                    # crashing the callback.
+                    continue
 
     return pd.DataFrame()
 

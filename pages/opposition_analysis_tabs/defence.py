@@ -218,9 +218,16 @@ def _def_kpi_children(opp_def: pd.DataFrame, opp_ev: pd.DataFrame, bar_ev: pd.Da
                    if tkl_n > 0 and 'outcome' in tackles.columns else 0)
         tkl_won_pct = round(tkl_won / tkl_n * 100) if tkl_n > 0 else 0
 
-        challenge_n  = int((opp_ev['event_type'] == 'Challenge').sum()) if not opp_ev.empty else 0
+        challenges   = opp_ev[opp_ev['event_type'] == 'Challenge'] if not opp_ev.empty else opp_ev
+        challenge_n  = len(challenges)
+        chal_won     = (int((pd.to_numeric(challenges['outcome'], errors='coerce') == 1).sum())
+                        if challenge_n > 0 and 'outcome' in challenges.columns else 0)
+        # % Duels Won = (won tackles + won challenges) / all ground duels — the
+        # previous formula was tackles / (tackles + challenges), i.e. the share
+        # of duels that were tackles, not a win rate.
         duel_total   = tkl_n + challenge_n
-        duel_win_pct = round(tkl_n / duel_total * 100) if duel_total > 0 else 0
+        duel_won     = tkl_won + chal_won
+        duel_win_pct = round(duel_won / duel_total * 100) if duel_total > 0 else 0
 
         int_n = int((opp_def['event_type'] == 'Interception').sum())
         clr_n = int((opp_def['event_type'] == 'Clearance').sum())
@@ -422,7 +429,10 @@ def _foul_player_table(team_events: pd.DataFrame, top_n: int = 15) -> list:
     for player, grp in team_events.groupby('player_name'):
         if not player:
             continue
-        fouls    = int((grp['event_type'] == 'Foul').sum())
+        _gf = grp[grp['event_type'] == 'Foul']
+        # Fouls committed only — fouls are double-logged and the won row carries
+        # outcome==1; keep outcome != 1 for committed.
+        fouls    = int((pd.to_numeric(_gf['outcome'], errors='coerce') != 1).sum()) if 'outcome' in _gf.columns else len(_gf)
         offsides = int((grp['event_type'] == 'Offside provoked').sum())
         cards    = grp[grp['event_type'] == 'Card']
         yellows  = int((cards['Yellow Card'].eq('Si')).sum()) if not cards.empty and 'Yellow Card' in cards.columns else 0

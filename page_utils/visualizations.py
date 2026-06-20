@@ -387,190 +387,193 @@ def render_lsc_heatmap_img(x_vals, y_vals, color_hex: str, half: bool = False,
         fig = plt.figure(figsize=(9, 5.5), facecolor=bg)
     else:
         fig = plt.figure(figsize=(11, 8.5), facecolor=bg)
-    gs = fig.add_gridspec(
-        2, 2,
-        width_ratios=[5, 1], height_ratios=[1, 5],
-        hspace=0.03, wspace=0.03,
-        left=0.01, right=0.99, top=0.97, bottom=0.01,
-    )
-    ax_main  = fig.add_subplot(gs[1, 0])
-    ax_top   = fig.add_subplot(gs[0, 0])
-    ax_right = fig.add_subplot(gs[1, 1])
-
-    for ax in (ax_top, ax_right):
-        ax.set_facecolor(bg)
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-        ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
-
-    pitch_kwargs = dict(
-        pitch_type='opta', pitch_color=PITCH_BG, line_color=PITCH_LINE_COLOR,
-        linewidth=2.5, stripe=False, goal_type='box', goal_alpha=0.8,
-        pad_top=2, pad_bottom=2,
-    )
-    if vertical:
-        pitch_kwargs.update(pad_left=2, pad_right=2)
-        if half:
-            pitch_kwargs['half'] = True
-    elif half:
-        pitch_kwargs.update(half=True, pad_left=2, pad_right=5)
-    else:
-        pitch_kwargs.update(pad_left=5, pad_right=5)
-
-    pitch = (VerticalPitch if vertical else Pitch)(**pitch_kwargs)
-    pitch.draw(ax=ax_main)
-
-    ax_xlim = ax_main.get_xlim()
-    ax_ylim = ax_main.get_ylim()
-    ax_top.set_xlim(*ax_xlim)
-    ax_right.set_ylim(*ax_ylim)
-
-    if len(x) >= 2:
-        # Use a muted version of the heatmap or just zones
-        bin_stat = pitch.bin_statistic_positional(
-            x, y, statistic='count', positional='full', normalize=False,
+    try:
+        gs = fig.add_gridspec(
+            2, 2,
+            width_ratios=[5, 1], height_ratios=[1, 5],
+            hspace=0.03, wspace=0.03,
+            left=0.01, right=0.99, top=0.97, bottom=0.01,
         )
-        # Heatmap colors - subtle orange fade
-        pitch.heatmap_positional(
-            bin_stat, ax=ax_main, cmap=cmap,
-            edgecolors=PITCH_BG, linewidth=0.8, alpha=0.3
+        ax_main  = fig.add_subplot(gs[1, 0])
+        ax_top   = fig.add_subplot(gs[0, 0])
+        ax_right = fig.add_subplot(gs[1, 1])
+    
+        for ax in (ax_top, ax_right):
+            ax.set_facecolor(bg)
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    
+        pitch_kwargs = dict(
+            pitch_type='opta', pitch_color=PITCH_BG, line_color=PITCH_LINE_COLOR,
+            linewidth=2.5, stripe=False, goal_type='box', goal_alpha=0.8,
+            pad_top=2, pad_bottom=2,
         )
-    elif len(x) == 1:
-        pitch.scatter(x, y, ax=ax_main, color=BARCA_BLUE, s=60,
-                      edgecolors='white', linewidth=0.5)
-
-    if show_zone_pcts and len(x) > 0:
-        total = len(x)
-        x_range_lo = 50 if half else 0
-        
-        # Positional bins for text placement
-        bin_stat = pitch.bin_statistic_positional(
-            x, y, statistic='count', positional='full', normalize=False
-        )
-        
-        # bin_stat is a list of dictionaries (one for each major zone)
-        for zone in bin_stat:
-            stats = zone['statistic'].flatten()
-            cxs = zone['cx'].flatten()
-            cys = zone['cy'].flatten()
+        if vertical:
+            pitch_kwargs.update(pad_left=2, pad_right=2)
+            if half:
+                pitch_kwargs['half'] = True
+        elif half:
+            pitch_kwargs.update(half=True, pad_left=2, pad_right=5)
+        else:
+            pitch_kwargs.update(pad_left=5, pad_right=5)
+    
+        pitch = (VerticalPitch if vertical else Pitch)(**pitch_kwargs)
+        pitch.draw(ax=ax_main)
+    
+        ax_xlim = ax_main.get_xlim()
+        ax_ylim = ax_main.get_ylim()
+        ax_top.set_xlim(*ax_xlim)
+        ax_right.set_ylim(*ax_ylim)
+    
+        if len(x) >= 2:
+            # Use a muted version of the heatmap or just zones
+            bin_stat = pitch.bin_statistic_positional(
+                x, y, statistic='count', positional='full', normalize=False,
+            )
+            # Heatmap colors - subtle orange fade
+            pitch.heatmap_positional(
+                bin_stat, ax=ax_main, cmap=cmap,
+                edgecolors=PITCH_BG, linewidth=0.8, alpha=0.3
+            )
+        elif len(x) == 1:
+            pitch.scatter(x, y, ax=ax_main, color=BARCA_BLUE, s=60,
+                          edgecolors='white', linewidth=0.5)
+    
+        if show_zone_pcts and len(x) > 0:
+            total = len(x)
+            x_range_lo = 50 if half else 0
             
-            for bin_info, cx, cy in zip(stats, cxs, cys):
-                if bin_info > 0:
-                    pct = (bin_info / total) * 100
-                    
-                    _tc = text_color if text_color else BARCA_BLUE
-                    if vertical:
-                        # VerticalPitch: figure x = Opta y (cy), figure y = Opta x (cx)
-                        ax_main.text(
-                            cy, cx, f'{int(bin_info)}',
-                            ha='center', va='center', fontsize=18, fontweight='bold',
-                            color=_tc, zorder=5
-                        )
-                        ax_main.text(
-                            cy, cx + 4, f'({pct:.0f}%)',
-                            ha='center', va='center', fontsize=11, fontweight='bold',
-                            color=_tc, zorder=5
-                        )
-                    else:
-                        # Large Count
-                        ax_main.text(
-                            cx, cy - 2, f'{int(bin_info)}',
-                            ha='center', va='center', fontsize=22, fontweight='bold',
-                            color=_tc, zorder=5
-                        )
-                        # Smaller Percentage
-                        ax_main.text(
-                            cx, cy + 4, f'({pct:.0f}%)',
-                            ha='center', va='center', fontsize=12, fontweight='bold',
-                            color=_tc, zorder=5
-                        )
-
-    if vertical:
-        ax_main.text(
-            0.5, 0.01, '↑  Attack',
-            transform=ax_main.transAxes,
-            ha='center', va='bottom',
-            fontsize=9.5, fontweight='bold', color='white',
-            bbox=dict(boxstyle='round,pad=0.3', facecolor=PITCH_BG, alpha=0.8,
-                      edgecolor=PITCH_LINE_COLOR),
-            zorder=10,
-        )
-    else:
-        ax_main.text(
-            0.5, 1.012, '➡  Direction of Attack',
-            transform=ax_main.transAxes,
-            ha='center', va='bottom',
-            fontsize=9.5, fontweight='bold', color='white',
-            bbox=dict(boxstyle='round,pad=0.3', facecolor=PITCH_BG, alpha=0.8,
-                      edgecolor=PITCH_LINE_COLOR),
-            zorder=10,
-        )
-
-    _s = 1.5
-    _k = max(3, int(6 * _s + 1))
-    if _k % 2 == 0:
-        _k += 1
-    _kern = np.exp(-0.5 * ((np.arange(_k) - _k // 2) / _s) ** 2)
-    _kern /= _kern.sum()
-
-    N = 20
-
-    if vertical:
-        # VerticalPitch: figure x-axis = Opta y (side), figure y-axis = Opta x (depth)
-        # ax_top spans the Opta y range (figure x) → histogram over Opta y values
-        # ax_right spans the Opta x range (figure y) → histogram over Opta x values
-        y_counts_t, y_edges_t = np.histogram(y, bins=N, range=(0, 100))
-        y_mids_t = (y_edges_t[:-1] + y_edges_t[1:]) / 2
-        y_smooth_t = np.convolve(y_counts_t.astype(float), _kern, mode='same')
-        bw_t = (y_edges_t[1] - y_edges_t[0]) * 0.85
-        ax_top.bar(y_mids_t, y_counts_t, width=bw_t,
-                   color=(r_c, g_c, b_c, 0.40), align='center')
-        ax_top.plot(y_mids_t, y_smooth_t, color=(r_c, g_c, b_c), linewidth=2)
-        ax_top.fill_between(y_mids_t, y_smooth_t, alpha=0.15, color=(r_c, g_c, b_c))
-        ax_top.set_ylim(bottom=0)
-
-        x_range_r = (50, 100) if half else (0, 100)
-        x_counts_r, x_edges_r = np.histogram(x, bins=N, range=x_range_r)
-        x_mids_r = (x_edges_r[:-1] + x_edges_r[1:]) / 2
-        x_smooth_r = np.convolve(x_counts_r.astype(float), _kern, mode='same')
-        bh_r = (x_edges_r[1] - x_edges_r[0]) * 0.85
-        ax_right.barh(x_mids_r, x_counts_r, height=bh_r,
-                      color=(r_c, g_c, b_c, 0.40), align='center')
-        ax_right.plot(x_smooth_r, x_mids_r, color=(r_c, g_c, b_c), linewidth=2)
-        ax_right.fill_betweenx(x_mids_r, x_smooth_r, alpha=0.15, color=(r_c, g_c, b_c))
-        ax_right.set_xlim(left=0)
-    else:
-        x_range = (50, 100) if half else (0, 100)
-
-        x_counts, x_edges = np.histogram(x, bins=N, range=x_range)
-        x_mids = (x_edges[:-1] + x_edges[1:]) / 2
-        x_smooth = np.convolve(x_counts.astype(float), _kern, mode='same')
-        bw = (x_edges[1] - x_edges[0]) * 0.85
-        ax_top.bar(x_mids, x_counts, width=bw,
-                   color=(r_c, g_c, b_c, 0.40), align='center')
-        ax_top.plot(x_mids, x_smooth, color=(r_c, g_c, b_c), linewidth=2)
-        ax_top.fill_between(x_mids, x_smooth, alpha=0.15, color=(r_c, g_c, b_c))
-        ax_top.set_ylim(bottom=0)
-
-        y_counts, y_edges = np.histogram(y, bins=N, range=(0, 100))
-        y_mids = (y_edges[:-1] + y_edges[1:]) / 2
-        y_smooth = np.convolve(y_counts.astype(float), _kern, mode='same')
-        bh = (y_edges[1] - y_edges[0]) * 0.85
-        ax_right.barh(y_mids, y_counts, height=bh,
-                      color=(r_c, g_c, b_c, 0.40), align='center')
-        ax_right.plot(y_smooth, y_mids, color=(r_c, g_c, b_c), linewidth=2)
-        ax_right.fill_betweenx(y_mids, y_smooth, alpha=0.15, color=(r_c, g_c, b_c))
-        ax_right.set_xlim(left=0)
-
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=80, bbox_inches='tight', pad_inches=0.05,
-                facecolor=bg)
-    buf.seek(0)
-    img_str = base64.b64encode(buf.read()).decode()
-    plt.close(fig)
-    result = f'data:image/png;base64,{img_str}'
-    _heatmap_cache[_cache_key] = result
-    return result
+            # Positional bins for text placement
+            bin_stat = pitch.bin_statistic_positional(
+                x, y, statistic='count', positional='full', normalize=False
+            )
+            
+            # bin_stat is a list of dictionaries (one for each major zone)
+            for zone in bin_stat:
+                stats = zone['statistic'].flatten()
+                cxs = zone['cx'].flatten()
+                cys = zone['cy'].flatten()
+                
+                for bin_info, cx, cy in zip(stats, cxs, cys):
+                    if bin_info > 0:
+                        pct = (bin_info / total) * 100
+                        
+                        _tc = text_color if text_color else BARCA_BLUE
+                        if vertical:
+                            # VerticalPitch: figure x = Opta y (cy), figure y = Opta x (cx)
+                            ax_main.text(
+                                cy, cx, f'{int(bin_info)}',
+                                ha='center', va='center', fontsize=18, fontweight='bold',
+                                color=_tc, zorder=5
+                            )
+                            ax_main.text(
+                                cy, cx + 4, f'({pct:.0f}%)',
+                                ha='center', va='center', fontsize=11, fontweight='bold',
+                                color=_tc, zorder=5
+                            )
+                        else:
+                            # Large Count
+                            ax_main.text(
+                                cx, cy - 2, f'{int(bin_info)}',
+                                ha='center', va='center', fontsize=22, fontweight='bold',
+                                color=_tc, zorder=5
+                            )
+                            # Smaller Percentage
+                            ax_main.text(
+                                cx, cy + 4, f'({pct:.0f}%)',
+                                ha='center', va='center', fontsize=12, fontweight='bold',
+                                color=_tc, zorder=5
+                            )
+    
+        if vertical:
+            ax_main.text(
+                0.5, 0.01, '↑  Attack',
+                transform=ax_main.transAxes,
+                ha='center', va='bottom',
+                fontsize=9.5, fontweight='bold', color='white',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor=PITCH_BG, alpha=0.8,
+                          edgecolor=PITCH_LINE_COLOR),
+                zorder=10,
+            )
+        else:
+            ax_main.text(
+                0.5, 1.012, '➡  Direction of Attack',
+                transform=ax_main.transAxes,
+                ha='center', va='bottom',
+                fontsize=9.5, fontweight='bold', color='white',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor=PITCH_BG, alpha=0.8,
+                          edgecolor=PITCH_LINE_COLOR),
+                zorder=10,
+            )
+    
+        _s = 1.5
+        _k = max(3, int(6 * _s + 1))
+        if _k % 2 == 0:
+            _k += 1
+        _kern = np.exp(-0.5 * ((np.arange(_k) - _k // 2) / _s) ** 2)
+        _kern /= _kern.sum()
+    
+        N = 20
+    
+        if vertical:
+            # VerticalPitch: figure x-axis = Opta y (side), figure y-axis = Opta x (depth)
+            # ax_top spans the Opta y range (figure x) → histogram over Opta y values
+            # ax_right spans the Opta x range (figure y) → histogram over Opta x values
+            y_counts_t, y_edges_t = np.histogram(y, bins=N, range=(0, 100))
+            y_mids_t = (y_edges_t[:-1] + y_edges_t[1:]) / 2
+            y_smooth_t = np.convolve(y_counts_t.astype(float), _kern, mode='same')
+            bw_t = (y_edges_t[1] - y_edges_t[0]) * 0.85
+            ax_top.bar(y_mids_t, y_counts_t, width=bw_t,
+                       color=(r_c, g_c, b_c, 0.40), align='center')
+            ax_top.plot(y_mids_t, y_smooth_t, color=(r_c, g_c, b_c), linewidth=2)
+            ax_top.fill_between(y_mids_t, y_smooth_t, alpha=0.15, color=(r_c, g_c, b_c))
+            ax_top.set_ylim(bottom=0)
+    
+            x_range_r = (50, 100) if half else (0, 100)
+            x_counts_r, x_edges_r = np.histogram(x, bins=N, range=x_range_r)
+            x_mids_r = (x_edges_r[:-1] + x_edges_r[1:]) / 2
+            x_smooth_r = np.convolve(x_counts_r.astype(float), _kern, mode='same')
+            bh_r = (x_edges_r[1] - x_edges_r[0]) * 0.85
+            ax_right.barh(x_mids_r, x_counts_r, height=bh_r,
+                          color=(r_c, g_c, b_c, 0.40), align='center')
+            ax_right.plot(x_smooth_r, x_mids_r, color=(r_c, g_c, b_c), linewidth=2)
+            ax_right.fill_betweenx(x_mids_r, x_smooth_r, alpha=0.15, color=(r_c, g_c, b_c))
+            ax_right.set_xlim(left=0)
+        else:
+            x_range = (50, 100) if half else (0, 100)
+    
+            x_counts, x_edges = np.histogram(x, bins=N, range=x_range)
+            x_mids = (x_edges[:-1] + x_edges[1:]) / 2
+            x_smooth = np.convolve(x_counts.astype(float), _kern, mode='same')
+            bw = (x_edges[1] - x_edges[0]) * 0.85
+            ax_top.bar(x_mids, x_counts, width=bw,
+                       color=(r_c, g_c, b_c, 0.40), align='center')
+            ax_top.plot(x_mids, x_smooth, color=(r_c, g_c, b_c), linewidth=2)
+            ax_top.fill_between(x_mids, x_smooth, alpha=0.15, color=(r_c, g_c, b_c))
+            ax_top.set_ylim(bottom=0)
+    
+            y_counts, y_edges = np.histogram(y, bins=N, range=(0, 100))
+            y_mids = (y_edges[:-1] + y_edges[1:]) / 2
+            y_smooth = np.convolve(y_counts.astype(float), _kern, mode='same')
+            bh = (y_edges[1] - y_edges[0]) * 0.85
+            ax_right.barh(y_mids, y_counts, height=bh,
+                          color=(r_c, g_c, b_c, 0.40), align='center')
+            ax_right.plot(y_smooth, y_mids, color=(r_c, g_c, b_c), linewidth=2)
+            ax_right.fill_betweenx(y_mids, y_smooth, alpha=0.15, color=(r_c, g_c, b_c))
+            ax_right.set_xlim(left=0)
+    
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=80, bbox_inches='tight', pad_inches=0.05,
+                    facecolor=bg)
+        buf.seek(0)
+        img_str = base64.b64encode(buf.read()).decode()
+        result = f'data:image/png;base64,{img_str}'
+        _heatmap_cache[_cache_key] = result
+        return result
+    finally:
+        # Always release the figure, even if gridspec/heatmap/savefig raised.
+        plt.close(fig)
 
 
 def render_xt_heatmap_img(x_vals, y_vals, xt_vals) -> str:
@@ -607,103 +610,106 @@ def render_xt_heatmap_img(x_vals, y_vals, xt_vals) -> str:
 
     bg = PITCH_BG
     fig = plt.figure(figsize=(11, 8.5), facecolor=bg)
-    gs = fig.add_gridspec(
-        2, 2,
-        width_ratios=[5, 1], height_ratios=[1, 5],
-        hspace=0.03, wspace=0.03,
-        left=0.01, right=0.99, top=0.97, bottom=0.01,
-    )
-    ax_main  = fig.add_subplot(gs[1, 0])
-    ax_top   = fig.add_subplot(gs[0, 0])
-    ax_right = fig.add_subplot(gs[1, 1])
-
-    for ax in (ax_top, ax_right):
-        ax.set_facecolor(bg)
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-        ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
-
-    pitch = Pitch(
-        pitch_type='opta', pitch_color=PITCH_BG, line_color=PITCH_LINE_COLOR,
-        linewidth=2.5, stripe=False, goal_type='box', goal_alpha=0.8,
-        pad_top=2, pad_bottom=2, pad_left=5, pad_right=5,
-    )
-    pitch.draw(ax=ax_main)
-
-    ax_xlim = ax_main.get_xlim()
-    ax_ylim = ax_main.get_ylim()
-    ax_top.set_xlim(*ax_xlim)
-    ax_right.set_ylim(*ax_ylim)
-
-    if len(_x) >= 2:
-        bin_stat = pitch.bin_statistic(
-            _x, _y, values=_xt, statistic='sum', bins=(16, 12),
+    try:
+        gs = fig.add_gridspec(
+            2, 2,
+            width_ratios=[5, 1], height_ratios=[1, 5],
+            hspace=0.03, wspace=0.03,
+            left=0.01, right=0.99, top=0.97, bottom=0.01,
         )
-        pitch.heatmap(
-            bin_stat, ax=ax_main, cmap=cmap,
-            edgecolors=PITCH_BG, linewidth=0.4, alpha=0.85,
+        ax_main  = fig.add_subplot(gs[1, 0])
+        ax_top   = fig.add_subplot(gs[0, 0])
+        ax_right = fig.add_subplot(gs[1, 1])
+    
+        for ax in (ax_top, ax_right):
+            ax.set_facecolor(bg)
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    
+        pitch = Pitch(
+            pitch_type='opta', pitch_color=PITCH_BG, line_color=PITCH_LINE_COLOR,
+            linewidth=2.5, stripe=False, goal_type='box', goal_alpha=0.8,
+            pad_top=2, pad_bottom=2, pad_left=5, pad_right=5,
         )
-        # Label only the top-15 cells by xT to avoid clutter
-        flat_vals = bin_stat['statistic'].flatten()
-        flat_cx   = bin_stat['cx'].flatten()
-        flat_cy   = bin_stat['cy'].flatten()
-        threshold = sorted(flat_vals[flat_vals > 0.005], reverse=True)[:15]
-        if threshold:
-            cutoff = threshold[-1]
-            for val, cx, cy in zip(flat_vals, flat_cx, flat_cy):
-                if val >= cutoff:
-                    ax_main.text(
-                        cx, cy, f'{val:.2f}',
-                        ha='center', va='center',
-                        fontsize=7, fontweight='bold',
-                        color='#004D98', zorder=5,
-                    )
-
-    ax_main.text(
-        0.5, 1.012, '➡  Direction of Attack',
-        transform=ax_main.transAxes,
-        ha='center', va='bottom',
-        fontsize=9.5, fontweight='bold', color='white',
-        bbox=dict(boxstyle='round,pad=0.3', facecolor=PITCH_BG, alpha=0.8,
-                  edgecolor=PITCH_LINE_COLOR),
-        zorder=10,
-    )
-
-    # Marginal bar plots — distribution of pass start positions
-    _s = 1.5
-    _k = max(3, int(6 * _s + 1))
-    if _k % 2 == 0:
-        _k += 1
-    _kern = np.exp(-0.5 * ((np.arange(_k) - _k // 2) / _s) ** 2)
-    _kern /= _kern.sum()
-    N = 20
-
-    x_counts, x_edges = np.histogram(_x, bins=N, range=(0, 100))
-    x_mids   = (x_edges[:-1] + x_edges[1:]) / 2
-    x_smooth = np.convolve(x_counts.astype(float), _kern, mode='same')
-    bw = (x_edges[1] - x_edges[0]) * 0.85
-    ax_top.bar(x_mids, x_counts, width=bw, color=(r_c, g_c, b_c, 0.40), align='center')
-    ax_top.plot(x_mids, x_smooth, color=(r_c, g_c, b_c), linewidth=2)
-    ax_top.fill_between(x_mids, x_smooth, alpha=0.15, color=(r_c, g_c, b_c))
-    ax_top.set_ylim(bottom=0)
-
-    y_counts, y_edges = np.histogram(_y, bins=N, range=(0, 100))
-    y_mids   = (y_edges[:-1] + y_edges[1:]) / 2
-    y_smooth = np.convolve(y_counts.astype(float), _kern, mode='same')
-    bh = (y_edges[1] - y_edges[0]) * 0.85
-    ax_right.barh(y_mids, y_counts, height=bh, color=(r_c, g_c, b_c, 0.40), align='center')
-    ax_right.plot(y_smooth, y_mids, color=(r_c, g_c, b_c), linewidth=2)
-    ax_right.fill_betweenx(y_mids, y_smooth, alpha=0.15, color=(r_c, g_c, b_c))
-    ax_right.set_xlim(left=0)
-
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=80, bbox_inches='tight', pad_inches=0.05, facecolor=bg)
-    buf.seek(0)
-    img_str = base64.b64encode(buf.read()).decode()
-    plt.close(fig)
-    result = f'data:image/png;base64,{img_str}'
-    _heatmap_cache[_cache_key] = result
-    return result
+        pitch.draw(ax=ax_main)
+    
+        ax_xlim = ax_main.get_xlim()
+        ax_ylim = ax_main.get_ylim()
+        ax_top.set_xlim(*ax_xlim)
+        ax_right.set_ylim(*ax_ylim)
+    
+        if len(_x) >= 2:
+            bin_stat = pitch.bin_statistic(
+                _x, _y, values=_xt, statistic='sum', bins=(16, 12),
+            )
+            pitch.heatmap(
+                bin_stat, ax=ax_main, cmap=cmap,
+                edgecolors=PITCH_BG, linewidth=0.4, alpha=0.85,
+            )
+            # Label only the top-15 cells by xT to avoid clutter
+            flat_vals = bin_stat['statistic'].flatten()
+            flat_cx   = bin_stat['cx'].flatten()
+            flat_cy   = bin_stat['cy'].flatten()
+            threshold = sorted(flat_vals[flat_vals > 0.005], reverse=True)[:15]
+            if threshold:
+                cutoff = threshold[-1]
+                for val, cx, cy in zip(flat_vals, flat_cx, flat_cy):
+                    if val >= cutoff:
+                        ax_main.text(
+                            cx, cy, f'{val:.2f}',
+                            ha='center', va='center',
+                            fontsize=7, fontweight='bold',
+                            color='#004D98', zorder=5,
+                        )
+    
+        ax_main.text(
+            0.5, 1.012, '➡  Direction of Attack',
+            transform=ax_main.transAxes,
+            ha='center', va='bottom',
+            fontsize=9.5, fontweight='bold', color='white',
+            bbox=dict(boxstyle='round,pad=0.3', facecolor=PITCH_BG, alpha=0.8,
+                      edgecolor=PITCH_LINE_COLOR),
+            zorder=10,
+        )
+    
+        # Marginal bar plots — distribution of pass start positions
+        _s = 1.5
+        _k = max(3, int(6 * _s + 1))
+        if _k % 2 == 0:
+            _k += 1
+        _kern = np.exp(-0.5 * ((np.arange(_k) - _k // 2) / _s) ** 2)
+        _kern /= _kern.sum()
+        N = 20
+    
+        x_counts, x_edges = np.histogram(_x, bins=N, range=(0, 100))
+        x_mids   = (x_edges[:-1] + x_edges[1:]) / 2
+        x_smooth = np.convolve(x_counts.astype(float), _kern, mode='same')
+        bw = (x_edges[1] - x_edges[0]) * 0.85
+        ax_top.bar(x_mids, x_counts, width=bw, color=(r_c, g_c, b_c, 0.40), align='center')
+        ax_top.plot(x_mids, x_smooth, color=(r_c, g_c, b_c), linewidth=2)
+        ax_top.fill_between(x_mids, x_smooth, alpha=0.15, color=(r_c, g_c, b_c))
+        ax_top.set_ylim(bottom=0)
+    
+        y_counts, y_edges = np.histogram(_y, bins=N, range=(0, 100))
+        y_mids   = (y_edges[:-1] + y_edges[1:]) / 2
+        y_smooth = np.convolve(y_counts.astype(float), _kern, mode='same')
+        bh = (y_edges[1] - y_edges[0]) * 0.85
+        ax_right.barh(y_mids, y_counts, height=bh, color=(r_c, g_c, b_c, 0.40), align='center')
+        ax_right.plot(y_smooth, y_mids, color=(r_c, g_c, b_c), linewidth=2)
+        ax_right.fill_betweenx(y_mids, y_smooth, alpha=0.15, color=(r_c, g_c, b_c))
+        ax_right.set_xlim(left=0)
+    
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=80, bbox_inches='tight', pad_inches=0.05, facecolor=bg)
+        buf.seek(0)
+        img_str = base64.b64encode(buf.read()).decode()
+        result = f'data:image/png;base64,{img_str}'
+        _heatmap_cache[_cache_key] = result
+        return result
+    finally:
+        # Always release the figure, even if gridspec/heatmap/savefig raised.
+        plt.close(fig)
 
 
 # =============================================================================

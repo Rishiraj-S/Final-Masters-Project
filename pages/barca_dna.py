@@ -1369,11 +1369,19 @@ def register_player_analysis_callbacks(app):
             pen_fouls  = int(stats.get("penalty_fouls", 0)    or 0)
 
             x_num = pd.to_numeric(p_ev["x"], errors="coerce")
-            touches_box = int((x_num >= 83).sum())
+            y_num = pd.to_numeric(p_ev["y"], errors="coerce")
+            # Opponent penalty box: x >= 83 AND y within the 18-yard width
+            # (21.1–78.9). The previous x-only test counted wide touches at the
+            # byline as "in the box".
+            touches_box = int(((x_num >= 83) & (y_num >= 21.1) & (y_num <= 78.9)).sum())
 
-            fouls_committed  = int(stats.get("fouls", 0) or 0)
-            fouls_total_rows = int((p_ev["event_type"] == "Foul").sum())
-            fouls_won        = max(0, fouls_total_rows - fouls_committed)
+            # Opta double-logs every foul: outcome==0 is the committing player's
+            # row, outcome==1 is the fouled (foul-winning) player's row. Both land
+            # in this player's events, so split on outcome rather than subtracting
+            # identical totals (which always gave 0).
+            _foul_rows     = p_ev[p_ev["event_type"] == "Foul"]
+            _foul_outcome  = pd.to_numeric(_foul_rows["outcome"], errors="coerce")
+            fouls_won      = int((_foul_outcome == 1).sum())
 
             poss_stats = html.Div([
                 _shot_stat_row("Successful Dribbles",   _fmt(_scale(succ_drib,   mins, p90), p90), "#51cf66"),

@@ -62,7 +62,13 @@ class MatchDownloader:
         ))
         if not result_dir.exists():
             return False
-        return any(result_dir.glob(f"*{match_id}*"))
+        # Trailing-segment match, not a loose substring — '123' must not match a
+        # file ending '..._1234.parquet'.
+        mid = str(match_id)
+        return any(
+            f.stem == mid or f.stem.endswith(f"_{mid}")
+            for f in result_dir.glob("*")
+        )
 
     # ------------------------------------------------------------------
     # Driver factory

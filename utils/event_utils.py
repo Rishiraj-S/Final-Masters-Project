@@ -38,8 +38,13 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 
 def _flag(series: pd.Series) -> pd.Series:
-    """Boolean mask: True where qualifier value is ``'Si'``."""
-    return series == "Si"
+    """Boolean mask: True where qualifier value is ``'Si'``.
+
+    Cast to ``str`` first so the check is robust against schema drift — if a
+    qualifier column is ever stored as bool/int rather than the canonical
+    ``'Si'``/``'N/A'`` strings, a raw ``== 'Si'`` would silently return all-False.
+    """
+    return series.astype(str) == "Si"
 
 
 def _numeric(series: pd.Series) -> pd.Series:
@@ -161,8 +166,40 @@ def get_successful_challenges(events: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_fouls(events: pd.DataFrame) -> pd.DataFrame:
-    """Foul events."""
+    """All Foul event rows (both committed and won).
+
+    NOTE: Opta double-logs every foul — one row per team. Use
+    ``get_fouls_committed`` / ``get_fouls_won`` for a directional count; raw
+    ``len(get_fouls(...))`` over-counts a team's fouls ~2× by including the
+    won-side rows.
+    """
     return events[events["event_type"] == "Foul"]
+
+
+def get_fouls_committed(events: pd.DataFrame) -> pd.DataFrame:
+    """Fouls committed by the acting player/team (outcome != 1).
+
+    Each foul is double-logged: the committing player's row carries
+    ``outcome == 0`` and the fouled (foul-winning) player's row carries
+    ``outcome == 1``. This was verified empirically — the ``outcome == 1``
+    team always takes the ensuing free kick. ``!= 1`` (rather than ``== 0``)
+    keeps single-logged legacy rows whose outcome may be NaN.
+    """
+    fouls = get_fouls(events)
+    if "outcome" not in fouls.columns:
+        return fouls
+    return fouls[_numeric(fouls["outcome"]) != 1]
+
+
+def get_fouls_won(events: pd.DataFrame) -> pd.DataFrame:
+    """Fouls won (player was fouled / team awarded the free kick; outcome == 1).
+
+    See ``get_fouls_committed`` for the double-logging convention.
+    """
+    fouls = get_fouls(events)
+    if "outcome" not in fouls.columns:
+        return fouls.iloc[0:0]
+    return fouls[_numeric(fouls["outcome"]) == 1]
 
 
 def get_penalty_fouls(events: pd.DataFrame) -> pd.DataFrame:
@@ -695,7 +732,10 @@ def compute_event_stats(events: pd.DataFrame) -> dict:
     offside_prov    = events[events["event_type"] == "Offside provoked"]
 
     # ── Discipline ───────────────────────────────────────────────────────────
-    fouls           = get_fouls(events)
+    # "fouls" here means fouls *committed* — get_fouls() returns both the
+    # committed and won rows of each double-logged foul, so use the committed
+    # selector to avoid ~2× inflation.
+    fouls           = get_fouls_committed(events)
     pen_fouls       = get_penalty_fouls(events)
     yellows         = len(get_yellow_cards(events))
     second_yellows  = len(get_second_yellow_cards(events))

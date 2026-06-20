@@ -57,8 +57,11 @@ class ZoneBoundaries:
                         Everything above this is the final / attacking third.
     """
 
-    defensive_end: float = 33.3
-    middle_end: float = 66.7
+    # Canonical thirds used throughout the app are 100/3 — keep full precision
+    # (33.33 / 66.67) so get_zone() agrees with the inline x>66.67 / x<33.33
+    # checks in the tab modules at the boundary.
+    defensive_end: float = 33.33
+    middle_end: float = 66.67
 
 
 _DEFAULT_BOUNDARIES: ZoneBoundaries = ZoneBoundaries()

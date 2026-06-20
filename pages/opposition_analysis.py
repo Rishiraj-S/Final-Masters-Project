@@ -497,7 +497,8 @@ def register_opposition_analysis_callbacks(app) -> None:
             n_matches = len(all_results)
             if n_matches == 0 and opp_ev.empty:
                 return _no_data_alert()
-            return build_overview(team, country, comp_key, all_results, opp_ev, bar_ev, n_matches)
+            return build_overview(team, country, comp_key, all_results, opp_ev, bar_ev,
+                                  n_matches, selected_match_ids)
 
         # ── All other tabs: return skeleton; callbacks populate charts ─────────
         if active_tab == 'oa-tab-buildup':

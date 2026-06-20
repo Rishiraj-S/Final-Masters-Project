@@ -77,20 +77,26 @@ app = dash.Dash(
 
 @app.server.route('/download-report/<match_id>')
 def serve_match_report(match_id):
+    # Sanitise the URL-supplied id before it reaches a DataFrame filter or the
+    # Content-Disposition header (a crafted id like '../../x' would otherwise
+    # produce a malformed download filename).
+    import re
+    safe_id = re.sub(r'[^A-Za-z0-9_-]', '', str(match_id))
     try:
         from utils.pdf_report import generate_match_report_pdf
-        pdf_bytes = generate_match_report_pdf(match_id)
+        pdf_bytes = generate_match_report_pdf(safe_id)
         return flask.send_file(
             io.BytesIO(pdf_bytes),
             mimetype='application/pdf',
             as_attachment=True,
-            download_name=f'match_report_{match_id}.pdf',
+            download_name=f'match_report_{safe_id}.pdf',
         )
     except Exception as exc:
         import logging
-        logging.getLogger(__name__).error("PDF route error for %s: %s", match_id, exc)
+        logging.getLogger(__name__).error("PDF route error for %s: %s", safe_id, exc)
+        # Keep internal detail (paths/stack fragments) out of the HTTP response.
         return flask.Response(
-            f"Error generating report: {exc}",
+            "Error generating report. Check server logs for details.",
             status=500,
             mimetype='text/plain',
         )
@@ -760,11 +766,12 @@ def show_update_overlay(update_status, opp_update_status):
     State('opp-team-select', 'value'),
     State('opp-comp-select', 'value'),
     State('opp-pipeline-options', 'value'),
+    State('session-store', 'data'),
     prevent_initial_call=True
 )
 def handle_database_update(n_clicks, opp_clicks, n_intervals,
                             current_status, opp_status,
-                            opp_team, opp_comp, opp_options):
+                            opp_team, opp_comp, opp_options, session_data):
     """Handle pipeline update buttons and monitor progress for both pipelines."""
     ctx = callback_context
     if not ctx.triggered:
@@ -772,6 +779,7 @@ def handle_database_update(n_clicks, opp_clicks, n_intervals,
 
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    is_admin   = bool(session_data and session_data.get('role') == 'admin')
 
     pipeline_path = os.path.join(script_dir, 'opta_pipeline', 'main.py')
     log_path      = os.path.join(script_dir, 'opta_pipeline', 'logs', 'pipeline_error.log')
@@ -782,6 +790,11 @@ def handle_database_update(n_clicks, opp_clicks, n_intervals,
 
     # ── Pipeline (with optional team/competition filters) ────────────────────
     if trigger_id == 'update-opp-run-button' and opp_clicks:
+        # Server-side authorisation — the admin-only button is gated in the UI,
+        # but the callback is registered for everyone, so re-check the role here
+        # before spawning a subprocess.
+        if not is_admin:
+            return current_status, opp_status, True
         if hasattr(app, '_opp_update_thread') and app._opp_update_thread.is_alive():
             return current_status, {'updating': True}, False
 
@@ -816,14 +829,24 @@ def handle_database_update(n_clicks, opp_clicks, n_intervals,
         new_barca = current_status or {}
         new_opp   = opp_status or {}
 
+        # Distinguish "thread finished" from "thread was never spawned in this
+        # server process" (e.g. a stale {updating: True} persisted in the
+        # browser session store across a server restart). Only fire the
+        # cache-clear + reload completion path if we actually ran the thread.
         if new_barca.get('updating') and not barca_alive:
-            clear_events_cache()
-            new_barca = {'updating': False, 'finished': True}
+            if hasattr(app, '_update_thread'):
+                clear_events_cache()
+                new_barca = {'updating': False, 'finished': True}
+            else:
+                new_barca = {'updating': False}
 
         if new_opp.get('updating') and not opp_alive:
-            clear_opp_events_cache()
-            clear_events_cache()
-            new_opp = {'updating': False, 'finished': True}
+            if hasattr(app, '_opp_update_thread'):
+                clear_opp_events_cache()
+                clear_events_cache()
+                new_opp = {'updating': False, 'finished': True}
+            else:
+                new_opp = {'updating': False}
 
         interval_disabled = not (barca_alive or opp_alive)
         return new_barca, new_opp, interval_disabled

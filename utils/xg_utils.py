@@ -22,6 +22,8 @@ read from disk on the first call, not on every page load.
 
 from __future__ import annotations
 
+import threading
+
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -31,15 +33,32 @@ from pathlib import Path
 # This avoids importing XGPredictor (and therefore xgboost) at module import
 # time, which would slow down the Dash app startup.
 _predictor = None
+_predictor_lock = threading.Lock()
 
 
 def _get_predictor():
     global _predictor
+    # Double-checked locking: the fast path skips the lock once loaded; the
+    # lock prevents two concurrent Dash callbacks both constructing XGRouter
+    # (and re-reading the model weights) on a cold start.
     if _predictor is None:
-        from xg_model.predictor import XGRouter
-        model_dir = Path(__file__).parent.parent / 'xg_model'
-        _predictor = XGRouter(model_dir)
+        with _predictor_lock:
+            if _predictor is None:
+                from xg_model.predictor import XGRouter
+                model_dir = Path(__file__).parent.parent / 'xg_model'
+                _predictor = XGRouter(model_dir)
     return _predictor
+
+
+def _num(val, default: float = 0.0) -> float:
+    """NaN-safe float conversion. ``float(NaN or 0)`` returns NaN because NaN is
+    truthy, so the ``x or 0`` idiom does not actually guard against NaN — this
+    helper does."""
+    try:
+        f = float(val)
+    except (TypeError, ValueError):
+        return default
+    return default if np.isnan(f) else f
 
 
 # ── Goal geometry (Opta 0-100 pitch) ─────────────────────────────────────────
@@ -92,8 +111,8 @@ def _row_to_shot_dict(row) -> dict | None:
     is_penalty = 1 if _present(row.get('Penalty')) else 0
     is_dfk     = 1 if _present(row.get('Free kick')) else 0
 
-    x = float(row.get('x') or 0)
-    y = float(row.get('y') or 0)
+    x = _num(row.get('x'), 0.0)
+    y = _num(row.get('y'), 0.0)
 
     # ── Spatial features ─────────────────────────────────────────────────────
     dx = _GOAL_X - x
@@ -141,8 +160,8 @@ def _row_to_shot_dict(row) -> dict | None:
     individual = _flag(row, 'Individual Play')
 
     # ── Time / period ─────────────────────────────────────────────────────────
-    time_min    = float(row.get('time_min') or 0)
-    period_id   = int(float(row.get('period_id') or 1))
+    time_min    = _num(row.get('time_min'), 0.0)
+    period_id   = int(_num(row.get('period_id'), 1.0))
     period_name = _PERIOD_MAP.get(period_id, 'First Half')
 
     return {

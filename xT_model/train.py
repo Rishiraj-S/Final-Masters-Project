@@ -45,9 +45,13 @@ NEEDED     = ["event_type", "x", "y", "Pass End X", "Pass End Y"]
 # ── Data loading ──────────────────────────────────────────────────────────────
 
 def load_events() -> pd.DataFrame:
-    files = (
-        glob.glob(str(ROOT / "data/barcelona/result/**/match_event/*.parquet"), recursive=True)
-        + glob.glob(str(ROOT / "data/opposition/**/match_event/*.parquet"),    recursive=True)
+    # Current data layout is data/2025-26/{Country}/{Competition}/match_event/.
+    # The old data/barcelona|opposition/** paths were removed — globbing them
+    # loaded zero files and silently overwrote the shipped xt_grid.npy with a
+    # near-uniform useless grid.
+    files = glob.glob(
+        str(ROOT / "data" / "2025-26" / "**" / "match_event" / "*.parquet"),
+        recursive=True,
     )
     print(f"Loading {len(files)} match files ...")
     dfs = []
@@ -56,6 +60,12 @@ def load_events() -> pd.DataFrame:
             dfs.append(pd.read_parquet(f, columns=NEEDED))
         except Exception:
             pass
+    if not dfs:
+        raise RuntimeError(
+            f"No parquet files found under {ROOT / 'data' / '2025-26'}. "
+            "Refusing to train on an empty set (would overwrite xt_grid.npy "
+            "with a useless grid). Check the data path."
+        )
     df = pd.concat(dfs, ignore_index=True)
     for col in ["x", "y", "Pass End X", "Pass End Y"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
