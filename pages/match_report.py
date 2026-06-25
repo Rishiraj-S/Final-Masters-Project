@@ -222,6 +222,7 @@ from utils.config import COLORS
 from utils.data_utils import get_match_lineup, exclude_own_goals, count_goals
 from utils.match_data_adapter import get_match_metadata, compute_team_kpis, get_starting_lineups, get_substitutions
 from utils.xg_utils import add_xg_column
+from utils.event_utils import compute_ppda
 from page_utils.visualizations import HOME_COLOR, AWAY_COLOR, GOLD, CHART_CONFIG, layout_config, add_pitch_background, PITCH_AXIS_FULL, render_xt_heatmap_img
 from page_utils.event_filters import SHOT_TYPES
 
@@ -375,8 +376,7 @@ def _generate_team_lineup_image(starters, formation: str, color: str):
                       fontsize=8, fontweight='bold', color='white', zorder=7)
             short = _shorten_name(names[i])
             ax_p.text(lat, dep - 5.5, short, ha='center', va='top',
-                      fontsize=7, color='white', zorder=7,
-                      path_effects=[mpe.withStroke(linewidth=2, foreground='#0A0E27')])
+                      fontsize=8.5, color='black', zorder=7, fontweight='bold')
             if caps[i]:
                 pitch.scatter([dep + 4.0], [lat + 5.0], s=120, c=GOLD, ax=ax_p, zorder=8, edgecolors='none')
                 ax_p.text(lat + 5.0, dep + 4.0, 'C', ha='center', va='center',
@@ -2664,9 +2664,9 @@ def _def_compute_half_stats(events: pd.DataFrame, pos: str, period: int | None =
         fouls_committed = fouls_committed[pd.to_numeric(fouls_committed['outcome'], errors='coerce') != 1]
     aerials     = te[te['event_type'] == 'Aerial']
     aerials_won = aerials[aerials['outcome'] == 1]
-    opp_passes  = len(opp[opp['event_type'] == 'Pass'])
-    def_actions = len(tackles) + len(interceptions) + len(fouls_committed)
-    ppda = round(opp_passes / def_actions, 1) if def_actions > 0 else 0.0
+    # PPDA — opponent passes in their own 60% ÷ this team's defensive actions in
+    # its attacking 60% (canonical high-press definition in event_utils).
+    ppda = compute_ppda(te, opp)
     return {
         'team': team,
         'tackles':         len(tackles),     'tackles_won':     len(tackles_won),
@@ -5541,10 +5541,8 @@ def _section_divider(title):
 
 
 def _sections_shell():
-    # No per-section spinners. Each section's output Div carries the
-    # `pma-progress-target` class so the clientside progress callback can count
-    # how many are still loading (via their `data-dash-is-loading` attribute) and
-    # quantify the bar. The report only appears once all are done.
+    # Each section's output Div carries `pma-progress-target` so the clientside
+    # progress callback can count how many are still loading and quantify the bar.
     children = []
     for key, title in _SECTIONS:
         if key == 'attack':
@@ -5581,21 +5579,18 @@ def create_match_analysis_layout():
             'result':         r.get('result', ''),
         })
     if match_data:
-        latest_match    = max(match_data, key=lambda m: str(m['date']))
-        default_match_id = latest_match['match_id']
-        latest          = latest_match['date']
-        init_year       = int(latest[:4])
-        init_month      = int(latest[5:7])
+        latest = max(match_data, key=lambda m: str(m['date']))['date']
+        init_year  = int(latest[:4])
+        init_month = int(latest[5:7])
     else:
         now = datetime.now()
         init_year, init_month = now.year, now.month
-        default_match_id = None
 
     month_name = calendar.month_name[init_month]
     return dbc.Container([
         dcc.Store(id='pma-match-data',      data=match_data),
         dcc.Store(id='pma-calendar-month',  data={'year': init_year, 'month': init_month}),
-        dcc.Store(id='pma-selected-match',  data=default_match_id),
+        dcc.Store(id='pma-selected-match',  data=None),
         html.H2("Match Report", style={'color': COLORS['text_primary'], 'fontWeight': 'bold',
                                         'textAlign': 'center'}),
         html.Hr(),
@@ -5655,9 +5650,9 @@ def create_match_analysis_layout():
                          style={'width': '0%'}),
                 html.Span('0%', id='pma-progress-label', className='mr-progress-pct'),
             ], className='mr-progress-track'),
-        ], id='pma-progress-wrap', className='mr-progress-wrap'),
+        ], id='pma-progress-wrap', className='mr-progress-wrap', style={'display': 'none'}),
 
-        dcc.Interval(id='pma-progress-tick', interval=100, n_intervals=0),
+        dcc.Interval(id='pma-progress-tick', interval=100, n_intervals=0, disabled=True),
 
         html.Div([
             html.Div(id='pma-score-headline', className="mb-3"),

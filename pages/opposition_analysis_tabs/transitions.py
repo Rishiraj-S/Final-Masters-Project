@@ -57,7 +57,7 @@ _LOSS_COLORS = {
 _LOSS_OUTCOME_SYMBOLS = {
     'Goal Conceded':     ('star',         14),
     'Shot Conceded':     ('triangle-up',  12),
-    'Opp Recovered':     ('circle',       11),
+    'Ball Recovered':     ('circle',       11),
     'No Clear Threat':   ('square',       10),
 }
 _ALL_LOSS_TYPES    = list(_LOSS_COLORS.keys())
@@ -314,6 +314,65 @@ def _atk_stats_table(gains: pd.DataFrame, top_n: int = 12) -> list:
                      style={'overflowX': 'auto'})]
 
 
+def _gain_type_donut(gains: pd.DataFrame) -> go.Figure:
+    labels_all = list(_GAIN_COLORS.keys())
+    if not gains.empty and 'gain_type' in gains.columns:
+        counts = [int((gains['gain_type'] == l).sum()) for l in labels_all]
+    else:
+        counts = [0] * len(labels_all)
+    present = [(l, _GAIN_COLORS[l], c) for l, c in zip(labels_all, counts) if c > 0]
+    if present:
+        labels  = [p[0] for p in present]
+        colors  = [p[1] for p in present]
+        values  = [p[2] for p in present]
+    else:
+        labels, colors, values = labels_all, list(_GAIN_COLORS.values()), counts
+
+    fig = go.Figure(go.Pie(
+        labels=labels, values=values,
+        marker=dict(colors=colors, line=dict(color=PITCH_BG, width=2)),
+        hole=0.55, textinfo='percent', textfont=dict(color='white', size=11),
+        hovertemplate='<b>%{label}</b><br>%{value} gains (%{percent})<extra></extra>',
+        sort=False,
+    ))
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+        height=240, margin=dict(l=0, r=0, t=10, b=0), showlegend=True,
+        legend=dict(orientation='v', x=1.0, y=0.5, xanchor='left', yanchor='middle',
+                    font=dict(color=COLORS['text_primary'], size=9), bgcolor='rgba(0,0,0,0)'),
+        uirevision='oat-gain-type-donut',
+    )
+    return fig
+
+
+def _gains_by_zone_donut(gains: pd.DataFrame) -> go.Figure:
+    labels = ['Def Third (Z1)', 'Mid Third (Z2)', 'Att Third (Z3)']
+    colors = [AWAY_COLOR, GOLD, HOME_COLOR]
+    if not gains.empty and 'x' in gains.columns:
+        z1 = int((gains['x'] < 33.33).sum())
+        z2 = int(((gains['x'] >= 33.33) & (gains['x'] < 66.67)).sum())
+        z3 = int((gains['x'] >= 66.67).sum())
+    else:
+        z1 = z2 = z3 = 0
+    fig = go.Figure(go.Pie(
+        labels=labels, values=[z1, z2, z3],
+        marker=dict(colors=colors, line=dict(color=PITCH_BG, width=2)),
+        hole=0.55, textinfo='percent', textfont=dict(color='white', size=11),
+        hovertemplate='<b>%{label}</b><br>%{value} gains (%{percent})<extra></extra>',
+        sort=False,
+    ))
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+        height=220, margin=dict(l=0, r=0, t=10, b=0), showlegend=True,
+        legend=dict(orientation='v', x=1.0, y=0.5, xanchor='left', yanchor='middle',
+                    font=dict(color=COLORS['text_primary'], size=9), bgcolor='rgba(0,0,0,0)'),
+        uirevision='oat-zone-donut',
+    )
+    return fig
+
+
 def _outcomes_donut_fig(gains: pd.DataFrame) -> go.Figure:
     labels = ['Possession Held', 'Quick Turnover', 'Shot Taken', 'Goal Scored']
     colors = ['#6b7280', AWAY_COLOR, GOLD, '#22c55e']
@@ -343,6 +402,13 @@ def _outcomes_donut_fig(gains: pd.DataFrame) -> go.Figure:
 # DEFENSIVE TRANSITIONS  —  data helpers
 # =============================================================================
 
+# Mirror the team defensive-transition logic: a shot conceded is a Saved Shot /
+# Miss (Goal handled first); a recovery is the *scouted* team winning the ball
+# back via a Tackle / Interception / Ball recovery.
+_DEF_SHOT_TYPES     = ['Goal', 'Saved Shot', 'Miss']
+_DEF_RECOVERY_TYPES = ['Tackle', 'Interception', 'Ball recovery']
+
+
 def _extract_losses(opp_ev: pd.DataFrame) -> pd.DataFrame:
     _POSS_LOSS_RAW = ['Miscontrol', 'Dispossessed', 'Offside Pass', 'Error']
     rows = []
@@ -363,38 +429,86 @@ def _extract_losses(opp_ev: pd.DataFrame) -> pd.DataFrame:
             'time_min':    float(row.get('time_min', 0)),
             'time_sec':    float(row.get('time_sec', 0)),
             'period_id':   int(row.get('period_id', 1)),
+            'match_id':    row.get('match_id', ''),
             'x':           float(row.get('x', 50)) if pd.notna(row.get('x')) else 50.0,
             'y':           float(row.get('y', 50)) if pd.notna(row.get('y')) else 50.0,
-            'timestamp':   _ts(row),
+            # Plain seconds-within-period; match/period scoping is handled in
+            # _tag_loss_outcomes (mirrors the team implementation).
+            'timestamp':   int(float(row.get('time_min', 0) or 0)) * 60
+                           + int(float(row.get('time_sec', 0) or 0)),
         })
     return pd.DataFrame(rows)
 
 
-def _tag_loss_outcomes(losses: pd.DataFrame, bar_ev: pd.DataFrame) -> pd.DataFrame:
-    if losses.empty or bar_ev.empty:
+def _tag_loss_outcomes(losses: pd.DataFrame,
+                       team_ev: pd.DataFrame,
+                       opp_ev: pd.DataFrame) -> pd.DataFrame:
+    """Tag each scouted-team possession loss with what happened in the next 15s.
+
+    Same logic as the team defensive-transition tab:
+      Priority (highest wins): Goal Conceded > Shot Conceded > Recovered > None.
+      • Goal/Shot Conceded  → the opponents (``opp_ev``) score / shoot.
+      • Ball Recovered       → the *scouted* team (``team_ev``) wins the ball back
+                              (Tackle / Interception / Ball recovery).
+    Windows are scoped to the same match + period as each loss.
+    """
+    if losses.empty:
         losses = losses.copy()
         losses['window_outcome'] = 'No Clear Threat'
         return losses
-    shot_types = ['Goal', 'Saved Shot', 'Miss', 'Post']
-    outcomes   = []
-    for _, g in losses.iterrows():
-        t0     = g['timestamp']
-        t1     = t0 + _TRANSITION_WINDOW_SEC
-        window = bar_ev[(bar_ev.apply(_ts, axis=1) > t0) &
-                        (bar_ev.apply(_ts, axis=1) <= t1)]
-        if window.empty:
-            outcomes.append('No Clear Threat')
-            continue
-        if (window['event_type'] == 'Goal').any():
-            outcomes.append('Goal Conceded')
-        elif window['event_type'].isin(['Saved Shot', 'Miss', 'Post']).any():
-            outcomes.append('Shot Conceded')
-        elif window['event_type'].isin(['Ball recovery', 'Interception']).any():
-            outcomes.append('Opp Recovered')
+
+    team_ev = team_ev.copy() if team_ev is not None else pd.DataFrame()
+    opp_ev  = opp_ev.copy()  if opp_ev  is not None else pd.DataFrame()
+    for df in (team_ev, opp_ev):
+        if not df.empty and 'time_min' in df.columns:
+            df['_ts'] = (df['time_min'].fillna(0).astype(int) * 60
+                         + df['time_sec'].fillna(0).astype(int))
+
+    has_match  = 'match_id' in losses.columns
+    group_cols = ['match_id', 'period_id'] if has_match else ['period_id']
+
+    all_outcomes: dict = {}
+    for keys, grp in losses.groupby(group_cols):
+        if has_match:
+            match_id, period_id = keys
         else:
-            outcomes.append('No Clear Threat')
+            match_id, period_id = None, keys
+
+        def _slice(df):
+            if df.empty or '_ts' not in df.columns:
+                return df.iloc[0:0] if not df.empty else df
+            m = df['period_id'] == period_id
+            if has_match and 'match_id' in df.columns:
+                m = m & (df['match_id'] == match_id)
+            return df[m]
+
+        team_sl = _slice(team_ev)
+        opp_sl  = _slice(opp_ev)
+
+        for idx, loss_row in grp.iterrows():
+            t0 = int(loss_row['timestamp'])
+            t1 = t0 + _TRANSITION_WINDOW_SEC
+
+            opp_win  = (opp_sl[(opp_sl['_ts'] >= t0) & (opp_sl['_ts'] <= t1)]
+                        if not opp_sl.empty and '_ts' in opp_sl.columns else opp_sl)
+            team_win = (team_sl[(team_sl['_ts'] >= t0) & (team_sl['_ts'] <= t1)]
+                        if not team_sl.empty and '_ts' in team_sl.columns else team_sl)
+
+            has_goal    = not opp_win.empty and (opp_win['event_type'] == 'Goal').any()
+            has_shot    = not opp_win.empty and opp_win['event_type'].isin(_DEF_SHOT_TYPES).any()
+            has_recover = not team_win.empty and team_win['event_type'].isin(_DEF_RECOVERY_TYPES).any()
+
+            if has_goal:
+                all_outcomes[idx] = 'Goal Conceded'
+            elif has_shot:
+                all_outcomes[idx] = 'Shot Conceded'
+            elif has_recover:
+                all_outcomes[idx] = 'Ball Recovered'
+            else:
+                all_outcomes[idx] = 'No Clear Threat'
+
     losses = losses.copy()
-    losses['window_outcome'] = outcomes
+    losses['window_outcome'] = losses.index.map(lambda i: all_outcomes.get(i, 'No Clear Threat'))
     return losses
 
 
@@ -442,14 +556,14 @@ def _def_kpi_children(losses: pd.DataFrame) -> list:
     col        = losses['window_outcome'] if not losses.empty and 'window_outcome' in losses.columns else pd.Series(dtype=str)
     goals      = int((col == 'Goal Conceded').sum())
     shots      = int((col == 'Shot Conceded').sum())
-    recovered  = int((col == 'Opp Recovered').sum())
+    recovered  = int((col == 'Ball Recovered').sum())
     own_half   = int((losses['x'] < 50).sum()) if not losses.empty else 0
     def_third  = int((losses['x'] < 33.33).sum()) if not losses.empty else 0
     return _kpi_bar([
         _kpi_card(n,         'Total Losses',  AWAY_COLOR),
         _kpi_card(goals,     'Led to Goal',   AWAY_COLOR),
         _kpi_card(shots,     'Led to Shot',   '#f97316'),
-        _kpi_card(recovered, 'Opp Recovered', HOME_COLOR),
+        _kpi_card(recovered, 'Ball Recovered', HOME_COLOR),
         _kpi_card(own_half,  'Own-Half Loss', AWAY_COLOR),
         _kpi_card(def_third, 'Def Third',     AWAY_COLOR),
     ])
@@ -487,9 +601,64 @@ def _def_stats_table(losses: pd.DataFrame, top_n: int = 12) -> list:
             html.Td(str(s['fp']),    style=_TD), html.Td(str(s['mc']),    style=_TD),
             html.Td(str(s['dp']),    style=_TD), html.Td(str(s['ld']),    style=_TD),
         ], style={'backgroundColor': bg}))
-    return [html.Div(html.Table([html.Thead(header), html.Tbody(table_rows)],
+
+    info_box = html.Div([
+        html.Span('ⓘ', style={
+            'color': GOLD, 'fontWeight': '700', 'fontSize': '0.70rem',
+            'marginRight': '6px', 'flexShrink': '0',
+        }),
+        html.Span(
+            "Tot = Total losses  ·  FP = Failed Pass  ·  MC = Miscontrol  ·  "
+            "Disp = Dispossessed  ·  LD = Lost Duel (ground / aerial)",
+            style={
+                'color': COLORS['text_secondary'], 'fontSize': '0.55rem',
+                'fontStyle': 'italic', 'lineHeight': '1.35',
+            },
+        ),
+    ], style={
+        'backgroundColor': COLORS['dark_secondary'],
+        'border': f'1px solid {COLORS["dark_border"]}',
+        'borderRadius': '4px', 'padding': '5px 8px', 'marginBottom': '8px',
+        'display': 'flex', 'alignItems': 'flex-start',
+    })
+
+    return [info_box,
+            html.Div(html.Table([html.Thead(header), html.Tbody(table_rows)],
                                 style={'width': '100%', 'borderCollapse': 'collapse'}),
                      style={'overflowX': 'auto'})]
+
+
+def _loss_type_donut(losses: pd.DataFrame) -> go.Figure:
+    """Donut chart: possession losses split by loss type (Failed Pass, etc.)."""
+    labels_all = list(_LOSS_COLORS.keys())
+    if not losses.empty and 'loss_type' in losses.columns:
+        counts = [int((losses['loss_type'] == l).sum()) for l in labels_all]
+    else:
+        counts = [0] * len(labels_all)
+    present = [(l, _LOSS_COLORS[l], c) for l, c in zip(labels_all, counts) if c > 0]
+    if present:
+        labels  = [p[0] for p in present]
+        colors  = [p[1] for p in present]
+        values  = [p[2] for p in present]
+    else:
+        labels, colors, values = labels_all, list(_LOSS_COLORS.values()), counts
+
+    fig = go.Figure(go.Pie(
+        labels=labels, values=values,
+        marker=dict(colors=colors, line=dict(color=PITCH_BG, width=2)),
+        hole=0.55, textinfo='percent', textfont=dict(color='white', size=11),
+        hovertemplate='<b>%{label}</b><br>%{value} losses (%{percent})<extra></extra>',
+        sort=False,
+    ))
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+        height=240, margin=dict(l=0, r=0, t=10, b=0), showlegend=True,
+        legend=dict(orientation='v', x=1.0, y=0.5, xanchor='left', yanchor='middle',
+                    font=dict(color=COLORS['text_primary'], size=9), bgcolor='rgba(0,0,0,0)'),
+        uirevision='odt-loss-type-donut',
+    )
+    return fig
 
 
 def _losses_by_zone_donut(losses: pd.DataFrame) -> go.Figure:
@@ -521,7 +690,7 @@ def _losses_by_zone_donut(losses: pd.DataFrame) -> go.Figure:
 
 
 def _loss_outcomes_donut(losses: pd.DataFrame) -> go.Figure:
-    labels = ['No Clear Threat', 'Opp Recovered', 'Shot Conceded', 'Goal Conceded']
+    labels = ['No Clear Threat', 'Ball Recovered', 'Shot Conceded', 'Goal Conceded']
     colors = ['#6b7280', HOME_COLOR, '#f97316', AWAY_COLOR]
     col    = losses['window_outcome'] if not losses.empty and 'window_outcome' in losses.columns \
              else pd.Series(dtype=str)
@@ -598,6 +767,19 @@ def _build_attacking_skeleton(player_opts=None) -> html.Div:
                 html.Div("Gains by Player", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
                 html.Div(style={'marginBottom': '6px'}),
                 html.Div(id='oat-stats-table', children=[]),
+                
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
+                html.Div("Gains by Type", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
+                dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
+                    id='oat-gain-type-donut', figure=_skel_fig(240), config=CHART_CFG, style={'width': '100%'},
+                )),
+                
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
+                html.Div("Gains by Zone", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
+                dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
+                    id='oat-zone-donut', figure=_skel_fig(220), config=CHART_CFG, style={'width': '100%'},
+                )),
+
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
                 html.Div("Transition Outcome", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
                 dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
@@ -666,6 +848,11 @@ def _build_defensive_skeleton(player_opts=None) -> html.Div:
                 html.Div(style={'marginBottom': '6px'}),
                 html.Div(id='odt-stats-table', children=[]),
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
+                html.Div("Losses by Type", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
+                dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
+                    id='odt-loss-type-donut', figure=_skel_fig(240), config=CHART_CFG, style={'width': '100%'},
+                )),
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
                 html.Div("Losses by Zone", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
                 dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
                     id='odt-zone-donut', figure=_skel_fig(220), config=CHART_CFG, style={'width': '100%'},
@@ -692,7 +879,7 @@ def _build_defensive_skeleton(player_opts=None) -> html.Div:
 # =============================================================================
 
 def build_transitions(team: str | None = None,
-                      comp_key: str | None = None) -> dbc.Tabs:
+                      comp_key: str | None = None) -> dcc.Tabs:
     """Return the Transitions tab layout (two skeleton sub-tabs)."""
     atk_player_opts = []
     def_player_opts = []
@@ -718,10 +905,10 @@ def build_transitions(team: str | None = None,
             )
             def_player_opts = _opts(opp_ev[loss_mask])
 
-    return dbc.Tabs(
-        active_tab='otr-tab-defend',
+    return dcc.Tabs(
+        value='otr-tab-defend',
         children=[
-            dbc.Tab(
+            dcc.Tab(
                 html.Div([
                     html.Div('Transition from Attack to Defense',
                              style={'fontSize': '0.95rem', 'color': GOLD,
@@ -730,12 +917,11 @@ def build_transitions(team: str | None = None,
                     _build_defensive_skeleton(def_player_opts),
                 ]),
                 label='Defensive Transition',
-                tab_id='otr-tab-defend',
-                tab_style={'flex': '1'},
-                label_style=_BTN_INACTIVE,
-                active_label_style=_BTN_ACTIVE,
+                value='otr-tab-defend',
+                style={**_BTN_INACTIVE, 'flex': '1'},
+                selected_style={**_BTN_ACTIVE, 'flex': '1'},
             ),
-            dbc.Tab(
+            dcc.Tab(
                 html.Div([
                     html.Div('Transition from Defense to Attack',
                              style={'fontSize': '0.95rem', 'color': GOLD,
@@ -744,10 +930,9 @@ def build_transitions(team: str | None = None,
                     _build_attacking_skeleton(atk_player_opts),
                 ]),
                 label='Attacking Transition',
-                tab_id='otr-tab-attack',
-                tab_style={'flex': '1'},
-                label_style=_BTN_INACTIVE,
-                active_label_style=_BTN_ACTIVE,
+                value='otr-tab-attack',
+                style={**_BTN_INACTIVE, 'flex': '1'},
+                selected_style={**_BTN_ACTIVE, 'flex': '1'},
             ),
         ],
         className='mb-3',
@@ -776,6 +961,8 @@ def register_transitions_callbacks(app) -> None:
         Output('oat-pitch-map',      'figure'),
         Output('oat-heatmap-img',    'src'),
         Output('oat-stats-table',    'children'),
+        Output('oat-gain-type-donut', 'figure'),
+        Output('oat-zone-donut',      'figure'),
         Output('oat-trans-outcomes', 'figure'),
         Input('oat-player-filter',   'value'),
         Input('oat-gain-type',       'value'),
@@ -792,7 +979,7 @@ def register_transitions_callbacks(app) -> None:
                     team, comp, venue, match_ids, date_cutoff):
 
         def _empty():
-            return [], _skel_fig(600), _SKEL_SRC, [], _skel_fig(260)
+            return [], _skel_fig(600), _SKEL_SRC, [], _skel_fig(240), _skel_fig(220), _skel_fig(260)
 
         if not team or not comp:
             return _empty()
@@ -834,6 +1021,8 @@ def register_transitions_callbacks(app) -> None:
             _atk_pitch_fig(gains_filtered),
             heatmap_src,
             _atk_stats_table(gains),
+            _gain_type_donut(gains),
+            _gains_by_zone_donut(gains),
             _outcomes_donut_fig(gains),
         )
 
@@ -843,6 +1032,7 @@ def register_transitions_callbacks(app) -> None:
         Output('odt-pitch-map',      'figure'),
         Output('odt-heatmap-img',    'src'),
         Output('odt-stats-table',    'children'),
+        Output('odt-loss-type-donut', 'figure'),
         Output('odt-zone-donut',     'figure'),
         Output('odt-trans-outcomes', 'figure'),
         Input('odt-player-filter',   'value'),
@@ -860,7 +1050,8 @@ def register_transitions_callbacks(app) -> None:
                     team, comp, venue, match_ids, date_cutoff):
 
         def _empty():
-            return [], _skel_fig(600), _SKEL_SRC, [], _skel_fig(220), _skel_fig(260)
+            return ([], _skel_fig(600), _SKEL_SRC, [],
+                    _skel_fig(240), _skel_fig(220), _skel_fig(260))
 
         if not team or not comp:
             return _empty()
@@ -881,7 +1072,9 @@ def register_transitions_callbacks(app) -> None:
         if players and 'player_name' in losses.columns:
             losses = losses[losses['player_name'].isin(players)]
 
-        losses = _tag_loss_outcomes(losses, bar_ev)
+        # Recoveries come from the scouted team (opp_ev); shots/goals conceded
+        # come from their opponents (bar_ev) — mirrors the team tab.
+        losses = _tag_loss_outcomes(losses, opp_ev, bar_ev)
 
         _types    = loss_types    or _ALL_LOSS_TYPES
         _outcomes = outcome_types or _ALL_DEF_OUTCOMES
@@ -902,6 +1095,7 @@ def register_transitions_callbacks(app) -> None:
             _def_pitch_fig(losses_filtered),
             heatmap_src,
             _def_stats_table(losses),
+            _loss_type_donut(losses),
             _losses_by_zone_donut(losses),
             _loss_outcomes_donut(losses),
         )

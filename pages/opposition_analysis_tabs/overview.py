@@ -16,7 +16,15 @@ layout, scoped to a single opponent:
 
 from __future__ import annotations
 
+import io
+import base64
 from concurrent.futures import ThreadPoolExecutor
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.patheffects as mpe
+from mplsoccer import VerticalPitch
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -46,7 +54,7 @@ from page_utils.visualizations import (
     AWAY_COLOR,
 )
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
-from utils.event_utils import get_ball_gains
+from utils.event_utils import get_ball_gains, compute_ppda
 
 
 # ─── Constants ────────────────────────────────────────────────────────────────
@@ -798,18 +806,9 @@ def _match_event_metrics(opp_ev: pd.DataFrame, bar_ev: pd.DataFrame) -> dict:
         pass_acc = (round(tp['outcome'].eq(1).sum() / max(n_tp, 1) * 100, 1)
                     if 'outcome' in tp.columns and n_tp else 0.0)
 
-        # PPDA: opponent passes in their own build-up (x<40) ÷ our pressing
-        # actions (tackles + interceptions) in the attacking half (x>50).
-        if not op.empty and 'x' in op.columns:
-            opp_build = op[pd.to_numeric(op['x'], errors='coerce') < 40]
-        else:
-            opp_build = op
-        if 'x' in te.columns:
-            press = te[te['event_type'].isin(['Tackle', 'Interception']) &
-                       (pd.to_numeric(te['x'], errors='coerce') > 50)]
-        else:
-            press = te.head(0)
-        ppda = round(len(opp_build) / max(len(press), 1), 2)
+        # PPDA — opponent passes in their own 60% ÷ our defensive actions in our
+        # attacking 60% (canonical high-press definition in event_utils).
+        ppda = compute_ppda(te, oe)
 
         # Passes per possession: completed passes ÷ possessions, where a
         # possession ends in a shot or a turnover (dispossession / failed
@@ -1186,6 +1185,9 @@ def _formation_table(results: list[dict], match_formations: dict[str, str],
         ha    = 'H' if r.get('is_home') else 'A'
         date  = str(r.get('date', ''))[:10]
         ha_col = HOME_COLOR if r.get('is_home') else _GA_C
+        res    = r.get('result', '')
+        res_col = _RESULT_C.get(res, _GA_C)
+        score  = f"{r.get('gf', 0)}-{r.get('ga', 0)}"
         body_rows.append(html.Tr([
             html.Td([
                 html.Div([
@@ -1196,6 +1198,20 @@ def _formation_table(results: list[dict], match_formations: dict[str, str],
                 ]),
                 html.Div(date, style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem'}),
             ], style=_td),
+            html.Td(
+                html.Div([
+                    html.Span(res or '—', style={
+                        'backgroundColor': res_col if res else 'transparent',
+                        'color': 'black' if res == 'D' else 'white',
+                        'borderRadius': '3px', 'padding': '1px 7px', 'fontWeight': 700,
+                        'fontSize': '0.66rem', 'marginRight': '6px', 'minWidth': '18px',
+                        'display': 'inline-block', 'textAlign': 'center',
+                    }),
+                    html.Span(score, style={'color': COLORS['text_secondary'],
+                                            'fontSize': '0.66rem'}),
+                ], style={'display': 'flex', 'alignItems': 'center'}),
+                style={**_td, 'whiteSpace': 'nowrap'},
+            ),
             html.Td(_fmt_formation(form) if form else '—', style={
                 **_td, 'color': COLORS['gold'], 'fontWeight': 700,
                 'fontSize': '0.82rem', 'textAlign': 'right', 'whiteSpace': 'nowrap',
@@ -1210,6 +1226,7 @@ def _formation_table(results: list[dict], match_formations: dict[str, str],
     table = html.Table([
         html.Thead(html.Tr([
             html.Th('Match', style=_th),
+            html.Th('Result', style=_th),
             html.Th('Formation', style={**_th, 'textAlign': 'right'}),
         ])),
         html.Tbody(body_rows),
@@ -1299,21 +1316,21 @@ def _season_summary_section(timeline: list[dict], contributor_cards: list,
             dbc.Col(trendline_card, lg=7, md=12, className='mb-3'),
         ], className='g-3'),
 
-        # … Starting Formations (75%) + per-match formation table (25%) …
+        # … Starting Formations (50%) + per-match formation table (50%) …
         dbc.Row([
             dbc.Col(
                 dbc.Card([dbc.CardBody([
                     html.Div('Starting Formations', style=_PANEL_HDR),
                     dcc.Graph(figure=formation_fig, config=CHART_CONFIG),
                 ])]),
-                lg=9, md=12, className='mb-3',
+                lg=6, md=12, className='mb-3',
             ),
             dbc.Col(
                 dbc.Card([dbc.CardBody([
                     html.Div('Formation by Match', style=_PANEL_HDR),
                     formation_table,
                 ])], className='h-100'),
-                lg=3, md=12, className='mb-3',
+                lg=6, md=12, className='mb-3',
             ),
         ], className='g-3 mb-4', align='stretch'),
 
@@ -1322,6 +1339,329 @@ def _season_summary_section(timeline: list[dict], contributor_cards: list,
                 style={'color': COLORS['gold'], 'fontFamily': BARCA_FONT,
                        'fontWeight': 600, 'fontSize': '1.15rem'}),
         dbc.Row(contributor_cards),
+    ], className='mb-4')
+
+
+# ─── Starting Lineup visualization ───────────────────────────────────────────
+
+_LINEUP_COORDS: dict = {
+    "433":  {1:(4,50),2:(22,13),5:(18,33),6:(18,67),3:(22,87),7:(37,23),4:(37,50),8:(37,77),10:(47,17),9:(47,50),11:(47,83)},
+    "4231": {1:(4,50),2:(22,13),5:(18,33),6:(18,67),3:(22,87),4:(32,37),8:(32,63),7:(43,17),10:(43,50),11:(43,83),9:(48,50)},
+    "442":  {1:(4,50),2:(22,13),5:(18,33),6:(18,67),3:(22,87),7:(38,12),4:(37,37),8:(37,63),11:(38,88),9:(47,35),10:(47,65)},
+    "4141": {1:(4,50),2:(22,13),5:(18,33),6:(18,67),3:(22,87),4:(31,50),7:(40,13),8:(40,37),10:(40,63),11:(40,87),9:(48,50)},
+    "4321": {1:(4,50),2:(22,13),5:(18,33),6:(18,67),3:(22,87),4:(34,27),7:(34,50),8:(34,73),9:(44,30),10:(47,50),11:(44,70)},
+    "352":  {1:(4,50),5:(17,23),6:(17,50),11:(17,77),2:(30,10),4:(36,30),7:(36,50),8:(36,70),3:(30,90),9:(47,35),10:(47,65)},
+    "451":  {1:(4,50),2:(22,13),5:(18,33),6:(18,67),3:(22,87),7:(37,12),4:(37,30),8:(37,50),10:(37,70),11:(37,88),9:(47,50)},
+    "3421": {1:(4,50),5:(18,25),6:(18,50),8:(18,75),2:(33,12),4:(38,36),7:(38,64),3:(33,88),9:(45,35),10:(47,50),11:(45,65)},
+    "343":  {1:(4,50),5:(18,25),6:(18,50),11:(18,75),2:(36,20),3:(36,40),4:(36,60),10:(36,80),7:(47,20),8:(47,50),9:(47,80)},
+    "4132": {1:(4,50),2:(22,13),5:(18,33),6:(18,67),3:(22,87),4:(31,50),7:(39,23),8:(39,77),11:(43,50),9:(47,35),10:(47,65)},
+    "4312": {1:(4,50),2:(22,13),5:(18,33),6:(18,67),3:(22,87),7:(33,23),4:(33,50),11:(33,77),8:(42,50),9:(47,33),10:(47,67)},
+    "3142": {1:(4,50),5:(17,25),6:(17,50),11:(17,75),8:(29,50),2:(37,15),7:(37,35),4:(37,65),3:(37,85),9:(47,35),10:(47,65)},
+}
+
+
+def _lineup_slot_coords(formation: str, slot: int):
+    coords = _LINEUP_COORDS.get(formation, {})
+    if slot in coords:
+        return coords[slot]
+    lines = [int(d) for d in formation if d.isdigit()]
+    if not lines:
+        lines = [4, 3, 3]
+    if slot == 1:
+        return (4, 50)
+    x_steps = [20, 32, 40, 47]
+    idx, cum, x, y = slot - 2, 0, 37, 50
+    for li, count in enumerate(lines):
+        if idx < cum + count:
+            x = x_steps[min(li, len(x_steps) - 1)]
+            pos = idx - cum
+            y = 10 + (80 / max(count - 1, 1)) * pos if count > 1 else 50
+            break
+        cum += count
+    return (x, y)
+
+
+def _lu_shorten(name) -> str:
+    if not name or not isinstance(name, str):
+        return ''
+    name = name.strip()
+    parts = name.split()
+    if len(parts) == 1 or len(name) <= 14:
+        return name
+    return f"{parts[0][0]}. {' '.join(parts[1:])}"
+
+
+def _lu_fmt_formation(f: str) -> str:
+    if not f or len(f) < 2:
+        return f or ''
+    return '-'.join(f)
+
+
+def _generate_opp_lineup_image(starters: pd.DataFrame, formation: str,
+                                color: str = HOME_COLOR) -> str | None:
+    """Render a VerticalPitch scatter for the opposition XI. Returns base64 PNG or None."""
+    if starters is None or starters.empty:
+        return None
+    fig, ax = plt.subplots(figsize=(5, 8), facecolor='#0A0E27')
+    try:
+        fig.subplots_adjust(left=0.01, right=0.99, top=0.92, bottom=0.02)
+        ax.set_facecolor('#0A0E27')
+        pitch = VerticalPitch(
+            pitch_type='opta', pitch_color='#3a7d44', line_color='white',
+            stripe=True, stripe_color='#2e6b39', goal_type='box', goal_alpha=0.85,
+            pad_top=10, pad_bottom=5, pad_left=3, pad_right=3,
+        )
+        pitch.draw(ax=ax)
+        fmt_label = _lu_fmt_formation(formation)
+        if fmt_label:
+            ax.text(50, 108, fmt_label, ha='center', va='bottom', fontsize=12,
+                    color=color, fontweight='bold',
+                    path_effects=[mpe.withStroke(linewidth=2.5, foreground='#0A0E27')])
+
+        sc_xs, sc_ys, tx_xs, tx_ys, jerseys, names, caps = [], [], [], [], [], [], []
+        for _, row in starters.iterrows():
+            slot = int(row.get('formation_slot', 0))
+            if slot == 0:
+                continue
+            name = str(row.get('player_name', '') or '').strip()
+            try:
+                jersey = int(row['jersey_number'])
+            except (ValueError, TypeError):
+                jersey = ''
+            is_cap = bool(row.get('is_captain', False))
+            ox, oy  = _lineup_slot_coords(formation, slot)
+            depth   = float(ox) * 2.0
+            lateral = float(oy)
+            sc_xs.append(depth); sc_ys.append(lateral)
+            tx_xs.append(lateral); tx_ys.append(depth)
+            jerseys.append(str(jersey)); names.append(name); caps.append(is_cap)
+
+        if not sc_xs:
+            return None
+
+        pitch.scatter(sc_xs, sc_ys, s=700, c=color, ax=ax, zorder=4, alpha=0.22, edgecolors='none')
+        pitch.scatter(sc_xs, sc_ys, s=500, c=color, ax=ax, zorder=5, alpha=0.95, edgecolors='white', linewidths=1.4)
+        for i in range(len(sc_xs)):
+            lat, dep = tx_xs[i], tx_ys[i]
+            ax.text(lat, dep, jerseys[i], ha='center', va='center',
+                    fontsize=8, fontweight='bold', color='white', zorder=7)
+            ax.text(lat, dep - 5.5, _lu_shorten(names[i]), ha='center', va='top',
+                    fontsize=8.5, color='black', zorder=7, fontweight='bold')
+            if caps[i]:
+                pitch.scatter([dep + 4.0], [lat + 5.0], s=120, c=GOLD, ax=ax, zorder=8, edgecolors='none')
+                ax.text(lat + 5.0, dep + 4.0, 'C', ha='center', va='center',
+                        fontsize=4.5, fontweight='bold', color='#0A0E27', zorder=9)
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=130, facecolor=fig.get_facecolor(),
+                    edgecolor='none', bbox_inches='tight')
+        buf.seek(0)
+        return base64.b64encode(buf.read()).decode()
+    finally:
+        plt.close(fig)
+
+
+def _load_opp_match_lineups(comp_keys: list[str], results: list[dict],
+                              selected_match_ids: list) -> dict:
+    """Return {mid: {starters, subs, formation, opponent, date, result, gf, ga, is_home}}."""
+    if not selected_match_ids:
+        return {}
+
+    sel = {str(m) for m in selected_match_ids}
+    sel_results = [r for r in results if str(r.get('match_id')) in sel]
+
+    mids_by_comp: dict[str, dict] = {}
+    for r in sel_results:
+        mid = str(r.get('match_id'))
+        ck  = r.get('competition_key')
+        if not ck:
+            continue
+        mids_by_comp.setdefault(ck, {})[mid] = bool(r.get('is_home'))
+
+    res_by_mid = {str(r.get('match_id')): r for r in sel_results}
+    out: dict = {}
+
+    for ck, mid_home_map in mids_by_comp.items():
+        folder = _opp_dir(ck, 'lineup')
+        if not folder.exists():
+            continue
+        mid_to_file = {f.stem.rsplit('_', 1)[-1]: f
+                       for f in folder.iterdir() if f.suffix == '.parquet'}
+        for mid, is_home in mid_home_map.items():
+            path = mid_to_file.get(mid)
+            if path is None:
+                continue
+            try:
+                df = pd.read_parquet(path)
+            except Exception:
+                continue
+            if df.empty:
+                continue
+
+            side    = 'home' if is_home else 'away'
+            team_df = df[df['team_position'] == side] if 'team_position' in df.columns else df
+            if team_df.empty:
+                continue
+
+            starters = (team_df[team_df['role'] == 'Start']
+                        if 'role' in team_df.columns else team_df)
+            subs     = (team_df[(team_df['role'] == 'Sub') &
+                                (team_df['sub_on_minute'].notna())]
+                        if ('role' in team_df.columns and 'sub_on_minute' in team_df.columns)
+                        else pd.DataFrame())
+
+            formation = ''
+            if not starters.empty and 'formation' in starters.columns:
+                formation = str(starters['formation'].iloc[0]).strip()
+                if formation.upper() in ('N/A', 'NONE', '0', ''):
+                    formation = ''
+
+            r = res_by_mid.get(mid, {})
+            out[mid] = {
+                'starters':  starters,
+                'subs':      subs,
+                'formation': formation,
+                'opponent':  r.get('opponent', ''),
+                'date':      str(r.get('date', ''))[:10],
+                'result':    r.get('result', ''),
+                'gf':        int(r.get('gf', 0)),
+                'ga':        int(r.get('ga', 0)),
+                'is_home':   is_home,
+                'match_id':  mid,
+            }
+    return out
+
+
+def _build_starting_lineups_section(comp_keys: list[str], results: list[dict],
+                                     selected_match_ids: list | None) -> html.Div | None:
+    """Starting-lineup panel for selected matches. Returns None when no matches are selected."""
+    if not selected_match_ids:
+        return None
+
+    lineup_data = _load_opp_match_lineups(comp_keys, results, selected_match_ids)
+    if not lineup_data:
+        return None
+
+    items = sorted(lineup_data.values(), key=lambda x: x['date'])
+    n = len(items)
+
+    cards = []
+    for info in items:
+        img_b64  = _generate_opp_lineup_image(info['starters'], info['formation'], HOME_COLOR)
+        ha       = 'H' if info['is_home'] else 'A'
+        ha_col   = HOME_COLOR if info['is_home'] else _GA_C
+        res      = info['result']
+        res_col  = _RESULT_C.get(res, _GA_C)
+        score    = f"{info['gf']}-{info['ga']}"
+        opp_logo = get_team_logo_path(info['opponent'])
+
+        header = html.Div([
+            html.Div([
+                (html.Img(src=opp_logo,
+                          style={'height': '22px', 'width': '22px',
+                                 'objectFit': 'contain', 'marginRight': '8px'})
+                 if opp_logo else html.Span()),
+                html.Span(info['opponent'], style={
+                    'color': COLORS['text_primary'], 'fontWeight': 700, 'fontSize': '0.9rem',
+                }),
+            ], style={'display': 'flex', 'alignItems': 'center'}),
+            html.Div([
+                html.Span(ha, style={
+                    'color': ha_col, 'fontWeight': 700,
+                    'fontSize': '0.65rem', 'marginRight': '5px',
+                }),
+                html.Span(info['date'], style={
+                    'color': COLORS['text_secondary'], 'fontSize': '0.65rem',
+                }),
+            ], style={'display': 'flex', 'alignItems': 'center', 'marginTop': '3px'}),
+        ], style={'display': 'flex', 'justifyContent': 'space-between',
+                  'alignItems': 'flex-start', 'marginBottom': '8px'})
+
+        result_badge = html.Div([
+            html.Span(res or '—', style={
+                'backgroundColor': res_col if res else 'transparent',
+                'color': 'black' if res == 'D' else 'white',
+                'borderRadius': '3px', 'padding': '1px 7px', 'fontWeight': 700,
+                'fontSize': '0.72rem', 'marginRight': '8px', 'display': 'inline-block',
+                'minWidth': '18px', 'textAlign': 'center',
+            }),
+            html.Span(score, style={'color': COLORS['text_secondary'], 'fontSize': '0.72rem'}),
+        ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '10px'})
+
+        pitch_el = (
+            html.Div(
+                html.Img(src=f'data:image/png;base64,{img_b64}',
+                         style={'width': '100%', 'display': 'block', 'borderRadius': '6px'}),
+                style={
+                    'backgroundColor': COLORS['dark_secondary'], 'borderRadius': '8px',
+                    'border': f"1px solid {COLORS['dark_border']}", 'padding': '6px',
+                    'marginBottom': '8px',
+                },
+            )
+            if img_b64 else
+            html.Div('Lineup data unavailable', style={
+                'color': COLORS['text_secondary'], 'fontSize': '0.8rem',
+                'textAlign': 'center', 'padding': '2rem 0',
+            })
+        )
+
+        subs_el = html.Div()
+        if not info['subs'].empty:
+            sub_rows = []
+            for _, row in info['subs'].sort_values('sub_on_minute').iterrows():
+                name   = str(row.get('player_name', '') or '').strip()
+                minute = int(row['sub_on_minute'])
+                try:
+                    jn = f'#{int(row["jersey_number"])} '
+                except (ValueError, TypeError):
+                    jn = ''
+                sub_rows.append(html.Div([
+                    html.Span(f"{minute}'", style={
+                        'color': GOLD, 'fontWeight': 700, 'fontSize': '0.73rem',
+                        'marginRight': '6px', 'minWidth': '28px',
+                    }),
+                    html.Span('↑', style={
+                        'color': '#51cf66', 'fontWeight': 700,
+                        'fontSize': '0.8rem', 'marginRight': '4px',
+                    }),
+                    html.Span(jn, style={
+                        'color': HOME_COLOR, 'fontWeight': 700, 'fontSize': '0.72rem',
+                    }),
+                    html.Span(name, style={
+                        'color': COLORS['text_primary'], 'fontSize': '0.72rem',
+                    }),
+                ], style={
+                    'display': 'flex', 'alignItems': 'center', 'padding': '3px 0',
+                    'borderBottom': f"1px solid {COLORS['dark_border']}",
+                }))
+            subs_el = html.Div([
+                html.Div('Substitutes Used', style={
+                    'color': HOME_COLOR, 'fontSize': '0.62rem', 'fontWeight': 700,
+                    'textTransform': 'uppercase', 'letterSpacing': '0.6px',
+                    'marginTop': '8px', 'marginBottom': '5px',
+                }),
+                html.Div(sub_rows),
+            ])
+
+        cards.append(html.Div(
+            html.Div([header, result_badge, pitch_el, subs_el], style={
+                'backgroundColor': COLORS['dark_secondary'],
+                'border': f"1px solid {COLORS['dark_border']}",
+                'borderRadius': '10px', 'padding': '10px', 'height': '100%',
+            }),
+            style={'flex': '1 1 calc(20% - 8px)', 'minWidth': '160px'},
+        ))
+
+    return html.Div([
+        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '2rem 0 1.5rem'}),
+        html.H4('Starting Lineups', className='section-header',
+                style={'fontFamily': BARCA_FONT}),
+        html.P(
+            'Starting XI for selected matches. Select matches in the calendar above to populate.',
+            style={'color': COLORS['text_secondary'], 'fontSize': '0.82rem',
+                   'marginBottom': '1.5rem'},
+        ),
+        html.Div(cards, style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '8px'}),
     ], className='mb-4')
 
 
@@ -1358,6 +1698,17 @@ def build_overview(team: str, country: str, comp_key: str,
         opp_passes = opp_ev[opp_ev['event_type'] == 'Pass']
         if not opp_passes.empty and 'outcome' in opp_passes.columns:
             pass_acc = round(opp_passes['outcome'].eq(1).sum() / max(len(opp_passes), 1) * 100, 1)
+
+    ppda = compute_ppda(opp_ev, bar_ev)
+
+    _all_passes = pd.concat([opp_ev, bar_ev]) if not opp_ev.empty or not bar_ev.empty else pd.DataFrame()
+    _all_passes = _all_passes[_all_passes['event_type'] == 'Pass'] if not _all_passes.empty else _all_passes
+    _opp_passes_df = opp_ev[opp_ev['event_type'] == 'Pass'] if not opp_ev.empty else pd.DataFrame()
+    _all_ft_x   = pd.to_numeric(_all_passes['x'],     errors='coerce') if not _all_passes.empty else pd.Series(dtype=float)
+    _opp_ft_x   = pd.to_numeric(_opp_passes_df['x'],  errors='coerce') if not _opp_passes_df.empty else pd.Series(dtype=float)
+    _all_ft_n   = int((_all_ft_x.dropna() > 66.67).sum())
+    _opp_ft_n   = int((_opp_ft_x.dropna() > 66.67).sum())
+    field_tilt  = round(_opp_ft_n / _all_ft_n * 100, 1) if _all_ft_n > 0 else 0.0
 
     # ── Hero banner ───────────────────────────────────────────────────────────
     logo = get_team_logo_path(team)
@@ -1418,14 +1769,16 @@ def build_overview(team: str, country: str, comp_key: str,
 
     # ── Stat pills ────────────────────────────────────────────────────────────
     pills = html.Div([
-        _stat_pill(n_matches,           'Matches',       COLORS['gold']),
-        _stat_pill(pts,                 'Points',        COLORS['gold']),
-        _stat_pill(f'{ppg:.2f}',        'Pts / Game',    HOME_COLOR),
-        _stat_pill(gf,                  'Goals For',     COLORS['gold']),
-        _stat_pill(ga,                  'Goals Against', _GA_C),
-        _stat_pill(f'{cs}',             'Clean Sheets',  HOME_COLOR),
-        _stat_pill(f'{poss_pct:.1f}%',  'Possession',    COLORS['gold']),
-        _stat_pill(f'{pass_acc:.1f}%',  'Pass Acc.',     HOME_COLOR),
+        _stat_pill(n_matches,             'Matches',       COLORS['gold']),
+        _stat_pill(pts,                   'Points',        COLORS['gold']),
+        _stat_pill(f'{ppg:.2f}',          'Pts / Game',    HOME_COLOR),
+        _stat_pill(gf,                    'Goals For',     COLORS['gold']),
+        _stat_pill(ga,                    'Goals Against', _GA_C),
+        _stat_pill(f'{cs}',               'Clean Sheets',  HOME_COLOR),
+        _stat_pill(f'{poss_pct:.1f}%',    'Possession',    COLORS['gold']),
+        _stat_pill(f'{pass_acc:.1f}%',    'Pass Acc.',     HOME_COLOR),
+        _stat_pill(f'{ppda}',             'PPDA',          AWAY_COLOR),
+        _stat_pill(f'{field_tilt:.1f}%',  'Field Tilt',    HOME_COLOR),
     ], className='hero-stats-bar', style={'marginTop': 0, 'marginBottom': '1.75rem'})
 
     children = [hero, pills]
@@ -1474,6 +1827,11 @@ def build_overview(team: str, country: str, comp_key: str,
     children.append(_season_summary_section(
         timeline, _build_contributors(opp_ev, n=5), radar_panel,
         formation_fig, formation_table))
+
+    # ── Starting Lineups (only populated when calendar matches are selected) ──
+    lineups_section = _build_starting_lineups_section(comp_keys, all_results, selected_match_ids)
+    if lineups_section is not None:
+        children.append(lineups_section)
 
     return html.Div(children)
 

@@ -1018,28 +1018,28 @@ def _build_penalties_skeleton() -> html.Div:
 # Public builder
 # =============================================================================
 
-def build_set_pieces(team: str | None = None, comp_key: str | None = None) -> dbc.Tabs:
+def build_set_pieces(team: str | None = None, comp_key: str | None = None) -> dcc.Tabs:
     """Return skeleton tabs layout; callbacks fill charts when filters change."""
-    return dbc.Tabs(
-        active_tab='osp-tab-fk',
+    return dcc.Tabs(
+        value='osp-tab-fk',
         children=[
-            dbc.Tab(
+            dcc.Tab(
                 _build_free_kicks_skeleton(),
-                label='Free-Kicks', tab_id='osp-tab-fk',
-                tab_style={'flex': '1'},
-                label_style=_BTN_INACTIVE, active_label_style=_BTN_ACTIVE,
+                label='Free-Kicks', value='osp-tab-fk',
+                style={**_BTN_INACTIVE, 'flex': '1'},
+                selected_style={**_BTN_ACTIVE, 'flex': '1'},
             ),
-            dbc.Tab(
+            dcc.Tab(
                 _build_corners_skeleton(),
-                label='Corners', tab_id='osp-tab-corners',
-                tab_style={'flex': '1'},
-                label_style=_BTN_INACTIVE, active_label_style=_BTN_ACTIVE,
+                label='Corners', value='osp-tab-corners',
+                style={**_BTN_INACTIVE, 'flex': '1'},
+                selected_style={**_BTN_ACTIVE, 'flex': '1'},
             ),
-            dbc.Tab(
+            dcc.Tab(
                 _build_penalties_skeleton(),
-                label='Penalties', tab_id='osp-tab-pen',
-                tab_style={'flex': '1'},
-                label_style=_BTN_INACTIVE, active_label_style=_BTN_ACTIVE,
+                label='Penalties', value='osp-tab-pen',
+                style={**_BTN_INACTIVE, 'flex': '1'},
+                selected_style={**_BTN_ACTIVE, 'flex': '1'},
             ),
         ],
         className='mb-3',

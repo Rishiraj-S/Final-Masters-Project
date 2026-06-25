@@ -1352,7 +1352,7 @@ def _build_penalties_skeleton(player_opts=None) -> html.Div:
 # Public builder
 # =============================================================================
 
-def build_set_pieces_tab(season=None, competitions=None, match_ids=None, **_) -> dbc.Tabs:
+def build_set_pieces_tab(season=None, competitions=None, match_ids=None, **_) -> dcc.Tabs:
     events = get_all_events(CURRENT_SEASON)
 
     fk_player_opts     = []
@@ -1382,32 +1382,29 @@ def build_set_pieces_tab(season=None, competitions=None, match_ids=None, **_) ->
             ]
         )
 
-    return dbc.Tabs(
-        active_tab='sp-tab-fk',
+    return dcc.Tabs(
+        value='sp-tab-fk',
         children=[
-            dbc.Tab(
+            dcc.Tab(
                 _build_free_kicks_skeleton(fk_player_opts),
                 label='Free-Kicks',
-                tab_id='sp-tab-fk',
-                tab_style={'flex': '1'},
-                label_style=_BTN_INACTIVE,
-                active_label_style=_BTN_ACTIVE,
+                value='sp-tab-fk',
+                style={**_BTN_INACTIVE, 'flex': '1'},
+                selected_style={**_BTN_ACTIVE, 'flex': '1'},
             ),
-            dbc.Tab(
+            dcc.Tab(
                 _build_corners_skeleton(corner_player_opts),
                 label='Corners',
-                tab_id='sp-tab-corners',
-                tab_style={'flex': '1'},
-                label_style=_BTN_INACTIVE,
-                active_label_style=_BTN_ACTIVE,
+                value='sp-tab-corners',
+                style={**_BTN_INACTIVE, 'flex': '1'},
+                selected_style={**_BTN_ACTIVE, 'flex': '1'},
             ),
-            dbc.Tab(
+            dcc.Tab(
                 _build_penalties_skeleton(pen_player_opts),
                 label='Penalties',
-                tab_id='sp-tab-pen',
-                tab_style={'flex': '1'},
-                label_style=_BTN_INACTIVE,
-                active_label_style=_BTN_ACTIVE,
+                value='sp-tab-pen',
+                style={**_BTN_INACTIVE, 'flex': '1'},
+                selected_style={**_BTN_ACTIVE, 'flex': '1'},
             ),
         ],
         className='mb-3',

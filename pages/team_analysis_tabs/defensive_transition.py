@@ -746,15 +746,26 @@ def _stats_table_children(losses: pd.DataFrame, top_n: int = 12) -> list:
             html.Td(str(s['aerial']), style={**_TD, 'color': '#8b5cf6'}),
         ], style={'backgroundColor': bg}))
 
-    legend = html.Div(
-        "Z1 = Def Third  ·  Z2 = Mid Third  ·  Z3 = Att Third  ·  "
-        "FP = Failed Pass  ·  Mc = Miscontrol  ·  Dis = Dispossessed  ·  "
-        "Duel = Lost Ground Duel  ·  Air = Lost Aerial",
-        style={
-            'color': COLORS['text_secondary'], 'fontSize': '0.55rem',
-            'fontStyle': 'italic', 'marginBottom': '4px',
-        },
-    )
+    legend = html.Div([
+        html.Span('ⓘ', style={
+            'color': GOLD, 'fontWeight': '700', 'fontSize': '0.70rem',
+            'marginRight': '6px', 'flexShrink': '0',
+        }),
+        html.Span(
+            "Tot = Total losses  ·  Z1/Z2/Z3 = Def / Mid / Att Third  ·  "
+            "FP = Failed Pass  ·  Mc = Miscontrol  ·  Dis = Dispossessed  ·  "
+            "Duel = Lost Ground Duel  ·  Air = Lost Aerial",
+            style={
+                'color': COLORS['text_secondary'], 'fontSize': '0.55rem',
+                'fontStyle': 'italic', 'lineHeight': '1.35',
+            },
+        ),
+    ], style={
+        'backgroundColor': COLORS['dark_secondary'],
+        'border': f'1px solid {COLORS["dark_border"]}',
+        'borderRadius': '4px', 'padding': '5px 8px', 'marginBottom': '8px',
+        'display': 'flex', 'alignItems': 'flex-start',
+    })
 
     return [
         legend,
@@ -766,6 +777,39 @@ def _stats_table_children(losses: pd.DataFrame, top_n: int = 12) -> list:
             style={'overflowX': 'auto'},
         ),
     ]
+
+
+def _loss_type_donut_fig(losses: pd.DataFrame) -> go.Figure:
+    """Donut chart: possession losses split by loss type (Failed Pass, etc.)."""
+    labels_all = list(_LOSS_COLORS.keys())
+    if not losses.empty and 'loss_type' in losses.columns:
+        counts = [int((losses['loss_type'] == l).sum()) for l in labels_all]
+    else:
+        counts = [0] * len(labels_all)
+    present = [(l, _LOSS_COLORS[l], c) for l, c in zip(labels_all, counts) if c > 0]
+    if present:
+        labels  = [p[0] for p in present]
+        colors  = [p[1] for p in present]
+        values  = [p[2] for p in present]
+    else:
+        labels, colors, values = labels_all, list(_LOSS_COLORS.values()), counts
+
+    fig = go.Figure(go.Pie(
+        labels=labels, values=values,
+        marker=dict(colors=colors, line=dict(color=PITCH_BG, width=2)),
+        hole=0.55, textinfo='percent', textfont=dict(color='white', size=11),
+        hovertemplate='<b>%{label}</b><br>%{value} losses (%{percent})<extra></extra>',
+        sort=False,
+    ))
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+        height=240, margin=dict(l=0, r=0, t=10, b=0), showlegend=True,
+        legend=dict(orientation='v', x=1.0, y=0.5, xanchor='left', yanchor='middle',
+                    font=dict(color=COLORS['text_primary'], size=9), bgcolor='rgba(0,0,0,0)'),
+        uirevision='dt-loss-type-donut',
+    )
+    return fig
 
 
 def _zone_donut_fig(losses: pd.DataFrame) -> go.Figure:
@@ -919,6 +963,17 @@ def build_defending_transition_skeleton() -> html.Div:
                 html.Div(style={'marginBottom': '6px'}),
                 html.Div(id='dt-stats-table', children=[]),
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
+                html.Div("Losses by Type", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
+                dcc.Loading(
+                    type='circle', color=GOLD,
+                    children=dcc.Graph(
+                        id='dt-loss-type-donut',
+                        figure=_skel_fig(240),
+                        config=CHART_CFG,
+                        style={'width': '100%'},
+                    ),
+                ),
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
                 html.Div("Losses by Zone", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
                 dcc.Loading(
                     type='circle', color=GOLD,
@@ -990,6 +1045,7 @@ def register_defending_transition_callbacks(app) -> None:
         Output('dt-pitch-map',         'figure'),
         Output('dt-heatmap-img',       'src'),
         Output('dt-stats-table',       'children'),
+        Output('dt-loss-type-donut',   'figure'),
         Output('dt-zone-donut',        'figure'),
         Output('dt-trans-outcomes',    'figure'),
         Output('dt-trans-event-types', 'figure'),
@@ -1007,7 +1063,8 @@ def register_defending_transition_callbacks(app) -> None:
                 competition, venue, match_ids, match_data):
 
         def _empty():
-            return [], _skel_fig(600), _SKEL_SRC, [], _skel_fig(220), _skel_fig(260), _skel_fig(280)
+            return ([], _skel_fig(600), _SKEL_SRC, [], _skel_fig(240),
+                    _skel_fig(220), _skel_fig(260), _skel_fig(280))
 
         events = get_all_events(CURRENT_SEASON)
         if events.empty:
@@ -1069,9 +1126,10 @@ def register_defending_transition_callbacks(app) -> None:
         pitch_fig       = _pitch_map_fig(losses_filtered)
         heatmap_src     = _heatmap_src(losses_filtered)
         stats_table     = _stats_table_children(losses)
+        losstype_fig    = _loss_type_donut_fig(losses)
         zone_fig        = _zone_donut_fig(losses)
         outcomes_fig    = _transition_outcomes_fig(losses)
         event_types_fig = _transition_event_types_fig(opp_in_windows)
 
         return (kpi, pitch_fig, heatmap_src,
-                stats_table, zone_fig, outcomes_fig, event_types_fig)
+                stats_table, losstype_fig, zone_fig, outcomes_fig, event_types_fig)

@@ -202,6 +202,53 @@ def get_fouls_won(events: pd.DataFrame) -> pd.DataFrame:
     return fouls[_numeric(fouls["outcome"]) == 1]
 
 
+# ── PPDA (Passes Per Defensive Action) ────────────────────────────────────────
+# High-press definition: the pressing zone is the 60% of the pitch nearest the
+# OPPONENT's goal (the analysed team's attacking 60%). Coordinates are per-team
+# normalised (x: 0 = own goal → 100 = opponent goal), so the two teams' frames
+# mirror each other and the SAME physical zone is:
+#   • opponent passes  → their own 60%         → x < 60 in the opponent's frame
+#   • our defensive actions → our attacking 60% → x > 40 in the team's frame
+_PPDA_OPP_PASS_X_MAX   = 60.0
+_PPDA_DEF_ACTION_X_MIN = 40.0
+_PPDA_ACTION_TYPES     = {"Tackle", "Interception", "Challenge"}
+
+
+def compute_ppda(team_events: pd.DataFrame, opp_events: pd.DataFrame) -> float:
+    """Passes Per Defensive Action for the team whose events are ``team_events``.
+
+    PPDA = (opponent passes made in their own defensive 60%) ÷ (the team's
+    defensive actions in the same physical area — its attacking 60%). Defensive
+    actions = tackles + interceptions + challenges + fouls committed (the
+    ``outcome != 1`` foul rows; fouls are double-logged). Lower = more
+    disruptive pressing. Returns 0.0 when there are no qualifying actions.
+    """
+    # Numerator — opponent passes in the pressing zone (their own 60%, x < 60).
+    if opp_events is None or opp_events.empty:
+        n_passes = 0
+    else:
+        passes = get_passes(opp_events)
+        if "x" in passes.columns:
+            passes = passes[_numeric(passes["x"]) < _PPDA_OPP_PASS_X_MAX]
+        n_passes = len(passes)
+
+    # Denominator — the team's defensive actions in the same zone (our x > 40).
+    if team_events is None or team_events.empty:
+        return 0.0
+    et        = team_events["event_type"]
+    is_action = et.isin(_PPDA_ACTION_TYPES)
+    is_foul   = et == "Foul"
+    if "outcome" in team_events.columns:
+        # Committed fouls only — the won-foul row (outcome == 1) is the opponent's.
+        is_foul = is_foul & (_numeric(team_events["outcome"]) != 1)
+    actions = team_events[is_action | is_foul]
+    if "x" in actions.columns and not actions.empty:
+        actions = actions[_numeric(actions["x"]) > _PPDA_DEF_ACTION_X_MIN]
+    n_actions = len(actions)
+
+    return round(n_passes / n_actions, 2) if n_actions > 0 else 0.0
+
+
 def get_penalty_fouls(events: pd.DataFrame) -> pd.DataFrame:
     """Foul events with Penalty qualifier == 'Si'.
 

@@ -1243,9 +1243,9 @@ def register_player_analysis_callbacks(app):
 
             stats_children = html.Div([
                 _shot_stat_row("Goals",           _fmt(_scale(goals,     mins, p90), p90), "#51cf66"),
-                _shot_stat_row("xG",              _fmt(_scale(xg,        mins, p90), p90), _GOLD),
+                _shot_stat_row("xG",              f"{_scale(xg,    mins, p90):.2f}", _GOLD),
                 _shot_stat_row("Penalty Goals",   _fmt(_scale(pen_goals, mins, p90), p90)),
-                _shot_stat_row("Non-penalty xG",  _fmt(_scale(np_xg,     mins, p90), p90), HOME_COLOR),
+                _shot_stat_row("Non-penalty xG",  f"{_scale(np_xg, mins, p90):.2f}", HOME_COLOR),
                 _shot_stat_row("Shots",           _fmt(_scale(total,     mins, p90), p90)),
                 _shot_stat_row("Shots on Target", _fmt(_scale(on_tgt,    mins, p90), p90), "#339af0"),
             ])
@@ -1344,7 +1344,7 @@ def register_player_analysis_callbacks(app):
 
             pass_stats = html.Div([
                 _shot_stat_row("Assists",             _fmt(_scale(ast,                 mins, p90), p90), _GOLD),
-                _shot_stat_row("xA",                  _fmt(_scale(xa,                  mins, p90), p90), HOME_COLOR),
+                _shot_stat_row("xA",                  f"{_scale(xa, mins, p90):.2f}", HOME_COLOR),
                 _shot_stat_row("Successful Passes",   _fmt(_scale(accurate,            mins, p90), p90)),
                 _shot_stat_row("Successful Passes %", _fmt(pass_acc, p90, pct=True),              "#51cf66"),
                 _shot_stat_row("Accurate Long Balls", _fmt(_scale(acc_lb,              mins, p90), p90)),

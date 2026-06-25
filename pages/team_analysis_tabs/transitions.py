@@ -9,7 +9,7 @@ Both sub-tabs use the skeleton + callback pattern: skeletons render
 instantly and charts are populated asynchronously by their own callbacks.
 """
 
-from dash import html
+from dash import html, dcc
 import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
@@ -40,10 +40,10 @@ _BTN_ACTIVE   = {**_BTN_BASE, 'color': GOLD,
 
 def build_transitions_tab(**_):
     """Return the Transitions tab layout — two skeleton sub-tabs."""
-    return dbc.Tabs(
-        active_tab='ta-trans-defend',
+    return dcc.Tabs(
+        value='ta-trans-defend',
         children=[
-            dbc.Tab(
+            dcc.Tab(
                 html.Div([
                     html.Div('Transition from Attack to Defense',
                              style={'fontSize': '0.95rem', 'color': GOLD,
@@ -52,12 +52,11 @@ def build_transitions_tab(**_):
                     build_defending_transition_skeleton(),
                 ]),
                 label='Defensive Transition',
-                tab_id='ta-trans-defend',
-                tab_style={'flex': '1'},
-                label_style=_BTN_INACTIVE,
-                active_label_style=_BTN_ACTIVE,
+                value='ta-trans-defend',
+                style={**_BTN_INACTIVE, 'flex': '1'},
+                selected_style={**_BTN_ACTIVE, 'flex': '1'},
             ),
-            dbc.Tab(
+            dcc.Tab(
                 html.Div([
                     html.Div('Transition from Defense to Attack',
                              style={'fontSize': '0.95rem', 'color': GOLD,
@@ -66,10 +65,9 @@ def build_transitions_tab(**_):
                     build_attacking_transition_skeleton(),
                 ]),
                 label='Attacking Transition',
-                tab_id='ta-trans-attack',
-                tab_style={'flex': '1'},
-                label_style=_BTN_INACTIVE,
-                active_label_style=_BTN_ACTIVE,
+                value='ta-trans-attack',
+                style={**_BTN_INACTIVE, 'flex': '1'},
+                selected_style={**_BTN_ACTIVE, 'flex': '1'},
             ),
         ],
         className='mb-3',

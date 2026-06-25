@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pandas as pd
-from dash import html, dcc, Input, Output, State, no_update
+from dash import html, dcc, Input, Output, no_update
 import dash_bootstrap_components as dbc
 
 from utils.config import COLORS
@@ -65,8 +65,6 @@ from pages.barca_dna import (
 
 logger = logging.getLogger(__name__)
 CURRENT_SEASON = SEASON
-
-_TAB_ID = 'oa-tab-player'
 
 
 # ---------------------------------------------------------------------------
@@ -434,7 +432,9 @@ def build_player(team: str | None = None, comp_key: str | None = None) -> html.D
 
 def register_player_callbacks(app) -> None:
 
-    # Shared Inputs/State: player + view mode (tab-local) and the page filters.
+    # Shared Inputs: player + page-level filters.
+    # No active_tab guard needed — oap-player only exists when this tab is
+    # rendered, so suppress_callback_exceptions handles cross-tab suppression.
     _COMMON = (
         Input("oap-player",          "value"),
         Input("oa-team-select",      "value"),
@@ -442,7 +442,6 @@ def register_player_callbacks(app) -> None:
         Input("oa-venue-filter",     "value"),
         Input("oa-selected-matches", "data"),
         Input("oa-date-filter",      "date"),
-        State("oa-tabs",             "active_tab"),
     )
 
     # ── Profile: bio + season stats ───────────────────────────────────────────
@@ -451,10 +450,10 @@ def register_player_callbacks(app) -> None:
         Output("oap-season-stats",  "children"),
         *_COMMON,
     )
-    def update_profile(player, team, comp, venue, match_ids, date_cutoff, active):
+    def update_profile(player, team, comp, venue, match_ids, date_cutoff):
         blank = (html.P("—", style={"color": COLORS["text_secondary"]}),
                  html.P("—", style={"color": COLORS["text_secondary"]}))
-        if active != _TAB_ID or not player:
+        if not player:
             return no_update, no_update
         try:
             _team_ev, _opp_ev, p_ev = _load_player_events(
@@ -509,8 +508,8 @@ def register_player_callbacks(app) -> None:
         Output("oap-radar", "figure"),
         *_COMMON,
     )
-    def update_radar(player, team, comp, venue, match_ids, date_cutoff, active):
-        if active != _TAB_ID or not player:
+    def update_radar(player, team, comp, venue, match_ids, date_cutoff):
+        if not player:
             return no_update
         try:
             _team_ev, _opp_ev, p_ev = _load_player_events(
@@ -554,8 +553,8 @@ def register_player_callbacks(app) -> None:
         Output("oap-heatmap", "src"),
         *_COMMON,
     )
-    def update_heatmap(player, team, comp, venue, match_ids, date_cutoff, active):
-        if active != _TAB_ID or not player:
+    def update_heatmap(player, team, comp, venue, match_ids, date_cutoff):
+        if not player:
             return no_update
         try:
             _team_ev, _opp_ev, p_ev = _load_player_events(
@@ -585,11 +584,11 @@ def register_player_callbacks(app) -> None:
         Input("oap-display-mode", "value"),
     )
     def update_shooting_panel(player, team, comp, venue, match_ids, date_cutoff,
-                              active, display_mode):
+                              display_mode):
         p90 = display_mode == "per90"
         _empty = (html.P("—", style={"color": COLORS["text_secondary"]}),
                   _shot_donut(pd.DataFrame()), _empty_shot_map())
-        if active != _TAB_ID or not player:
+        if not player:
             return no_update, no_update, no_update
         try:
             _team_ev, _opp_ev, p_ev = _load_player_events(
@@ -618,9 +617,9 @@ def register_player_callbacks(app) -> None:
 
             stats_children = html.Div([
                 _shot_stat_row("Goals",           _fmt(_scale(goals,     mins, p90), p90), "#51cf66"),
-                _shot_stat_row("xG",              _fmt(_scale(xg,        mins, p90), p90), _GOLD),
+                _shot_stat_row("xG",              f"{_scale(xg,    mins, p90):.2f}", _GOLD),
                 _shot_stat_row("Penalty Goals",   _fmt(_scale(pen_goals, mins, p90), p90)),
-                _shot_stat_row("Non-penalty xG",  _fmt(_scale(np_xg,     mins, p90), p90), HOME_COLOR),
+                _shot_stat_row("Non-penalty xG",  f"{_scale(np_xg, mins, p90):.2f}", HOME_COLOR),
                 _shot_stat_row("Shots",           _fmt(_scale(total,     mins, p90), p90)),
                 _shot_stat_row("Shots on Target", _fmt(_scale(on_tgt,    mins, p90), p90), "#339af0"),
             ])
@@ -639,11 +638,11 @@ def register_player_callbacks(app) -> None:
         Input("oap-display-mode", "value"),
     )
     def update_pass_poss_panels(player, team, comp, venue, match_ids, date_cutoff,
-                                active, display_mode):
+                                display_mode):
         p90 = display_mode == "per90"
         _empty_pass = html.P("—", style={"color": COLORS["text_secondary"]})
         _empty_out = (_empty_pass, _passing_donut(0, 0), _empty_pass, _possession_donut(0, 0, 0))
-        if active != _TAB_ID or not player:
+        if not player:
             return no_update, no_update, no_update, no_update
         try:
             team_ev, _opp_ev, p_ev = _load_player_events(
@@ -707,7 +706,7 @@ def register_player_callbacks(app) -> None:
 
             pass_stats = html.Div([
                 _shot_stat_row("Assists",             _fmt(_scale(ast,                 mins, p90), p90), _GOLD),
-                _shot_stat_row("xA",                  _fmt(_scale(xa,                  mins, p90), p90), HOME_COLOR),
+                _shot_stat_row("xA",                  f"{_scale(xa, mins, p90):.2f}", HOME_COLOR),
                 _shot_stat_row("Successful Passes",   _fmt(_scale(accurate,            mins, p90), p90)),
                 _shot_stat_row("Successful Passes %", _fmt(pass_acc, p90, pct=True),              "#51cf66"),
                 _shot_stat_row("Accurate Long Balls", _fmt(_scale(acc_lb,              mins, p90), p90)),
@@ -771,11 +770,11 @@ def register_player_callbacks(app) -> None:
         Input("oap-display-mode", "value"),
     )
     def update_defending_panel(player, team, comp, venue, match_ids, date_cutoff,
-                               active, display_mode):
+                               display_mode):
         p90 = display_mode == "per90"
         _empty = (html.P("—", style={"color": COLORS["text_secondary"]}),
                   _defending_donut(0, 0, 0, 0))
-        if active != _TAB_ID or not player:
+        if not player:
             return no_update, no_update
         try:
             _team_ev, opp_ev, p_ev = _load_player_events(
@@ -847,9 +846,9 @@ def register_player_callbacks(app) -> None:
         Output("oap-disc-stats", "children"),
         *_COMMON,
     )
-    def update_discipline_panel(player, team, comp, venue, match_ids, date_cutoff, active):
+    def update_discipline_panel(player, team, comp, venue, match_ids, date_cutoff):
         _empty = html.P("—", style={"color": COLORS["text_secondary"]})
-        if active != _TAB_ID or not player:
+        if not player:
             return no_update
         try:
             _team_ev, _opp_ev, p_ev = _load_player_events(

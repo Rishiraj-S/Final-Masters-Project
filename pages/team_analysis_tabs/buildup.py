@@ -10,6 +10,7 @@ Callbacks registered via register_buildup_callbacks(app).
 
 import io
 import base64
+from itertools import combinations
 
 import matplotlib
 matplotlib.use('Agg')
@@ -630,6 +631,114 @@ def _count_pass_pairs(bar_events: pd.DataFrame) -> dict:
     return {(a, b): int(c) for (a, b), c in result.items()}
 
 
+# =============================================================================
+# Three-player network helpers
+# =============================================================================
+
+def _short_name(name) -> str:
+    return name.split()[-1] if isinstance(name, str) and name.split() else str(name)
+
+
+# Pitch thirds by the passer's x: Z1 = defensive, Z2 = middle, Z3 = attacking.
+_TRIO_ZONES = [('Z1', 'Def Third'), ('Z2', 'Mid Third'), ('Z3', 'Att Third')]
+
+
+def _top_trios(bar_events: pd.DataFrame, top_n: int = 3) -> dict:
+    """Top three-player passing trios per pitch third (passer location).
+
+    A trio is a set of 3 players with a completed pass between every pair within
+    the third; its strength is the total passes across those 3 pairs. Returns
+    ``{'Z1': [(a, b, c, total), …], 'Z2': […], 'Z3': […]}`` (each sorted desc).
+    """
+    empty = {z: [] for z, _ in _TRIO_ZONES}
+    if bar_events.empty:
+        return empty
+
+    cols = ['player_name', 'event_type', 'outcome', 'period_id', 'time_min', 'time_sec', 'x']
+    ev = bar_events[[c for c in cols if c in bar_events.columns]].dropna(subset=['player_name']).copy()
+    sort_cols = [c for c in ['period_id', 'time_min', 'time_sec'] if c in ev.columns]
+    ev = ev.sort_values(sort_cols).reset_index(drop=True) if sort_cols else ev.reset_index(drop=True)
+    if ev.empty or 'x' not in ev.columns:
+        return empty
+
+    is_pass = ev['event_type'] == 'Pass'
+    is_suc  = (ev['outcome'] == 1) if 'outcome' in ev.columns else pd.Series(True, index=ev.index)
+    next_pl = ev['player_name'].shift(-1)
+    valid   = is_pass & is_suc & next_pl.notna() & (ev['player_name'] != next_pl)
+    if not valid.any():
+        return empty
+
+    sub = pd.DataFrame({
+        'passer':   ev.loc[valid, 'player_name'].values,
+        'receiver': next_pl.loc[valid].values,
+        'x':        pd.to_numeric(ev.loc[valid, 'x'], errors='coerce').values,
+    }).dropna(subset=['x'])
+    if sub.empty:
+        return empty
+    sub['zone'] = np.select(
+        [sub['x'] < 100 / 3, sub['x'] < 200 / 3],
+        ['Z1', 'Z2'], default='Z3',
+    )
+
+    out = {}
+    for zkey, _ in _TRIO_ZONES:
+        zg = sub[sub['zone'] == zkey]
+        pair_counts: dict = {}
+        for a, b in zip(zg['passer'], zg['receiver']):
+            key = (a, b) if a <= b else (b, a)
+            pair_counts[key] = pair_counts.get(key, 0) + 1
+        players = sorted({p for pair in pair_counts for p in pair})
+        trios = []
+        for a, b, c in combinations(players, 3):   # a < b < c, so pair keys are sorted
+            ab = pair_counts.get((a, b), 0)
+            ac = pair_counts.get((a, c), 0)
+            bc = pair_counts.get((b, c), 0)
+            if ab and ac and bc:
+                trios.append((a, b, c, ab + ac + bc))
+        trios.sort(key=lambda t: -t[3])
+        out[zkey] = trios[:top_n]
+    return out
+
+
+def _trio_table(trios_by_zone: dict) -> list:
+    """Render the top three-player networks, grouped by pitch third."""
+    children = [
+        html.Div("Top 3-Player Networks", style={
+            **_SECTION_TITLE, 'fontSize': '0.72rem',
+            'borderBottom': f'1px solid {COLORS["dark_border"]}', 'marginBottom': '2px',
+        }),
+        html.Div("(Combined passes among each trio, by pitch third)", style={
+            'color': COLORS['text_secondary'], 'fontSize': '0.56rem',
+            'fontStyle': 'italic', 'marginBottom': '4px',
+        }),
+    ]
+    for zkey, zlabel in _TRIO_ZONES:
+        trios = trios_by_zone.get(zkey, [])
+        children.append(html.Div(f'{zkey} · {zlabel}', style={
+            'color': GOLD, 'fontWeight': '700', 'fontSize': '0.60rem',
+            'letterSpacing': '0.6px', 'textTransform': 'uppercase',
+            'marginTop': '8px', 'marginBottom': '2px',
+        }))
+        if not trios:
+            children.append(html.Div('—', style={
+                'color': COLORS['text_secondary'], 'fontSize': '0.7rem', 'padding': '3px 0'}))
+            continue
+        for rank, (a, b, c, total) in enumerate(trios, 1):
+            trio_str = ' · '.join(_short_name(p) for p in (a, b, c))
+            children.append(html.Div([
+                html.Span(str(rank), style={
+                    'color': GOLD, 'fontWeight': '800', 'fontSize': '0.70rem', 'minWidth': '14px'}),
+                html.Span(trio_str, style={
+                    'color': 'white', 'fontSize': '0.70rem', 'flex': '1',
+                    'overflow': 'hidden', 'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap'}),
+                html.Span(str(total), style={
+                    'color': GOLD, 'fontWeight': '700', 'fontSize': '0.70rem', 'marginLeft': '6px'}),
+            ], style={
+                'display': 'flex', 'alignItems': 'center', 'gap': '6px', 'padding': '3px 0',
+                'borderBottom': f'1px solid {COLORS["dark_border"]}'}))
+    return children
+
+
 def _build_network_bar(bar_events: pd.DataFrame, pass_pairs: dict | None = None):
     """Pass-network nodes + edges from (already filtered) BAR events.
 
@@ -1003,6 +1112,16 @@ def _entries_fig_bar(entries_df: pd.DataFrame, zone: str) -> go.Figure:
     fig = go.Figure()
     _add_pitch_background(fig)
 
+    # Per-band share of entries, shown alongside the left-side band labels.
+    _total_e = len(entries_df)
+    _band_vc = (entries_df['dest_zone'].value_counts()
+                if _total_e and 'dest_zone' in entries_df.columns else pd.Series(dtype=int))
+
+    def _band_label(name: str) -> str:
+        c = int(_band_vc.get(name, 0))
+        p = round(c / _total_e * 100) if _total_e else 0
+        return f'{name}<br>{p}%'
+
     if not entries_df.empty:
         entries_df = entries_df.copy()
 
@@ -1130,13 +1249,13 @@ def _entries_fig_bar(entries_df: pd.DataFrame, zone: str) -> go.Figure:
                       line=dict(color='white', width=1.5, dash='dot'))
         fig.add_shape(type='line', x0=0, y0=33.33, x1=100, y1=33.33,
                       line=dict(color='white', width=1.5, dash='dot'))
-        fig.add_annotation(x=4, y=83, text='Left Band', showarrow=False,
+        fig.add_annotation(x=4, y=83, text=_band_label('Left Band'), showarrow=False,
                            font=dict(color='#00ffff', size=9, family='Arial Black'),
                            bgcolor='rgba(0,0,0,0.5)', borderpad=2)
-        fig.add_annotation(x=4, y=50, text='Centre Band', showarrow=False,
+        fig.add_annotation(x=4, y=50, text=_band_label('Centre Band'), showarrow=False,
                            font=dict(color='#ff1493', size=9, family='Arial Black'),
                            bgcolor='rgba(0,0,0,0.5)', borderpad=2)
-        fig.add_annotation(x=4, y=17, text='Right Band', showarrow=False,
+        fig.add_annotation(x=4, y=17, text=_band_label('Right Band'), showarrow=False,
                            font=dict(color='#ffd700', size=9, family='Arial Black'),
                            bgcolor='rgba(0,0,0,0.5)', borderpad=2)
     elif zone == 'zone14':
@@ -1156,13 +1275,13 @@ def _entries_fig_bar(entries_df: pd.DataFrame, zone: str) -> go.Figure:
                       line=dict(color='white', width=1.5, dash='dot'))
         fig.add_shape(type='line', x0=0, y0=33.33, x1=100, y1=33.33,
                       line=dict(color='white', width=1.5, dash='dot'))
-        fig.add_annotation(x=4, y=83, text='Left Band', showarrow=False,
+        fig.add_annotation(x=4, y=83, text=_band_label('Left Band'), showarrow=False,
                            font=dict(color='#00ffff', size=9, family='Arial Black'),
                            bgcolor='rgba(0,0,0,0.5)', borderpad=2)
-        fig.add_annotation(x=4, y=50, text='Centre Band', showarrow=False,
+        fig.add_annotation(x=4, y=50, text=_band_label('Centre Band'), showarrow=False,
                            font=dict(color='#ff1493', size=9, family='Arial Black'),
                            bgcolor='rgba(0,0,0,0.5)', borderpad=2)
-        fig.add_annotation(x=4, y=17, text='Right Band', showarrow=False,
+        fig.add_annotation(x=4, y=17, text=_band_label('Right Band'), showarrow=False,
                            font=dict(color='#ffd700', size=9, family='Arial Black'),
                            bgcolor='rgba(0,0,0,0.5)', borderpad=2)
 
@@ -1394,19 +1513,12 @@ def build_buildup_tab(season, competitions, match_ids=None) -> html.Div:
                         style={'width': '100%'},
                     ),
                 ),
-                md=7,
+                md=9,
             ),
             dbc.Col(
-                dcc.Loading(
-                    type='circle', color=COLORS['gold'],
-                    children=dcc.Graph(
-                        id='buildup-matrix-fig',
-                        figure=_skel_fig(520),
-                        config=CHART_CONFIG,
-                        style={'width': '100%'},
-                    ),
-                ),
-                md=5,
+                html.Div(id='buildup-trio-table', children=[]),
+                md=3, style={'borderLeft': f'1px solid {COLORS["dark_border"]}',
+                             'paddingLeft': '14px'},
             ),
         ], align='start', className='g-0'),
         html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '16px 0 12px'}),
@@ -1493,7 +1605,7 @@ def register_buildup_callbacks(app) -> None:
         Output('buildup-zone-pitch-img', 'src'),
         Output('buildup-touch-map-img',  'src'),
         Output('buildup-network-fig',    'figure'),
-        Output('buildup-matrix-fig',     'figure'),
+        Output('buildup-trio-table',     'children'),
         Output('buildup-top5-prog',      'children'),
         Output('buildup-top5-poss',      'children'),
         Output('buildup-ft-fig',         'figure'),
@@ -1523,7 +1635,7 @@ def register_buildup_callbacks(app) -> None:
         def _empty():
             return (_build_pass_fig(empty), _stats_numbers_children(empty),
                     _SKEL_SRC, _SKEL_SRC,
-                    go.Figure(), go.Figure(), [], [],
+                    go.Figure(), [], [], [],
                     go.Figure(), go.Figure(), [], [])
 
         events = get_all_events(CURRENT_SEASON)
@@ -1641,11 +1753,11 @@ def register_buildup_callbacks(app) -> None:
         else:
             filtered_bar = pd.DataFrame()
 
-        # Compute pass pairs once — shared by network and matrix
+        # Compute pass pairs once — shared by the network and the trio table.
         pairs = _count_pass_pairs(filtered_bar)
         net_nodes, net_edges = _build_network_bar(filtered_bar, pairs)
         net_fig = _network_fig_bar(net_nodes, net_edges)
-        mat_fig = _pass_matrix_fig(filtered_bar, pairs)
+        trio_children = _trio_table(_top_trios(filtered_bar))
 
         top5_prog = _top5_progressive_children(filtered)
         top5_poss = _top5_poss_children(touches)
@@ -1674,5 +1786,5 @@ def register_buildup_callbacks(app) -> None:
         avg_ppp    = _avg_passes_per_poss(events, len(passes))
         fld_tilt   = _field_tilt(events, passes)
         return (_build_pass_fig(plot_passes), _stats_numbers_children(filtered, filtered_bar, avg_ppp, fld_tilt),
-                zone_src, touch_src, net_fig, mat_fig, top5_prog, top5_poss,
+                zone_src, touch_src, net_fig, trio_children, top5_prog, top5_poss,
                 ft_fig, z14_fig, ft_table, z14_table)

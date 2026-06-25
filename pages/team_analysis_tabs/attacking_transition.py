@@ -689,46 +689,65 @@ def _stats_table_children(gains: pd.DataFrame, top_n: int = 12) -> list:
     ]
 
 
-def _zone_summary_children(gains: pd.DataFrame) -> list:
-    if gains.empty:
-        return []
+def _gain_type_donut_fig(gains: pd.DataFrame) -> go.Figure:
+    """Donut chart: possession gains split by gain type."""
+    labels_all = list(_GAIN_COLORS.keys())
+    if not gains.empty and 'gain_type' in gains.columns:
+        counts = [int((gains['gain_type'] == l).sum()) for l in labels_all]
+    else:
+        counts = [0] * len(labels_all)
+    present = [(l, _GAIN_COLORS[l], c) for l, c in zip(labels_all, counts) if c > 0]
+    if present:
+        labels  = [p[0] for p in present]
+        colors  = [p[1] for p in present]
+        values  = [p[2] for p in present]
+    else:
+        labels, colors, values = labels_all, list(_GAIN_COLORS.values()), counts
 
-    total = max(len(gains), 1)
-    z1 = int((gains['x'] < 33.33).sum())
-    z2 = int(((gains['x'] >= 33.33) & (gains['x'] < 66.67)).sum())
-    z3 = int((gains['x'] >= 66.67).sum())
+    fig = go.Figure(go.Pie(
+        labels=labels, values=values,
+        marker=dict(colors=colors, line=dict(color=PITCH_BG, width=2)),
+        hole=0.55, textinfo='percent', textfont=dict(color='white', size=11),
+        hovertemplate='<b>%{label}</b><br>%{value} gains (%{percent})<extra></extra>',
+        sort=False,
+    ))
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+        height=240, margin=dict(l=0, r=0, t=10, b=0), showlegend=True,
+        legend=dict(orientation='v', x=1.0, y=0.5, xanchor='left', yanchor='middle',
+                    font=dict(color=COLORS['text_primary'], size=9), bgcolor='rgba(0,0,0,0)'),
+        uirevision='at-gain-type-donut',
+    )
+    return fig
 
-    def _zone_row(label, count, color):
-        pct = round(count / total * 100)
-        return html.Div([
-            html.Span(label, style={
-                'color': COLORS['text_secondary'], 'fontSize': '0.68rem',
-                'minWidth': '80px',
-            }),
-            html.Div(style={
-                'flex': '1', 'height': '6px',
-                'backgroundColor': COLORS['dark_border'],
-                'borderRadius': '3px', 'overflow': 'hidden',
-                'margin': '0 8px',
-            }, children=[
-                html.Div(style={
-                    'width': f'{pct}%', 'height': '100%',
-                    'backgroundColor': color, 'borderRadius': '3px',
-                }),
-            ]),
-            html.Span(f'{count}  ({pct}%)', style={
-                'color': color, 'fontSize': '0.68rem',
-                'fontWeight': '700', 'minWidth': '60px', 'textAlign': 'right',
-            }),
-        ], style={'display': 'flex', 'alignItems': 'center', 'padding': '4px 0'})
 
-    return [
-        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
-        html.Div("Gains by Zone", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
-        _zone_row('Zone 1 (Def Third)', z1, AWAY_COLOR),
-        _zone_row('Zone 2 (Mid Third)', z2, GOLD),
-        _zone_row('Zone 3 (Att Third)', z3, HOME_COLOR),
-    ]
+def _zone_donut_fig(gains: pd.DataFrame) -> go.Figure:
+    """Donut chart: possession gains split by pitch zone."""
+    labels = ['Def Third (Z1)', 'Mid Third (Z2)', 'Att Third (Z3)']
+    colors = [AWAY_COLOR, GOLD, HOME_COLOR]
+    if not gains.empty and 'x' in gains.columns:
+        z1 = int((gains['x'] < 33.33).sum())
+        z2 = int(((gains['x'] >= 33.33) & (gains['x'] < 66.67)).sum())
+        z3 = int((gains['x'] >= 66.67).sum())
+    else:
+        z1 = z2 = z3 = 0
+    fig = go.Figure(go.Pie(
+        labels=labels, values=[z1, z2, z3],
+        marker=dict(colors=colors, line=dict(color=PITCH_BG, width=2)),
+        hole=0.55, textinfo='percent', textfont=dict(color='white', size=11),
+        hovertemplate='<b>%{label}</b><br>%{value} gains (%{percent})<extra></extra>',
+        sort=False,
+    ))
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+        height=220, margin=dict(l=0, r=0, t=10, b=0), showlegend=True,
+        legend=dict(orientation='v', x=1.0, y=0.5, xanchor='left', yanchor='middle',
+                    font=dict(color=COLORS['text_primary'], size=9), bgcolor='rgba(0,0,0,0)'),
+        uirevision='at-zone-donut',
+    )
+    return fig
 
 
 # =============================================================================
@@ -851,7 +870,30 @@ def build_attacking_transition_skeleton() -> html.Div:
                 html.Div("Gains by Player", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
                 html.Div(style={'marginBottom': '6px'}),
                 html.Div(id='at-stats-table', children=[]),
-                html.Div(id='at-zone-summary', children=[]),
+                
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
+                html.Div("Gains by Type", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
+                dcc.Loading(
+                    type='circle', color=GOLD,
+                    children=dcc.Graph(
+                        id='at-gain-type-donut',
+                        figure=_skel_fig(240),
+                        config=CHART_CFG,
+                        style={'width': '100%'},
+                    ),
+                ),
+                
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
+                html.Div("Gains by Zone", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
+                dcc.Loading(
+                    type='circle', color=GOLD,
+                    children=dcc.Graph(
+                        id='at-zone-donut',
+                        figure=_skel_fig(220),
+                        config=CHART_CFG,
+                        style={'width': '100%'},
+                    ),
+                ),
 
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
                 html.Div("Transition Outcome", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
@@ -913,7 +955,8 @@ def register_attacking_transition_callbacks(app) -> None:
         Output('at-pitch-map',         'figure'),
         Output('at-heatmap-img',       'src'),
         Output('at-stats-table',       'children'),
-        Output('at-zone-summary',      'children'),
+        Output('at-gain-type-donut',   'figure'),
+        Output('at-zone-donut',        'figure'),
         Output('at-trans-outcomes',    'figure'),
         Output('at-trans-event-types', 'figure'),
         Input('at-player-filter',      'value'),
@@ -930,7 +973,7 @@ def register_attacking_transition_callbacks(app) -> None:
                 competition, venue, match_ids, match_data):
 
         def _empty():
-            return [], _skel_fig(600), _SKEL_SRC, [], [], _skel_fig(260), _skel_fig(280)
+            return [], _skel_fig(600), _SKEL_SRC, [], _skel_fig(240), _skel_fig(220), _skel_fig(260), _skel_fig(280)
 
         events = get_all_events(CURRENT_SEASON)
         if events.empty:
@@ -990,9 +1033,10 @@ def register_attacking_transition_callbacks(app) -> None:
         pitch_fig       = _pitch_map_fig(gains_filtered)
         heatmap_src     = _heatmap_src(gains_filtered)
         stats_table     = _stats_table_children(gains)
-        zone_summary    = _zone_summary_children(gains)
+        gain_type_fig   = _gain_type_donut_fig(gains)
+        zone_fig        = _zone_donut_fig(gains)
         outcomes_fig    = _transition_outcomes_fig(gains)
         event_types_fig = _transition_event_types_fig(bar_in_windows)
 
         return (kpi, pitch_fig, heatmap_src,
-                stats_table, zone_summary, outcomes_fig, event_types_fig)
+                stats_table, gain_type_fig, zone_fig, outcomes_fig, event_types_fig)

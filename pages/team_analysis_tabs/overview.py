@@ -40,7 +40,7 @@ from page_utils.visualizations import (
 )
 from page_utils.competitions import COMP_SHORT as _COMP_SHORT
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
-from utils.event_utils import get_ball_gains
+from utils.event_utils import get_ball_gains, compute_ppda
 
 # Barcelona competition display name → data-folder key (inverse of COMPETITION_NAMES).
 _DISPLAY_TO_FOLDER = {v: k for k, v in COMPETITION_NAMES.items()}
@@ -791,18 +791,9 @@ def _match_event_metrics(bar: pd.DataFrame, opp: pd.DataFrame) -> dict:
         pass_acc = (round(tp['outcome'].eq(1).sum() / max(n_tp, 1) * 100, 1)
                     if 'outcome' in tp.columns and n_tp else 0.0)
 
-        # PPDA: opponent passes in their own build-up (x<40) ÷ our pressing
-        # actions (tackles + interceptions) in the attacking half (x>50).
-        if not op.empty and 'x' in op.columns:
-            opp_build = op[pd.to_numeric(op['x'], errors='coerce') < 40]
-        else:
-            opp_build = op
-        if 'x' in te.columns:
-            press = te[te['event_type'].isin(['Tackle', 'Interception']) &
-                       (pd.to_numeric(te['x'], errors='coerce') > 50)]
-        else:
-            press = te.head(0)
-        ppda = round(len(opp_build) / max(len(press), 1), 2)
+        # PPDA — opponent passes in their own 60% ÷ our defensive actions in our
+        # attacking 60% (canonical high-press definition in event_utils).
+        ppda = compute_ppda(te, oe)
 
         # Passes per possession: completed passes ÷ possessions, where a
         # possession ends in a shot or a turnover.
@@ -1016,15 +1007,16 @@ def build_overview_tab(season: str, competitions: list | None, match_ids: list |
     all_passes = events[events['event_type'] == 'Pass'] if not events.empty else pd.DataFrame()
     poss       = round(len(bar_passes) / max(len(all_passes), 1) * 100, 1)
 
-    opp_dp = (opp[(opp['event_type'] == 'Pass') & opp['x'].notna() & (opp['x'] < 40)]
-              if not opp.empty else pd.DataFrame())
-    bar_pr = (bar[bar['event_type'].isin(['Tackle', 'Interception']) &
-                  bar['x'].notna() & (bar['x'] > 50)]
-              if not bar.empty else pd.DataFrame())
-    ppda   = round(len(opp_dp) / max(len(bar_pr), 1), 1)
+    ppda = compute_ppda(bar, opp)
 
     pass_acc = (round(bar_passes['outcome'].eq(1).sum() / max(len(bar_passes), 1) * 100, 1)
                 if not bar_passes.empty else 0.0)
+
+    _all_ft_x  = pd.to_numeric(all_passes['x'], errors='coerce') if not all_passes.empty else pd.Series(dtype=float)
+    _bar_ft_x  = pd.to_numeric(bar_passes['x'], errors='coerce') if not bar_passes.empty else pd.Series(dtype=float)
+    _all_ft_n  = int((_all_ft_x.dropna() > 66.67).sum())
+    _bar_ft_n  = int((_bar_ft_x.dropna() > 66.67).sum())
+    field_tilt = round(_bar_ft_n / _all_ft_n * 100, 1) if _all_ft_n > 0 else 0.0
 
     # ── Phase scores + metrics ────────────────────────────────────────────────
     scores, phase_metrics = (
@@ -1047,13 +1039,14 @@ def build_overview_tab(season: str, competitions: list | None, match_ids: list |
     # Row 1: Season snapshot banner
     banner = _season_banner(results, wins, draws, loss, pts, ppg, poss, ppda, gf, ga)
 
-    # Row 2: Stat pills (GF · GA · CS · Matches · Pass Acc)
+    # Row 2: Stat pills (GF · GA · CS · Matches · Pass Acc · Field Tilt)
     stat_pills = html.Div([
-        _stat_pill(str(gf),           'Goals For',      GOLD),
-        _stat_pill(str(ga),           'Goals Against',  AWAY_COLOR),
-        _stat_pill(str(cs),           'Clean Sheets',   HOME_COLOR),
-        _stat_pill(f'{pass_acc:.1f}%','Pass Accuracy',  GOLD),
-        _stat_pill(str(n_matches),    'Matches',        COLORS['text_secondary']),
+        _stat_pill(str(gf),               'Goals For',      GOLD),
+        _stat_pill(str(ga),               'Goals Against',  AWAY_COLOR),
+        _stat_pill(str(cs),               'Clean Sheets',   HOME_COLOR),
+        _stat_pill(f'{pass_acc:.1f}%',    'Pass Accuracy',  GOLD),
+        _stat_pill(f'{field_tilt:.1f}%',  'Field Tilt',     HOME_COLOR),
+        _stat_pill(str(n_matches),        'Matches',        COLORS['text_secondary']),
     ], style={'display': 'flex', 'gap': '8px', 'marginBottom': '14px'})
 
     # Row 3: Phase cards strip

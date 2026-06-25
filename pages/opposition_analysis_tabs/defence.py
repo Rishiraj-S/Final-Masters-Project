@@ -39,6 +39,7 @@ from page_utils.visualizations import (
     PITCH_BG,
 )
 from page_utils.event_filters import SHOT_TYPES as _SHOT_TYPES
+from utils.event_utils import compute_ppda
 
 
 # =============================================================================
@@ -182,18 +183,28 @@ def _add_attack_direction(fig: go.Figure) -> None:
     )
 
 
-def _kpi_card(value, label, color=None) -> html.Div:
+def _kpi_card(value, label, color=None, tooltip=None) -> html.Div:
+    label_base_style = {
+        'color': COLORS['text_secondary'],
+        'fontSize': '0.60rem', 'fontWeight': '600',
+        'letterSpacing': '0.6px', 'textTransform': 'uppercase',
+        'marginTop': '3px',
+    }
+    if tooltip:
+        label_el = html.Div(html.Span(label, title=tooltip, style={
+            **label_base_style,
+            'cursor': 'help',
+            'borderBottom': f"1px dashed {COLORS['text_secondary']}",
+            'display': 'inline-block',
+        }))
+    else:
+        label_el = html.Div(label, style=label_base_style)
     return html.Div([
         html.Div(str(value), style={
             'color': color or COLORS['text_primary'],
             'fontWeight': '800', 'fontSize': '1.35rem', 'lineHeight': '1.1',
         }),
-        html.Div(label, style={
-            'color': COLORS['text_secondary'],
-            'fontSize': '0.60rem', 'fontWeight': '600',
-            'letterSpacing': '0.6px', 'textTransform': 'uppercase',
-            'marginTop': '3px',
-        }),
+        label_el,
     ], style={
         'backgroundColor': COLORS['dark_secondary'],
         'border': f'1px solid {COLORS["dark_border"]}',
@@ -206,7 +217,8 @@ def _kpi_card(value, label, color=None) -> html.Div:
 # Defence data / chart functions
 # =============================================================================
 
-def _def_kpi_children(opp_def: pd.DataFrame, opp_ev: pd.DataFrame, bar_ev: pd.DataFrame) -> list:
+def _def_kpi_children(opp_def: pd.DataFrame, opp_ev: pd.DataFrame, bar_ev: pd.DataFrame,
+                      ppda: float = 0.0, field_tilt: float = 0.0) -> list:
     if opp_def.empty:
         total_n = tkl_n = tkl_won_pct = duel_total = duel_win_pct = 0
         int_n = clr_n = clean_sheets = matches_played = 0
@@ -251,6 +263,10 @@ def _def_kpi_children(opp_def: pd.DataFrame, opp_ev: pd.DataFrame, bar_ev: pd.Da
         _kpi_card(int_n,                              'Interceptions',  HOME_COLOR),
         _kpi_card(clr_n,                              'Clearances',     HOME_COLOR),
         _kpi_card(f'{clean_sheets}/{matches_played}', 'Clean Sheets',   GOLD),
+        _kpi_card(f'{ppda}',         'PPDA',       AWAY_COLOR,
+                  tooltip='Passes Per Defensive Action — opponent passes in their own 60% of pitch ÷ this team\'s defensive actions in the attacking 60%. Lower = more intense press.'),
+        _kpi_card(f'{field_tilt:.1f}%', 'Field Tilt', HOME_COLOR,
+                  tooltip='Field Tilt — this team\'s share of all passes played in the final third (both teams combined). Higher = greater territorial dominance in the attacking third.'),
     ]
     return [html.Div(cards, style={'display': 'flex', 'gap': '6px', 'flexWrap': 'wrap'})]
 
@@ -597,7 +613,7 @@ def _def_zone_summary(def_events: pd.DataFrame) -> list:
 
     return [
         html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
-        html.Div("Pressing Height", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
+        html.Div("Defensive Actions by Zone", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
         html.Div("Where they win the ball back",
                  style={'color': COLORS['text_secondary'], 'fontSize': '0.60rem',
                         'fontStyle': 'italic', 'marginBottom': '6px'}),
@@ -607,30 +623,67 @@ def _def_zone_summary(def_events: pd.DataFrame) -> list:
     ]
 
 
-def _def_zone_donut_fig(def_events: pd.DataFrame) -> go.Figure:
-    """Donut chart: pressing height — where the opposition wins the ball back."""
-    labels = ['Def Third (Z1)', 'Mid Third (Z2)', 'Att Third (Z3)']
-    colors = [AWAY_COLOR, GOLD, HOME_COLOR]
+def _def_zone_bar_fig(def_events: pd.DataFrame) -> go.Figure:
+    """Stacked bar chart: defensive actions by zone (percentage within zone)."""
+    zones = ['Z1', 'Z2', 'Z3']
     if def_events.empty or 'x' not in def_events.columns:
-        z1 = z2 = z3 = 0
-    else:
-        z1 = int((def_events['x'] < 33.33).sum())
-        z2 = int(((def_events['x'] >= 33.33) & (def_events['x'] < 66.67)).sum())
-        z3 = int((def_events['x'] >= 66.67).sum())
-    fig = go.Figure(go.Pie(
-        labels=labels, values=[z1, z2, z3],
-        marker=dict(colors=colors, line=dict(color=PITCH_BG, width=2)),
-        hole=0.55, textinfo='percent', textfont=dict(color='white', size=11),
-        hovertemplate='<b>%{label}</b><br>%{value} actions (%{percent})<extra></extra>',
-        sort=False,
-    ))
+        fig = go.Figure()
+        fig.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+            height=280, margin=dict(l=30, r=10, t=10, b=20)
+        )
+        return fig
+
+    def_events = def_events.copy()
+    def get_zone(x):
+        if pd.isna(x): return None
+        if x < 33.33: return 'Z1'
+        if x < 66.67: return 'Z2'
+        return 'Z3'
+    def_events['zone'] = def_events['x'].apply(get_zone)
+    def_events = def_events.dropna(subset=['zone'])
+
+    counts = def_events.groupby(['zone', 'event_type']).size().unstack(fill_value=0)
+    for z in zones:
+        if z not in counts.index:
+            counts.loc[z] = 0
+    counts = counts.loc[zones]
+
+    totals = counts.sum(axis=1)
+    percentages = counts.div(totals.replace(0, 1), axis=0) * 100
+
+    fig = go.Figure()
+    for action_type, color in _DEF_COLORS.items():
+        if action_type in percentages.columns:
+            y_vals = percentages[action_type].values
+            count_vals = counts[action_type].values
+            if y_vals.sum() > 0:
+                fig.add_trace(go.Bar(
+                    name=action_type,
+                    x=['Def Third (Z1)', 'Mid Third (Z2)', 'Att Third (Z3)'],
+                    y=y_vals,
+                    marker_color=color,
+                    text=[f"<b>{v:.0f}%</b>" if v >= 5 else "" for v in y_vals],
+                    textposition='inside',
+                    insidetextanchor='middle',
+                    textfont=dict(color='black', size=10),
+                    customdata=count_vals,
+                    hovertemplate='<b>%{x}</b><br>' + action_type + ': %{customdata} actions (%{y:.1f}%)<extra></extra>'
+                ))
+
     fig.update_layout(
+        barmode='stack',
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
-        height=220, margin=dict(l=0, r=0, t=10, b=0), showlegend=True,
+        height=280, margin=dict(l=30, r=10, t=10, b=20), showlegend=True,
         legend=dict(orientation='v', x=1.0, y=0.5, xanchor='left', yanchor='middle',
                     font=dict(color=COLORS['text_primary'], size=9), bgcolor='rgba(0,0,0,0)'),
-        uirevision='ods-def-zone-donut',
+        uirevision='ods-def-zone-bar',
+        yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zeroline=False, ticksuffix='%', range=[0, 100]),
+        xaxis=dict(showgrid=False),
+        uniformtext_minsize=11,
+        uniformtext_mode='hide'
     )
     return fig
 
@@ -666,6 +719,52 @@ def _offsides_only_fig(offside_ev: pd.DataFrame) -> go.Figure:
             font=dict(color=COLORS['text_primary'], size=10),
         ),
         margin=dict(l=0, r=130, t=36, b=0),
+    )
+    return fig
+
+
+def _offside_zone_bar_fig(offside_ev: pd.DataFrame, uirevision: str = 'ods-offside-zone-bar') -> go.Figure:
+    """Bar chart: offsides provoked by zone (Z1, Z2, Z3)."""
+    zones = ['Z1', 'Z2', 'Z3']
+    if offside_ev.empty or 'x' not in offside_ev.columns:
+        fig = go.Figure()
+        fig.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+            height=280, margin=dict(l=30, r=10, t=10, b=20)
+        )
+        return fig
+
+    offside_ev = offside_ev.copy()
+    def get_zone(x):
+        if pd.isna(x): return None
+        if x < 33.33: return 'Z1'
+        if x < 66.67: return 'Z2'
+        return 'Z3'
+    offside_ev['zone'] = offside_ev['x'].apply(get_zone)
+    counts = offside_ev.groupby('zone').size()
+    for z in zones:
+        if z not in counts:
+            counts[z] = 0
+    counts = counts.loc[zones]
+
+    fig = go.Figure(go.Bar(
+        x=['Def Third (Z1)', 'Mid Third (Z2)', 'Att Third (Z3)'],
+        y=counts.values,
+        marker_color=_OFFSIDE_COLOR,
+        text=[str(v) if v > 0 else "" for v in counts.values],
+        textposition='outside',
+        textfont=dict(color='white', size=11),
+        hovertemplate='<b>%{x}</b><br>Offsides Provoked: %{y}<extra></extra>'
+    ))
+
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+        height=280, margin=dict(l=30, r=10, t=10, b=20),
+        uirevision=uirevision,
+        yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zeroline=False),
+        xaxis=dict(showgrid=False)
     )
     return fig
 
@@ -907,132 +1006,89 @@ def _build_bar_entries(bar_ev: pd.DataFrame, zone: str) -> pd.DataFrame:
 
 
 def _bar_entries_fig(entries_df: pd.DataFrame, zone: str) -> go.Figure:
-    fig = go.Figure()
-    add_pitch_background(fig, half=False)
-
-    if not entries_df.empty:
-        df = entries_df.copy()
-        mins = df['time_min'].fillna(0).astype(int)
-        secs = df['time_sec'].fillna(0).astype(int)
-        df['time_display']  = mins.astype(str) + ':' + (secs // 10).astype(str) + (secs % 10).astype(str)
-        df['outcome_label'] = df['outcome'].map({1: '✓ Successful', 0: '✗ Unsuccessful'}).fillna('—')
-        df['shot_label']    = np.where(
-            df['led_to_goal'].fillna(False), '<br>⚽ Led to Goal',
-            np.where(df['led_to_shot'].fillna(False), '<br>🎯 Led to Shot', ''))
-        if 'receiver_name' not in df.columns:
-            df['receiver_name'] = ''
-
-        color_iter = _ZONE14_COLORS.items() if zone == 'zone14' else _ENTRY_COLORS.items()
-        group_col  = 'dest_zone'            if zone == 'zone14' else 'event_label'
-        new_annotations: list = []
-        _ann = dict(xref='x', yref='y', axref='x', ayref='y',
-                    showarrow=True, arrowhead=2, arrowsize=1.5, arrowwidth=2, opacity=0.65)
-
-        for group_name, ecolor in color_iter:
-            subset = df[df[group_col] == group_name]
-            if subset.empty:
-                continue
-            passes_sub    = subset[subset['event_label'] == 'Pass']
-            nonpasses_sub = subset[subset['event_label'] != 'Pass']
-
-            if zone == 'zone14':
-                for _, r in passes_sub.iterrows():
-                    new_annotations.append({**_ann, 'arrowcolor': ecolor,
-                                            'x': r['end_x'], 'y': r['end_y'],
-                                            'ax': r['x'], 'ay': r['y']})
-                if not nonpasses_sub.empty:
-                    _x  = nonpasses_sub['x'].values
-                    _ex = nonpasses_sub['end_x'].values
-                    _y  = nonpasses_sub['y'].values
-                    _ey = nonpasses_sub['end_y'].values
-                    seg  = np.empty(len(_x) * 3, dtype=object)
-                    segy = np.empty(len(_y) * 3, dtype=object)
-                    seg[0::3]  = _x;  seg[1::3]  = _ex;  seg[2::3]  = None
-                    segy[0::3] = _y;  segy[1::3] = _ey;  segy[2::3] = None
-                    fig.add_trace(go.Scatter(
-                        x=seg.tolist(), y=segy.tolist(), mode='lines',
-                        line=dict(color=ecolor, width=2, dash='dash'),
-                        showlegend=False, hoverinfo='skip'))
-            else:
-                for _, r in subset.iterrows():
-                    new_annotations.append({**_ann, 'arrowcolor': ecolor,
-                                            'x': r['end_x'], 'y': r['end_y'],
-                                            'ax': r['x'], 'ay': r['y']})
-
-            legend_name  = f'{group_name} ({len(subset)})'
-            legend_shown = False
-
-            if not passes_sub.empty:
-                cd = (passes_sub[['player_name', 'receiver_name', 'event_label',
-                                   'time_display', 'outcome_label', 'shot_label']].values
-                      if zone == 'zone14'
-                      else passes_sub[['player_name', 'receiver_name',
-                                       'time_display', 'outcome_label', 'shot_label']].values)
-                ht = ((f'<b>{group_name}</b><br>Pass: %{{customdata[0]}} → %{{customdata[1]}}<br>'
-                       'Time: %{customdata[3]}<br>%{customdata[4]}%{customdata[5]}<extra></extra>')
-                      if zone == 'zone14'
-                      else (f'<b>{group_name}</b><br>%{{customdata[0]}} → %{{customdata[1]}}<br>'
-                            'Time: %{customdata[2]}<br>%{customdata[3]}%{customdata[4]}<extra></extra>'))
-                fig.add_trace(go.Scatter(
-                    x=passes_sub['end_x'], y=passes_sub['end_y'], mode='markers',
-                    marker=dict(size=8, color=ecolor, line=dict(width=1.5, color='white')),
-                    customdata=cd, hovertemplate=ht,
-                    name=legend_name, showlegend=True, legendgroup=group_name))
-                legend_shown = True
-
-            if not nonpasses_sub.empty:
-                cd = (nonpasses_sub[['player_name', 'event_label',
-                                      'time_display', 'outcome_label', 'shot_label']].values
-                      if zone == 'zone14'
-                      else nonpasses_sub[['player_name',
-                                          'time_display', 'outcome_label', 'shot_label']].values)
-                ht = ((f'<b>{group_name}</b><br>%{{customdata[1]}}: %{{customdata[0]}}<br>'
-                       'Time: %{customdata[2]}<br>%{customdata[3]}%{customdata[4]}<extra></extra>')
-                      if zone == 'zone14'
-                      else (f'<b>{group_name}</b><br>%{{customdata[0]}}<br>'
-                            'Time: %{customdata[1]}<br>%{customdata[2]}%{customdata[3]}<extra></extra>'))
-                fig.add_trace(go.Scatter(
-                    x=nonpasses_sub['end_x'], y=nonpasses_sub['end_y'], mode='markers',
-                    marker=dict(size=8, color=ecolor, line=dict(width=1.5, color='white')),
-                    customdata=cd, hovertemplate=ht,
-                    name=legend_name if not legend_shown else '',
-                    showlegend=not legend_shown, legendgroup=group_name))
-
-        if new_annotations:
-            fig.update_layout(annotations=list(fig.layout.annotations) + new_annotations)
-
     if zone == 'final_third':
-        fig.add_shape(type='line', x0=66.67, y0=0, x1=66.67, y1=100,
-                      line=dict(color='yellow', width=3, dash='dash'))
-        fig.add_annotation(x=83, y=96, text='Final Third', showarrow=False,
-                           font=dict(color='yellow', size=11, family='Arial Black'),
-                           bgcolor='rgba(0,0,0,0.5)', borderpad=4)
-    elif zone == 'zone14':
-        for x0, y0, x1, y1, color, label, lx, ly in [
-            (66.67, 37, 83.33, 63,  '#ff1493', 'Zone 14',  75, 50),
-            (66.67, 63, 100,   79,  '#00ffff',  'Left HS',  83, 71),
-            (66.67, 21, 100,   37,  '#ffd700',  'Right HS', 83, 29),
-        ]:
-            fig.add_shape(type='rect', x0=x0, y0=y0, x1=x1, y1=y1,
-                          line=dict(color=color, width=2, dash='dash'),
-                          fillcolor=f'rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)},0.08)')
-            fig.add_annotation(x=lx, y=ly, text=label, showarrow=False,
-                               font=dict(color=color, size=10, family='Arial Black'),
-                               bgcolor='rgba(0,0,0,0.5)', borderpad=3)
+        bands = ['Right Band', 'Central Band', 'Left Band']
+        z1_counts = [0, 0, 0]
+        z2_counts = [0, 0, 0]
+        if not entries_df.empty:
+            df = entries_df.copy()
+            df['band'] = pd.cut(df['end_y'], bins=[-np.inf, 33.33, 66.67, np.inf], labels=['Right Band', 'Central Band', 'Left Band'])
+            df['origin_zone'] = pd.cut(df['x'], bins=[-np.inf, 33.33, 66.67, np.inf], labels=['Z1', 'Z2', 'Z3'])
+            
+            z1_df = df[df['origin_zone'] == 'Z1']
+            z1_counts = [
+                (z1_df['band'] == 'Right Band').sum(),
+                (z1_df['band'] == 'Central Band').sum(),
+                (z1_df['band'] == 'Left Band').sum(),
+            ]
+            
+            z2_df = df[df['origin_zone'] == 'Z2']
+            z2_counts = [
+                (z2_df['band'] == 'Right Band').sum(),
+                (z2_df['band'] == 'Central Band').sum(),
+                (z2_df['band'] == 'Left Band').sum(),
+            ]
 
-    _add_attack_direction(fig)
-    fig.update_layout(
-        **PITCH_AXIS_FULL,
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#E8E9ED', size=12, family='Arial, sans-serif'),
-        margin=dict(l=0, r=0, t=36, b=0), height=480,
-        uirevision=f'ods-bar-entries-{zone}', hovermode='closest',
-        legend=dict(
-            orientation='v', x=0.01, xanchor='left', y=0.99, yanchor='top',
-            bgcolor='rgba(0,0,0,0.55)', font=dict(color=COLORS['text_primary'], size=9),
-        ),
-    )
-    return fig
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            y=bands,
+            x=z1_counts,
+            name='From Z1',
+            orientation='h',
+            marker=dict(color=AWAY_COLOR, line=dict(color='white', width=1)),
+            text=z1_counts,
+            textposition='auto',
+            textfont=dict(color='black', size=11, family='Arial Black'),
+        ))
+        fig.add_trace(go.Bar(
+            y=bands,
+            x=z2_counts,
+            name='From Z2',
+            orientation='h',
+            marker=dict(color=GOLD, line=dict(color='white', width=1)),
+            text=z2_counts,
+            textposition='auto',
+            textfont=dict(color='black', size=11, family='Arial Black'),
+        ))
+        
+        fig.update_layout(
+            barmode='stack',
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+            margin=dict(l=10, r=10, t=40, b=10),
+            height=300,
+            xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', title='Number of Entries'),
+            yaxis=dict(showgrid=False),
+            legend=dict(orientation='h', x=0.5, y=-0.2, xanchor='center', yanchor='top',
+                        font=dict(color=COLORS['text_primary'], size=10), bgcolor='rgba(0,0,0,0)'),
+            uirevision=f'ods-bar-entries-{zone}',
+        )
+        return fig
+    elif zone == 'zone14':
+        labels = ['Zone 14', 'Left Half Space', 'Right Half Space']
+        colors = ['#ff1493', '#00ffff', '#ffd700']
+        if not entries_df.empty and 'dest_zone' in entries_df.columns:
+            counts = [int((entries_df['dest_zone'] == l).sum()) for l in labels]
+        else:
+            counts = [0, 0, 0]
+        
+        fig = go.Figure(go.Pie(
+            labels=labels, values=counts,
+            marker=dict(colors=colors, line=dict(color=PITCH_BG, width=2)),
+            hole=0.55, textinfo='percent', textfont=dict(color='white', size=12, family='Arial Black'),
+            hovertemplate='<b>%{label}</b><br>%{value} entries (%{percent})<extra></extra>',
+            sort=False,
+        ))
+        fig.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#E8E9ED', size=11, family='Arial, sans-serif'),
+            height=300, margin=dict(l=10, r=10, t=40, b=10), showlegend=True,
+            legend=dict(orientation='h', x=0.5, y=-0.2, xanchor='center', yanchor='top',
+                        font=dict(color=COLORS['text_primary'], size=10), bgcolor='rgba(0,0,0,0)'),
+            uirevision=f'ods-bar-entries-{zone}',
+        )
+        return fig
+    return go.Figure()
 
 
 def _bar_entries_table(entries_df: pd.DataFrame, top_n: int = 5) -> list:
@@ -1256,6 +1312,16 @@ def _build_defence_skeleton() -> html.Div:
                     id='ods-def-heatmap', src=_SKEL_SRC,
                     style={'width': '100%', 'borderRadius': '6px', 'minHeight': '180px'})),
 
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '14px 0 10px'}),
+                html.Div("Offsides Provoked", style=_SECTION_TITLE),
+                html.Div(
+                    "Offsides provoked (◆) — hover for player and minute",
+                    style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
+                           'fontStyle': 'italic', 'marginBottom': '8px'}),
+                dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
+                    id='ods-foul-map', figure=_skel_fig(540), config=CHART_CFG,
+                    style={'width': '100%'})),
+
             ], md=8),
 
             dbc.Col([
@@ -1264,13 +1330,13 @@ def _build_defence_skeleton() -> html.Div:
                 html.Div(id='ods-def-table', children=[]),
 
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
-                html.Div("Pressing Height", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
+                html.Div("Defensive Actions by Zone", style={**_SECTION_TITLE, 'marginBottom': '6px'}),
                 html.Div(
                     "Where they win the ball back",
                     style={'color': COLORS['text_secondary'], 'fontSize': '0.60rem',
                            'fontStyle': 'italic', 'marginBottom': '4px'},
                 ),
-                dcc.Graph(id='ods-def-zone-donut', figure=_skel_fig(220), config=CHART_CFG,
+                dcc.Graph(id='ods-def-zone-donut', figure=_skel_fig(280), config=CHART_CFG,
                           style={'width': '100%'}),
 
                 html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
@@ -1282,28 +1348,20 @@ def _build_defence_skeleton() -> html.Div:
                     id='ods-bar-flank-fig', figure=_skel_fig(180), config=CHART_CFG,
                     style={'width': '100%'})),
 
-            ], md=4, style={'borderLeft': f'1px solid {COLORS["dark_border"]}',
-                            'paddingLeft': '14px'}),
-        ], align='start', className='g-0'),
-
-        html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '18px 0 14px'}),
-
-        dbc.Row([
-            dbc.Col([
-                html.Div("Offsides Provoked", style=_SECTION_TITLE),
-                html.Div(
-                    "Offsides provoked (◆) — hover for player and minute",
-                    style={'color': COLORS['text_secondary'], 'fontSize': '0.62rem',
-                           'fontStyle': 'italic', 'marginBottom': '8px'}),
-                dcc.Loading(type='circle', color=GOLD, children=dcc.Graph(
-                    id='ods-foul-map', figure=_skel_fig(540), config=CHART_CFG,
-                    style={'width': '100%'})),
-            ], md=8),
-
-            dbc.Col([
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
                 html.Div("Discipline", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
                 html.Div(style={'marginBottom': '6px'}),
                 html.Div(id='ods-foul-table', children=[]),
+
+                html.Hr(style={'borderColor': COLORS['dark_border'], 'margin': '10px 0 8px'}),
+                html.Div("Offsides Provoked by Zone", style={**_SECTION_TITLE, 'fontSize': '0.75rem'}),
+                html.Div(
+                    "Where offsides are provoked",
+                    style={'color': COLORS['text_secondary'], 'fontSize': '0.60rem',
+                           'fontStyle': 'italic', 'marginBottom': '4px'},
+                ),
+                dcc.Graph(id='ods-offside-zone-bar', figure=_skel_fig(280), config=CHART_CFG,
+                          style={'width': '100%'}),
             ], md=4, style={'borderLeft': f'1px solid {COLORS["dark_border"]}',
                             'paddingLeft': '14px'}),
         ], align='start', className='g-0'),
@@ -1392,6 +1450,7 @@ def register_defence_callbacks(app) -> None:
         Output('ods-def-zone-donut',   'figure'),
         Output('ods-foul-map',         'figure'),
         Output('ods-foul-table',       'children'),
+        Output('ods-offside-zone-bar', 'figure'),
         Output('ods-bar-flank-fig',    'figure'),
         Output('ods-bar-ft-fig',       'figure'),
         Output('ods-bar-ft-table',     'children'),
@@ -1416,7 +1475,7 @@ def register_defence_callbacks(app) -> None:
                         team, comp, venue, match_ids, date_cutoff):
 
         def _empty():
-            return ([], _skel_fig(540), _SKEL_SRC, [], _skel_fig(220), _skel_fig(420), [],
+            return ([], _skel_fig(540), _SKEL_SRC, [], _skel_fig(280), _skel_fig(420), [], _skel_fig(280),
                     _skel_fig(180), _skel_fig(480), [], _skel_fig(480), [], _skel_fig(480), '', [])
 
         opp_ev, bar_ev = load_opp_events(
@@ -1426,6 +1485,14 @@ def register_defence_callbacks(app) -> None:
             return _empty()
 
         opp_def = opp_ev[opp_ev['event_type'].isin(_ALL_DEF_TYPES)].dropna(subset=['x', 'y'])
+
+        _ppda = compute_ppda(opp_ev, bar_ev)
+        _all_passes  = pd.concat([opp_ev, bar_ev]) if not opp_ev.empty or not bar_ev.empty else pd.DataFrame()
+        _all_passes  = _all_passes[_all_passes['event_type'] == 'Pass'] if not _all_passes.empty else _all_passes
+        _opp_passes  = opp_ev[opp_ev['event_type'] == 'Pass'] if not opp_ev.empty else pd.DataFrame()
+        _all_ft_n    = int((pd.to_numeric(_all_passes['x'], errors='coerce').dropna() > 66.67).sum()) if not _all_passes.empty else 0
+        _opp_ft_n    = int((pd.to_numeric(_opp_passes['x'], errors='coerce').dropna() > 66.67).sum()) if not _opp_passes.empty else 0
+        _field_tilt  = round(_opp_ft_n / _all_ft_n * 100, 1) if _all_ft_n > 0 else 0.0
 
         if action_types:
             opp_def = opp_def[opp_def['event_type'].isin(action_types)]
@@ -1455,13 +1522,14 @@ def register_defence_callbacks(app) -> None:
         zone_src = f'data:image/png;base64,{zone_img}' if zone_img else ''
 
         return (
-            _def_kpi_children(opp_def, opp_ev, bar_ev),
+            _def_kpi_children(opp_def, opp_ev, bar_ev, _ppda, _field_tilt),
             _def_pitch_fig(opp_def_filtered),
             _def_heatmap_src(opp_def_filtered),
             _def_player_table(opp_def, opp_ev),
-            _def_zone_donut_fig(opp_def),
+            _def_zone_bar_fig(opp_def),
             _offsides_only_fig(opp_offsides),
             _foul_player_table(opp_ev),
+            _offside_zone_bar_fig(opp_offsides, uirevision='ods-offside-zone-bar'),
             _bar_flank_fig(bar_time),
             _bar_entries_fig(entries_ft,  'final_third'),
             _bar_entries_table(entries_ft),
